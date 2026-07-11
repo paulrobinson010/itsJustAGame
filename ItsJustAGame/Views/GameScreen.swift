@@ -138,12 +138,47 @@ struct GameScreen: View {
         case .tieBreak(let candidates, let winner):
             TieBreakView(session: session, candidates: candidates, winner: winner)
         case .gameEnd(let winner):
-            GameEndView(session: session, winner: winner) { close() }
+            GameEndView(
+                session: session,
+                winner: winner,
+                onClose: { close() },
+                onHostRematch: saved.isHost ? { hostRematch() } : nil,
+                onJoinRematch: { invite in joinRematch(invite) }
+            )
         }
     }
 
     private func close() {
         model.activeGame = nil
+    }
+
+    private func hostRematch() {
+        guard let engine else { return }
+        Task {
+            guard var newSaved = await engine.announceRematch() else { return }
+            newSaved.inviteePhones = saved.inviteePhones
+            model.store.add(newSaved)
+            model.activeGame = newSaved
+        }
+    }
+
+    private func joinRematch(_ invite: RematchInvite) {
+        if let existing = model.store.games.first(where: { $0.gameID == invite.newGameID }) {
+            model.activeGame = existing
+            return
+        }
+        let newSaved = SavedGame(
+            gameID: invite.newGameID,
+            keyBase64URL: invite.newKeyBase64URL,
+            mySlot: session.mySlot,
+            isHost: false,
+            hostConfig: nil,
+            title: "\(invite.config.name(1))'s game · \(invite.config.players.count) players",
+            createdAt: Date(),
+            needsWelcome: false
+        )
+        model.store.add(newSaved)
+        model.activeGame = newSaved
     }
 }
 
@@ -273,6 +308,10 @@ struct GameEndView: View {
     let session: GameSession
     let winner: Int
     var onClose: () -> Void
+    var onHostRematch: (() -> Void)?
+    var onJoinRematch: ((RematchInvite) -> Void)?
+
+    @State private var rematchStarted = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -284,13 +323,40 @@ struct GameEndView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             RoundStandingsView(session: session)
-            Button {
-                onClose()
-            } label: {
-                Text("Back to home")
-                    .frame(maxWidth: 200)
+            VStack(spacing: 12) {
+                if let onHostRematch {
+                    Button {
+                        rematchStarted = true
+                        onHostRematch()
+                    } label: {
+                        Label("Rematch — same crew", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: 240)
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(rematchStarted)
+                } else if let invite = session.pendingRematch, let onJoinRematch {
+                    Button {
+                        onJoinRematch(invite)
+                    } label: {
+                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: 240)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
+                } else {
+                    Text("If \(session.name(1)) starts a rematch, you can join it from here — no new link needed.")
+                        .font(Theme.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                Button {
+                    onClose()
+                } label: {
+                    Text("Back to home")
+                        .frame(maxWidth: 240)
+                }
+                .buttonStyle(QuietButtonStyle())
             }
-            .buttonStyle(PrimaryButtonStyle())
             .padding(.top, 8)
             Spacer()
         }

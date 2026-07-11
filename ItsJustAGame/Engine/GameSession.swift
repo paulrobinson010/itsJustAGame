@@ -47,6 +47,8 @@ final class GameSession {
     /// Everyone who had joined by the time the game started. Joins only
     /// happen in the lobby, so the last lobby message is authoritative.
     private(set) var joinedSlots: Set<Int> = [1]
+    /// Set when the host announces a rematch after this game ends.
+    private(set) var pendingRematch: RematchInvite?
     private(set) var lastError: String?
 
     private let transport: any GameTransport
@@ -344,6 +346,11 @@ final class GameSession {
         case .gameEnd(let winner, let rounds):
             roundsWon = rounds
             phase = .gameEnd(winner: winner)
+        case .rematch(let invite):
+            // The host initiated it; only joiners need the prompt.
+            if !saved.isHost {
+                pendingRematch = invite
+            }
         }
     }
 }

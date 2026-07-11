@@ -88,7 +88,10 @@ struct HomeView: View {
                 JoinGameView(model: model)
             }
             .fullScreenCover(item: $model.activeGame) { game in
+                // id forces a fresh screen (and fresh session) per game so
+                // switching games mid-cover — e.g. into a rematch — works.
                 GameScreen(saved: game, model: model)
+                    .id(game.gameID)
             }
             .task {
                 LocationService.shared.requestPermission()

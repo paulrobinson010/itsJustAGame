@@ -34,6 +34,16 @@ enum HostMessage: Codable {
     case tieBreakSpin(candidates: [Int], winner: Int)
     case roundEnd(round: Int, winners: [Int], roundsWon: [Int: Int])
     case gameEnd(winner: Int, roundsWon: [Int: Int])
+    /// A fresh game for the same crew, announced over this (old) game's
+    /// encrypted stream — so nobody needs a new invite link. Carries the
+    /// new game's key, sealed with the old one; keys still rotate per game.
+    case rematch(RematchInvite)
+}
+
+struct RematchInvite: Codable, Hashable {
+    var newGameID: String
+    var newKeyBase64URL: String
+    var config: GameConfig
 }
 
 /// Messages published by player devices at well-known record IDs the host

@@ -28,15 +28,19 @@ enum RecentContacts {
     }
 }
 
-/// Searchable contact list with frequent players pinned on top.
+/// Searchable contact list with frequent players pinned on top. In
+/// multi-select mode rows toggle checkmarks and a toolbar button confirms.
 struct ContactPickerView: View {
-    var onPick: (PickedContact) -> Void
+    var allowsMultiple = false
+    var onPick: ([PickedContact]) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var contacts: [PickedContact] = []
     @State private var searchText = ""
     @State private var accessDenied = false
     @State private var loading = true
+    /// Ordered selection for multi-select mode.
+    @State private var selectedIDs: [String] = []
 
     var body: some View {
         NavigationStack {
@@ -74,11 +78,19 @@ struct ContactPickerView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.background)
-            .navigationTitle("Pick a player")
+            .navigationTitle(allowsMultiple ? "Pick players" : "Pick a player")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                }
+                if allowsMultiple {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Add \(selectedIDs.count)") {
+                            confirmSelection()
+                        }
+                        .disabled(selectedIDs.isEmpty)
+                    }
                 }
             }
             .task { await load() }
@@ -88,9 +100,13 @@ struct ContactPickerView: View {
     private func rows(_ list: [PickedContact]) -> some View {
         ForEach(list) { contact in
             Button {
-                RecentContacts.markPicked(contact.id)
-                onPick(contact)
-                dismiss()
+                if allowsMultiple {
+                    toggle(contact)
+                } else {
+                    RecentContacts.markPicked(contact.id)
+                    onPick([contact])
+                    dismiss()
+                }
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -108,9 +124,32 @@ struct ContactPickerView: View {
                             .font(Theme.caption)
                             .foregroundStyle(.secondary)
                     }
+                    if allowsMultiple {
+                        Image(systemName: selectedIDs.contains(contact.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selectedIDs.contains(contact.id) ? Theme.cyan : Color.secondary)
+                    }
                 }
             }
         }
+    }
+
+    private func toggle(_ contact: PickedContact) {
+        if let index = selectedIDs.firstIndex(of: contact.id) {
+            selectedIDs.remove(at: index)
+        } else {
+            selectedIDs.append(contact.id)
+        }
+    }
+
+    private func confirmSelection() {
+        let picked = selectedIDs.compactMap { id in
+            contacts.first { $0.id == id }
+        }
+        for contact in picked {
+            RecentContacts.markPicked(contact.id)
+        }
+        onPick(picked)
+        dismiss()
     }
 
     private var frequentContacts: [PickedContact] {

@@ -5,6 +5,7 @@ struct LobbyView: View {
     let engine: HostEngine?
     let joined: Set<Int>
     @State private var composeTarget: ComposeTarget?
+    @State private var inviteQueue: [ComposeTarget] = []
 
     private struct ComposeTarget: Identifiable {
         let slot: Int
@@ -70,6 +71,14 @@ struct LobbyView: View {
 
                 if session.saved.isHost, let engine {
                     Section {
+                        let pending = pendingInvitees(config: config)
+                        if pending.count > 1 {
+                            Button {
+                                startInviteAll(pending)
+                            } label: {
+                                Label("Invite all by iMessage (\(pending.count))", systemImage: "paperplane.fill")
+                            }
+                        }
                         if engine.resumeBlocked {
                             Text("This game already started on a previous launch. Resuming a game as the host isn't supported yet — please start a new game.")
                                 .foregroundStyle(.orange)
@@ -104,11 +113,41 @@ struct LobbyView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
-        .sheet(item: $composeTarget) { target in
+        .sheet(item: $composeTarget, onDismiss: advanceInviteQueue) { target in
             MessageComposeView(recipients: [target.phone], body: target.message)
         }
         .navigationTitle("Lobby")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Everyone picked from contacts who hasn't joined yet.
+    private func pendingInvitees(config: GameConfig) -> [ComposeTarget] {
+        guard MessageComposeView.canSend else { return [] }
+        return config.players.compactMap { player in
+            guard player.slot != 1,
+                  !joined.contains(player.slot),
+                  let phone = session.saved.inviteePhones?[player.slot] else { return nil }
+            return ComposeTarget(
+                slot: player.slot,
+                phone: phone,
+                message: inviteMessage(for: player, config: config)
+            )
+        }
+    }
+
+    /// Walk the composers back-to-back: each dismissal presents the next.
+    private func startInviteAll(_ targets: [ComposeTarget]) {
+        guard let first = targets.first else { return }
+        inviteQueue = Array(targets.dropFirst())
+        composeTarget = first
+    }
+
+    private func advanceInviteQueue() {
+        guard !inviteQueue.isEmpty else { return }
+        let next = inviteQueue.removeFirst()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            composeTarget = next
+        }
     }
 
     /// The whole message is safe to paste into the app — the joiner just

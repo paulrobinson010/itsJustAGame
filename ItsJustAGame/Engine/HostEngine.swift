@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// Runs only on the device that created the game. All randomness (the wheel
 /// result, the target locations) and all scoring happen here; other devices
@@ -164,6 +165,42 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(GameTiming.betweenRoundsSeconds))
             round += 1
         }
+    }
+
+    /// Announce a fresh game for the same crew over this game's stream.
+    /// Returns the new game's SavedGame for this (host) device, or nil if a
+    /// rematch was already announced or the game is still running.
+    private(set) var rematchAnnounced = false
+
+    func announceRematch() async -> SavedGame? {
+        guard !gameRunning, !rematchAnnounced else { return nil }
+        rematchAnnounced = true
+        let crypto = GameCrypto()
+        let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
+        let players = config.players.enumerated().map { index, player in
+            PlayerInfo(slot: player.slot, name: player.name, colorIndex: colorIndices[index % colorIndices.count])
+        }
+        let newConfig = GameConfig(
+            gameID: UUID().uuidString.lowercased(),
+            roundsToWin: config.roundsToWin,
+            players: players,
+            createdAt: Date()
+        )
+        let invite = RematchInvite(
+            newGameID: newConfig.gameID,
+            newKeyBase64URL: crypto.base64URL,
+            config: newConfig
+        )
+        await send(.rematch(invite))
+        return SavedGame(
+            gameID: newConfig.gameID,
+            keyBase64URL: crypto.base64URL,
+            mySlot: 1,
+            isHost: true,
+            hostConfig: newConfig,
+            title: "\(newConfig.name(1))'s game · \(players.count) players",
+            createdAt: Date()
+        )
     }
 
     private func pickChooser() -> Int {
