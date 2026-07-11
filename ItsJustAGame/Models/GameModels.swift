@@ -128,9 +128,10 @@ struct SavedGame: Codable, Hashable, Identifiable {
     /// True until a joiner has seen their "Welcome to the game" greeting.
     /// Optional so older saved games decode cleanly.
     var needsWelcome: Bool?
-    /// slot → phone number for players picked from contacts. Host-only and
-    /// local-only: used to address iMessage invites, never distributed.
-    var inviteePhones: [Int: String]?
+    /// slot → iMessage address (phone number or email) for players picked
+    /// from contacts. Host-only and local-only: used to address iMessage
+    /// invites, never distributed.
+    var inviteeAddresses: [Int: String]?
 
     var id: String { gameID }
 }

@@ -9,7 +9,7 @@ final class AppModel {
     var joinError: String?
 
     @discardableResult
-    func createGame(roundsToWin: Int, playerNames: [String], inviteePhones: [Int: String] = [:]) -> SavedGame {
+    func createGame(roundsToWin: Int, playerNames: [String], inviteeAddresses: [Int: String] = [:]) -> SavedGame {
         // Deal everyone a color at random from the palette, fixed for the
         // whole game.
         let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
@@ -31,7 +31,7 @@ final class AppModel {
             hostConfig: config,
             title: "\(players.first?.name ?? "My")'s game · \(players.count) players",
             createdAt: Date(),
-            inviteePhones: inviteePhones.isEmpty ? nil : inviteePhones
+            inviteeAddresses: inviteeAddresses.isEmpty ? nil : inviteeAddresses
         )
         store.add(saved)
         activeGame = saved

@@ -9,7 +9,7 @@ struct LobbyView: View {
 
     private struct ComposeTarget: Identifiable {
         let slot: Int
-        let phone: String
+        let address: String
         let message: String
         var id: Int { slot }
     }
@@ -47,11 +47,11 @@ struct LobbyView: View {
                             Spacer()
                             if session.saved.isHost && player.slot != 1 {
                                 if MessageComposeView.canSend,
-                                   let phone = session.saved.inviteePhones?[player.slot] {
+                                   let address = session.saved.inviteeAddresses?[player.slot] {
                                     Button {
                                         composeTarget = ComposeTarget(
                                             slot: player.slot,
-                                            phone: phone,
+                                            address: address,
                                             message: inviteMessage(for: player, config: config)
                                         )
                                     } label: {
@@ -114,7 +114,7 @@ struct LobbyView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .sheet(item: $composeTarget, onDismiss: advanceInviteQueue) { target in
-            MessageComposeView(recipients: [target.phone], body: target.message)
+            MessageComposeView(recipients: [target.address], body: target.message)
         }
         .navigationTitle("Lobby")
         .navigationBarTitleDisplayMode(.inline)
@@ -126,10 +126,10 @@ struct LobbyView: View {
         return config.players.compactMap { player in
             guard player.slot != 1,
                   !joined.contains(player.slot),
-                  let phone = session.saved.inviteePhones?[player.slot] else { return nil }
+                  let address = session.saved.inviteeAddresses?[player.slot] else { return nil }
             return ComposeTarget(
                 slot: player.slot,
-                phone: phone,
+                address: address,
                 message: inviteMessage(for: player, config: config)
             )
         }

@@ -6,7 +6,7 @@ struct CreateGameView: View {
     @State private var roundsToWin: Int
     @State private var playerCount = 3
     @State private var names: [String]
-    @State private var phones: [String?] = Array(repeating: nil, count: 8)
+    @State private var addresses: [String?] = Array(repeating: nil, count: 8)
     @State private var pickerMode: PickerMode?
 
     private enum PickerMode: Identifiable {
@@ -53,7 +53,7 @@ struct CreateGameView: View {
                             TextField(index == 0 ? "You" : "Player \(index + 1) name", text: $names[index])
                                 .textInputAutocapitalization(.words)
                             if index > 0 {
-                                if phones[index] != nil {
+                                if addresses[index] != nil {
                                     Image(systemName: "message.fill")
                                         .font(.caption)
                                         .foregroundStyle(Theme.cyan)
@@ -79,7 +79,7 @@ struct CreateGameView: View {
                     ContactPickerView { picked in
                         guard let contact = picked.first else { return }
                         names[index] = contact.firstName
-                        phones[index] = contact.phone
+                        addresses[index] = contact.address
                     }
                 case .multiple:
                     ContactPickerView(allowsMultiple: true) { picked in
@@ -101,7 +101,7 @@ struct CreateGameView: View {
                         model.createGame(
                             roundsToWin: roundsToWin,
                             playerNames: trimmedNames,
-                            inviteePhones: inviteePhones
+                            inviteeAddresses: inviteeAddresses
                         )
                         dismiss()
                     }
@@ -119,10 +119,10 @@ struct CreateGameView: View {
         trimmedNames.allSatisfy { !$0.isEmpty }
     }
 
-    private var inviteePhones: [Int: String] {
+    private var inviteeAddresses: [Int: String] {
         var result: [Int: String] = [:]
         for index in 1..<playerCount {
-            if let phone = phones[index] {
+            if let phone = addresses[index] {
                 result[index + 1] = phone
             }
         }
@@ -141,7 +141,7 @@ struct CreateGameView: View {
         playerCount = capped.count + 1
         for (offset, contact) in capped.enumerated() {
             names[offset + 1] = contact.firstName
-            phones[offset + 1] = contact.phone
+            addresses[offset + 1] = contact.address
         }
     }
 
@@ -152,7 +152,7 @@ struct CreateGameView: View {
         playerCount = others.count + 1
         for (offset, player) in others.enumerated() {
             names[offset + 1] = player.name
-            phones[offset + 1] = last.inviteePhones?[player.slot]
+            addresses[offset + 1] = last.inviteeAddresses?[player.slot]
         }
         roundsToWin = config.roundsToWin
     }

@@ -156,7 +156,7 @@ struct GameScreen: View {
         guard let engine else { return }
         Task {
             guard var newSaved = await engine.announceRematch() else { return }
-            newSaved.inviteePhones = saved.inviteePhones
+            newSaved.inviteeAddresses = saved.inviteeAddresses
             model.store.add(newSaved)
             model.activeGame = newSaved
         }

@@ -3,13 +3,15 @@ import MessageUI
 import SwiftUI
 
 /// A contact as the game needs it. Read on-device only: the name goes into
-/// the (encrypted) game config, the phone number stays on the host's phone
-/// purely to address the iMessage.
+/// the (encrypted) game config, the messaging address stays on the host's
+/// phone purely to address the iMessage. iMessage reaches people by phone
+/// number or by email (Apple ID), so either works as the address.
 struct PickedContact: Identifiable, Hashable {
     let id: String
     let displayName: String
     let firstName: String
-    let phone: String?
+    /// Preferred iMessage address: mobile number, else any number, else email.
+    let address: String?
 }
 
 /// iOS offers no API for the Phone app's Favourites, so "favourites" here
@@ -112,15 +114,15 @@ struct ContactPickerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(contact.displayName)
                             .foregroundStyle(.primary)
-                        if let phone = contact.phone {
-                            Text(phone)
+                        if let address = contact.address {
+                            Text(address)
                                 .font(Theme.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                     Spacer()
-                    if contact.phone == nil {
-                        Text("no number")
+                    if contact.address == nil {
+                        Text("no number or email")
                             .font(Theme.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -172,7 +174,12 @@ struct ContactPickerView: View {
             return
         }
         let loaded = await Task.detached { () -> [PickedContact] in
-            let keys = [CNContactGivenNameKey, CNContactFamilyNameKey, CNContactPhoneNumbersKey] as [CNKeyDescriptor]
+            let keys = [
+                CNContactGivenNameKey,
+                CNContactFamilyNameKey,
+                CNContactPhoneNumbersKey,
+                CNContactEmailAddressesKey,
+            ] as [CNKeyDescriptor]
             let request = CNContactFetchRequest(keysToFetch: keys)
             request.sortOrder = .givenName
             var list: [PickedContact] = []
@@ -180,11 +187,16 @@ struct ContactPickerView: View {
                 let first = contact.givenName.trimmingCharacters(in: .whitespaces)
                 let full = "\(contact.givenName) \(contact.familyName)".trimmingCharacters(in: .whitespaces)
                 guard !full.isEmpty else { return }
+                let mobile = contact.phoneNumbers.first {
+                    $0.label == CNLabelPhoneNumberMobile || $0.label == CNLabelPhoneNumberiPhone
+                }
+                let phone = (mobile ?? contact.phoneNumbers.first)?.value.stringValue
+                let email = contact.emailAddresses.first.map { String($0.value) }
                 list.append(PickedContact(
                     id: contact.identifier,
                     displayName: full,
                     firstName: first.isEmpty ? full : first,
-                    phone: contact.phoneNumbers.first?.value.stringValue
+                    address: phone ?? email
                 ))
             }
             return list
