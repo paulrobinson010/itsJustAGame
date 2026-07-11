@@ -42,14 +42,16 @@ struct DirectionTurnView: View {
         return VStack(spacing: 20) {
             Spacer()
             Text("Point toward…")
-                .font(.title3)
+                .font(Theme.subheadline)
                 .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .kerning(1.5)
             Text(turnStart.target.name)
-                .font(.largeTitle.bold())
+                .font(Theme.display(34))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Text("Get ready — \(remaining)")
-                .font(.headline)
+                .font(Theme.headline)
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -60,15 +62,15 @@ struct DirectionTurnView: View {
         let progress = remaining / turnStart.aimSeconds
         return VStack(spacing: 12) {
             Text(turnStart.target.name)
-                .font(.headline)
+                .font(Theme.headline)
                 .lineLimit(1)
                 .padding(.horizontal)
             ZStack {
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        remaining < 5 ? Color.red : Color.blue,
-                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        remaining < 5 ? Color.red : Color.accentColor,
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .frame(width: 320, height: 320)
@@ -76,23 +78,24 @@ struct DirectionTurnView: View {
                     .frame(width: 290, height: 290)
             }
             Text("\(Int(DirectionMath.normalize(bearingGuess).rounded()))° \(DirectionMath.compassLabel(bearingGuess))")
-                .font(.title3.monospacedDigit().bold())
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .monospacedDigit()
             Text("\(Int(remaining.rounded(.up))) seconds left")
-                .font(.caption)
+                .font(Theme.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 Button {
                     toggleCompassMode()
                 } label: {
                     Label(compassMode ? "Compass on" : "Point with phone", systemImage: "safari")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(QuietButtonStyle())
                 Button {
                     submit()
                 } label: {
                     Label("Lock in", systemImage: "checkmark.circle.fill")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PrimaryButtonStyle())
             }
         }
     }
@@ -104,7 +107,7 @@ struct DirectionTurnView: View {
             Text(submitted
                  ? "Locked in! Waiting for the other players…"
                  : "Time's up! Waiting for the reveal…")
-                .font(.headline)
+                .font(Theme.headline)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
             Spacer()
@@ -160,7 +163,7 @@ struct CompassDial: View {
                     .rotationEffect(.degrees(dialRotation))
                 Image(systemName: "location.north.fill")
                     .font(.system(size: 44))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(Color.accentColor)
                     .offset(y: -size * 0.28)
                     .rotationEffect(.degrees(bearingGuess + dialRotation))
             }
@@ -180,12 +183,12 @@ struct CompassDial: View {
 
     private func dialFace(size: CGFloat) -> some View {
         ZStack {
-            Circle().fill(.thinMaterial)
-            Circle().stroke(.secondary.opacity(0.4), lineWidth: 2)
+            Circle().fill(Color(.secondarySystemBackground))
+            Circle().stroke(Theme.hairline, lineWidth: 1)
             ForEach(0..<8, id: \.self) { index in
                 Text(Self.labels[index])
-                    .font(index % 2 == 0 ? .headline : .caption)
-                    .foregroundStyle(index == 0 ? Color.red : Color.secondary)
+                    .font(index % 2 == 0 ? Theme.headline : Theme.caption2)
+                    .foregroundStyle(index == 0 ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
                     .offset(y: -size * 0.42)
                     .rotationEffect(.degrees(Double(index) * 45))
             }

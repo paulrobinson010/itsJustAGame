@@ -19,10 +19,14 @@ struct RevealView: View {
                     Text("No one scored this time…")
                 }
             }
-            .font(.headline)
+            .font(Theme.headline)
 
             RevealMap(session: session, reveal: reveal)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
+                        .stroke(Theme.hairline, lineWidth: 1)
+                )
                 .padding(.horizontal)
 
             resultsList
@@ -54,7 +58,7 @@ struct RevealView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .font(.subheadline)
+                .font(Theme.subheadline)
             }
         }
         .padding(.horizontal, 24)
@@ -69,10 +73,11 @@ struct RevealView: View {
             Group {
                 if let winner = reveal.roundWinner {
                     Text("🏆 \(session.name(winner)) wins the round!")
-                        .font(.headline)
+                        .font(Theme.headline)
                 } else if let next = reveal.nextTurnAt {
                     let remaining = Int(max(0, next.timeIntervalSince(context.date)).rounded(.up))
                     Text("Next place in \(remaining)s")
+                        .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(" ")

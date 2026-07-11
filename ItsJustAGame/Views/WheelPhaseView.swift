@@ -15,15 +15,19 @@ struct WheelPhaseView: View {
     var body: some View {
         VStack(spacing: 24) {
             Text("Round \(round)")
-                .font(.title2.bold())
-            Text("Who picks the game?")
+                .font(Theme.subheadline)
                 .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .kerning(1.5)
+            Text("Who picks the game?")
+                .font(Theme.display(28))
 
             ZStack(alignment: .top) {
                 WheelShapeView(players: session.players)
                     .rotationEffect(.degrees(rotation))
                 Image(systemName: "arrowtriangle.down.fill")
                     .font(.title)
+                    .foregroundStyle(Color.accentColor)
                     .offset(y: -10)
             }
             .frame(width: 300, height: 300)
@@ -32,11 +36,12 @@ struct WheelPhaseView: View {
             Group {
                 if !finished {
                     Text("Spinning…")
+                        .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 } else if chooser == session.mySlot {
                     VStack(spacing: 12) {
                         Text("You pick the game!")
-                            .font(.headline)
+                            .font(Theme.headline)
                         ForEach(MiniGameType.allCases, id: \.self) { game in
                             let available = session.joinedSlots.count >= game.minPlayers
                             Button {
@@ -47,24 +52,24 @@ struct WheelPhaseView: View {
                                     Label(game.displayName, systemImage: game.iconName)
                                     if !available {
                                         Text("Needs at least \(game.minPlayers) players")
-                                            .font(.caption2)
+                                            .font(Theme.caption2)
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(PrimaryButtonStyle())
                             .disabled(hasChosen || !available)
                         }
                         if hasChosen {
                             Text("Starting…")
-                                .font(.caption)
+                                .font(Theme.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
                     .padding(.horizontal, 32)
                 } else {
                     Text("\(session.name(chooser)) is picking the game…")
-                        .font(.headline)
+                        .font(Theme.headline)
                 }
             }
             .frame(minHeight: 120)
@@ -121,7 +126,7 @@ struct WheelShapeView: View {
                     .fill(PlayerStyle.color(for: player.slot).opacity(0.85))
 
                     Text(player.name)
-                        .font(.footnote.bold())
+                        .font(.system(.footnote, design: .rounded).bold())
                         .foregroundStyle(.white)
                         .lineLimit(1)
                         .frame(width: radius * 0.8)
@@ -131,7 +136,7 @@ struct WheelShapeView: View {
                         )
                 }
                 Circle()
-                    .stroke(.primary.opacity(0.2), lineWidth: 3)
+                    .stroke(Theme.hairline, lineWidth: 2)
                     .frame(width: size, height: size)
                     .position(center)
             }

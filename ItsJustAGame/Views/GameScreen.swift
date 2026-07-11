@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Full-screen container for an active game. Owns the session (every
 /// device) and the host engine (host device only) and renders whichever
-/// phase the game is in.
+/// phase the game is in, cross-fading between phases.
 struct GameScreen: View {
     let saved: SavedGame
     let model: AppModel
@@ -24,16 +24,14 @@ struct GameScreen: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if showWelcome {
-                    WelcomeView(session: session) {
-                        showWelcome = false
-                        model.store.markWelcomed(saved)
-                    }
-                } else {
-                    phaseContent
-                }
+            ZStack {
+                content
+                    .id(contentKey)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+            .animation(.easeInOut(duration: 0.35), value: contentKey)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Leave") { close() }
@@ -42,7 +40,7 @@ struct GameScreen: View {
             .safeAreaInset(edge: .bottom) {
                 if let error = session.lastError ?? engine?.lastError {
                     Text(error)
-                        .font(.caption)
+                        .font(Theme.caption)
                         .foregroundStyle(.red)
                         .padding(6)
                         .frame(maxWidth: .infinity)
@@ -57,6 +55,37 @@ struct GameScreen: View {
         .onDisappear {
             session.stop()
             engine?.stop()
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if showWelcome {
+            WelcomeView(session: session) {
+                showWelcome = false
+                model.store.markWelcomed(saved)
+            }
+        } else {
+            phaseContent
+        }
+    }
+
+    /// Stable per-phase identity: changes only when the game moves on, not
+    /// on every state tweak inside a phase, so in-phase view state (drag
+    /// positions, selections) survives.
+    private var contentKey: String {
+        guard !showWelcome else { return "welcome" }
+        switch session.phase {
+        case .lobby: return "lobby"
+        case .wheel(let round, _): return "wheel\(round)"
+        case .roundIntro(let round, _): return "intro\(round)"
+        case .turn(let turnStart): return "turn\(turnStart.round)-\(turnStart.turn)"
+        case .reveal(let reveal): return "reveal\(reveal.round)-\(reveal.turn)"
+        case .hiding(let hideStart): return "hide\(hideStart.round)"
+        case .seekTurn(let turnStart): return "seek\(turnStart.round)-\(turnStart.turn)"
+        case .seekReveal(let reveal): return "seekreveal\(reveal.round)-\(reveal.turn)"
+        case .roundEnd(let round, _): return "roundend\(round)"
+        case .gameEnd: return "gameend"
         }
     }
 
@@ -91,78 +120,32 @@ struct GameScreen: View {
     }
 }
 
-/// Shown once to a player who has just joined via an invite link, as soon
-/// as the game details have been fetched and decrypted.
-struct WelcomeView: View {
-    let session: GameSession
-    var onBegin: () -> Void
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Text("👋")
-                .font(.system(size: 64))
-            if let config = session.config {
-                Text("Welcome \(config.name(session.mySlot))")
-                    .font(.largeTitle.bold())
-                    .multilineTextAlignment(.center)
-                Text("to \(config.name(1))'s game!")
-                    .font(.title2)
-                    .multilineTextAlignment(.center)
-                Text("First to \(config.roundsToWin) rounds wins. Head to the lobby while everyone joins.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                Button {
-                    onBegin()
-                } label: {
-                    Text("Begin")
-                        .frame(maxWidth: 200)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding(.top, 8)
-            } else {
-                ProgressView()
-                Text("Getting your game ready…")
-                    .font(.headline)
-                Text("Fetching and decrypting the game details.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding()
-    }
-}
-
-enum PlayerStyle {
-    static let palette: [Color] = [.blue, .red, .green, .orange, .purple, .pink, .teal, .indigo]
-
-    static func color(for slot: Int) -> Color {
-        palette[(slot - 1 + palette.count * 8) % palette.count]
-    }
-}
-
+/// Quiet player chips with live points. The local player gets a hairline
+/// accent ring rather than a louder fill.
 struct ScoreBar: View {
     let session: GameSession
 
     var body: some View {
         HStack(spacing: 8) {
             ForEach(session.players) { player in
-                VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(PlayerStyle.color(for: player.slot))
+                        .frame(width: 8, height: 8)
                     Text(player.name)
-                        .font(.caption2)
+                        .font(Theme.caption)
                         .lineLimit(1)
                     Text("\(session.points[player.slot, default: 0])")
-                        .font(.headline.monospacedDigit())
+                        .font(Theme.caption.weight(.bold).monospacedDigit())
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(
-                    PlayerStyle.color(for: player.slot).opacity(player.slot == session.mySlot ? 0.35 : 0.15),
-                    in: Capsule()
+                .padding(.vertical, 6)
+                .background(Theme.quietFill, in: Capsule())
+                .overlay(
+                    Capsule().stroke(
+                        player.slot == session.mySlot ? Color.accentColor.opacity(0.5) : .clear,
+                        lineWidth: 1.5
+                    )
                 )
             }
         }
@@ -175,46 +158,63 @@ struct RoundIntroView: View {
     let game: MiniGameType
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Spacer()
             Text("Round \(round)")
-                .font(.title.bold())
-            Image(systemName: game.iconName)
-                .font(.system(size: 72))
-                .foregroundStyle(.blue)
+                .font(Theme.subheadline)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .kerning(1.5)
+            ZStack {
+                Circle()
+                    .fill(Theme.quietFill)
+                    .frame(width: 120, height: 120)
+                Image(systemName: game.iconName)
+                    .font(.system(size: 48, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
             Text(game.displayName)
-                .font(.largeTitle.bold())
+                .font(Theme.display(34))
                 .multilineTextAlignment(.center)
             Text(game.introText)
+                .font(Theme.subheadline)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 40)
             Spacer()
         }
     }
 }
 
+/// Rounds won per player, as filled progress dots out of the target.
 struct RoundStandingsView: View {
     let session: GameSession
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 14) {
             ForEach(session.players) { player in
-                HStack {
+                HStack(spacing: 10) {
                     Circle()
                         .fill(PlayerStyle.color(for: player.slot))
                         .frame(width: 10, height: 10)
                     Text(player.name)
+                        .font(Theme.subheadline)
                         .lineLimit(1)
                     Spacer()
-                    Text("\(session.roundsWon[player.slot, default: 0]) of \(session.config?.roundsToWin ?? 0) rounds")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                    let won = session.roundsWon[player.slot, default: 0]
+                    let total = max(session.config?.roundsToWin ?? 1, won)
+                    HStack(spacing: 5) {
+                        ForEach(0..<total, id: \.self) { index in
+                            Circle()
+                                .fill(index < won ? PlayerStyle.color(for: player.slot) : Theme.quietFill)
+                                .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
+                                .frame(width: 8, height: 8)
+                        }
+                    }
                 }
             }
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .card()
         .padding(.horizontal, 24)
     }
 }
@@ -225,16 +225,17 @@ struct RoundEndView: View {
     let winner: Int
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Spacer()
             Text("🏆")
                 .font(.system(size: 64))
             Text("\(session.name(winner)) wins round \(round)!")
-                .font(.title.bold())
+                .font(Theme.display(30))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
             RoundStandingsView(session: session)
             Text("Next round starting soon…")
+                .font(Theme.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
         }
@@ -252,13 +253,65 @@ struct GameEndView: View {
             Text("🎉")
                 .font(.system(size: 72))
             Text("\(session.name(winner)) wins the game!")
-                .font(.largeTitle.bold())
+                .font(Theme.display(34))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
             RoundStandingsView(session: session)
-            Button("Back to home") { onClose() }
-                .buttonStyle(.borderedProminent)
+            Button {
+                onClose()
+            } label: {
+                Text("Back to home")
+                    .frame(maxWidth: 200)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .padding(.top, 8)
             Spacer()
         }
+    }
+}
+
+/// Shown once to a player who has just joined via an invite link, as soon
+/// as the game details have been fetched and decrypted.
+struct WelcomeView: View {
+    let session: GameSession
+    var onBegin: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Text("👋")
+                .font(.system(size: 64))
+            if let config = session.config {
+                Text("Welcome \(config.name(session.mySlot))")
+                    .font(Theme.display(34))
+                    .multilineTextAlignment(.center)
+                Text("to \(config.name(1))'s game!")
+                    .font(Theme.title)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Text("First to \(config.roundsToWin) rounds wins. Head to the lobby while everyone joins.")
+                    .font(Theme.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                Button {
+                    onBegin()
+                } label: {
+                    Text("Begin")
+                        .frame(maxWidth: 200)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.top, 8)
+            } else {
+                ProgressView()
+                Text("Getting your game ready…")
+                    .font(Theme.headline)
+                Text("Fetching and decrypting the game details.")
+                    .font(Theme.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding()
     }
 }

@@ -42,7 +42,7 @@ struct GridCellView: View {
     let appearance: CellAppearance
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 8)
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(background)
             .aspectRatio(1, contentMode: .fit)
             .overlay {
@@ -57,30 +57,31 @@ struct GridCellView: View {
                     }
                 } else if appearance.searched {
                     Image(systemName: "xmark")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Theme.caption)
+                        .foregroundStyle(.tertiary)
                 } else if appearance.isMine {
                     Image(systemName: "person.fill")
-                        .font(.caption)
+                        .font(Theme.caption)
                         .foregroundStyle(.white)
                 } else {
                     Text(GridCells.label(cell, gridSize: gridSize))
-                        .font(.caption2)
+                        .font(Theme.caption2)
                         .foregroundStyle(.tertiary)
                 }
             }
             .overlay {
-                if appearance.selected {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.blue, lineWidth: 3)
-                }
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(
+                        appearance.selected ? Color.accentColor : Theme.hairline,
+                        lineWidth: appearance.selected ? 2.5 : 1
+                    )
             }
     }
 
     private var background: Color {
-        if appearance.searched { return Color.secondary.opacity(0.25) }
-        if appearance.isMine { return Color.blue.opacity(0.75) }
-        return Color.blue.opacity(0.12)
+        if appearance.isMine { return Color.accentColor.opacity(0.85) }
+        if appearance.searched { return Color.primary.opacity(0.02) }
+        return Color.primary.opacity(0.05)
     }
 }
 
@@ -104,7 +105,7 @@ struct HideSeekStatusBar: View {
                         .fill(PlayerStyle.color(for: slot))
                         .frame(width: 8, height: 8)
                     Text(session.name(slot))
-                        .font(.caption2)
+                        .font(Theme.caption2)
                         .lineLimit(1)
                         .strikethrough(found[slot] != nil)
                     if found[slot] != nil {
@@ -113,11 +114,15 @@ struct HideSeekStatusBar: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .opacity(found[slot] != nil ? 0.55 : 1)
                 .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    PlayerStyle.color(for: slot).opacity(slot == seeker ? 0.4 : (found[slot] != nil ? 0.08 : 0.18)),
-                    in: Capsule()
+                .padding(.vertical, 5)
+                .background(Theme.quietFill, in: Capsule())
+                .overlay(
+                    Capsule().stroke(
+                        slot == seeker ? PlayerStyle.color(for: slot).opacity(0.7) : .clear,
+                        lineWidth: 1.5
+                    )
                 )
             }
         }
@@ -139,11 +144,11 @@ struct HideView: View {
             VStack(spacing: 16) {
                 HideSeekStatusBar(session: session, found: [:])
                 Text("Pick your hiding spot!")
-                    .font(.title2.bold())
+                    .font(Theme.display(26))
                 Text(submitted
                      ? "Hidden! Waiting for the others…"
                      : "\(Int(remaining.rounded(.up))) seconds to hide — nobody can see your pick")
-                    .font(.subheadline)
+                    .font(Theme.subheadline)
                     .foregroundStyle(.secondary)
                 HideSeekGrid(gridSize: hideStart.gridSize) { cell in
                     CellAppearance(
@@ -164,7 +169,7 @@ struct HideView: View {
                         systemImage: "eye.slash.fill"
                     )
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PrimaryButtonStyle())
                 .disabled(selected == nil || submitted)
                 Spacer()
             }
@@ -211,19 +216,19 @@ struct SeekTurnView: View {
                 HideSeekStatusBar(session: session, found: turnStart.found, order: turnStart.order, seeker: turnStart.seeker)
                 if isMyTurn {
                     Text(submitted ? "Searching…" : "Your turn to seek!")
-                        .font(.title2.bold())
+                        .font(Theme.display(26))
                     Text(submitted
                          ? "Waiting for the reveal…"
                          : "Pick a square to search — \(Int(remaining.rounded(.up)))s")
-                        .font(.subheadline)
+                        .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Text("\(session.name(turnStart.seeker)) is seeking…")
-                        .font(.title2.bold())
+                        .font(Theme.display(26))
                     Text(iAmFound
                          ? "You've been found — you still get your seek turns."
                          : "Stay hidden! \(Int(remaining.rounded(.up)))s")
-                        .font(.subheadline)
+                        .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 HideSeekGrid(gridSize: turnStart.gridSize) { cell in
@@ -248,7 +253,7 @@ struct SeekTurnView: View {
                             systemImage: "magnifyingglass"
                         )
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(selected == nil || submitted)
                 }
                 Spacer()
@@ -289,9 +294,9 @@ struct SeekRevealView: View {
         VStack(spacing: 16) {
             HideSeekStatusBar(session: session, found: reveal.found)
             Text(headline)
-                .font(.title3.bold())
+                .font(Theme.title)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 24)
             HideSeekGrid(gridSize: reveal.gridSize) { cell in
                 CellAppearance(
                     searched: reveal.searched.contains(cell),
@@ -320,12 +325,13 @@ struct SeekRevealView: View {
             Group {
                 if let winner = reveal.roundWinner {
                     Text("🏆 \(session.name(winner)) was the last one hidden — wins the round!")
-                        .font(.headline)
+                        .font(Theme.headline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 } else if let next = reveal.nextTurnAt {
                     let remaining = Int(max(0, next.timeIntervalSince(context.date)).rounded(.up))
                     Text("Next seeker in \(remaining)s")
+                        .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(" ")

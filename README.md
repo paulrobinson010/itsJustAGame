@@ -109,6 +109,24 @@ ItsJustAGame/
 └── Views/          Home, Create, Join, Lobby, Wheel, GameScreen
 ```
 
+## Design language
+
+Very simple, but it should look expensive. The rules live in
+`Views/Theme.swift` and every screen (and every future mini game) must pull
+from them:
+
+- Quiet, near-monochrome surfaces — `Theme.quietFill` fills and
+  `Theme.hairline` outlines instead of loud colored backgrounds.
+- **One accent** (indigo, defined in the asset catalog with a dark-mode
+  variant). The single loud element on a screen is the primary action —
+  a `PrimaryButtonStyle` capsule. Secondary actions use `QuietButtonStyle`.
+- Rounded SF type everywhere (`Theme.display/title/headline/…`), uppercase
+  kerned kickers for phase labels ("ROUND 2").
+- Continuous-corner cards (`.card()`, 20pt), capsule chips for players,
+  muted 8-color player palette in `PlayerStyle`.
+- Phases cross-fade with a slight scale (see `GameScreen.contentKey`) —
+  motion is soft and brief, never bouncy.
+
 ## Getting started
 
 1. Open `ItsJustAGame.xcodeproj` in **Xcode 16 or later**.
