@@ -156,12 +156,41 @@ struct FingerRevealView: View {
         reveal.outcomes.filter { $0.coordinate != nil }
     }
 
+    private struct GuessLine: Identifiable {
+        let id: Int
+        let start: CLLocationCoordinate2D
+        let color: Color
+    }
+
+    private var guessLines: [GuessLine] {
+        placedOutcomes.compactMap { outcome in
+            guard let coordinate = outcome.coordinate else { return nil }
+            return GuessLine(
+                id: outcome.slot,
+                start: coordinate.clCoordinate,
+                color: PlayerStyle.color(for: outcome.slot)
+            )
+        }
+    }
+
+    private func pinLabel(for outcome: FingerOutcome) -> String {
+        if let km = outcome.distanceKm {
+            return "\(session.name(outcome.slot)) · \(Int(km.rounded())) km"
+        }
+        return session.name(outcome.slot)
+    }
+
     private var revealMap: some View {
         Map(initialPosition: .region(fitRegion)) {
+            // Dashed measurement line from every pin to the capital.
+            ForEach(guessLines) { line in
+                MapPolyline(coordinates: [line.start, reveal.target.clCoordinate])
+                    .stroke(line.color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [6, 6]))
+            }
             Marker(reveal.capitalName, systemImage: "star.fill", coordinate: reveal.target.clCoordinate)
                 .tint(.yellow)
             ForEach(placedOutcomes) { outcome in
-                Annotation(session.name(outcome.slot), coordinate: outcome.coordinate!.clCoordinate) {
+                Annotation(pinLabel(for: outcome), coordinate: outcome.coordinate!.clCoordinate) {
                     Circle()
                         .fill(PlayerStyle.color(for: outcome.slot))
                         .frame(width: 14, height: 14)
