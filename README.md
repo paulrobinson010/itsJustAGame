@@ -12,9 +12,16 @@ Everything the game sends between devices is **end-to-end encrypted**.
 ### Game flow
 
 1. **Create** — the host picks how many rounds it takes to win, how many
-   players, and their names (every player must be named). The app generates
-   a personal invite link for every player except the host, to send by
-   iMessage, WhatsApp, etc.
+   players, and their names (every player must be named). Names can be
+   typed or **picked from contacts** — a searchable picker with your
+   frequent players pinned on top (iOS exposes no API for the Phone app's
+   Favourites, so "frequent" means people you've picked before in this
+   app). Contacts are read on-device only: the name goes into the
+   encrypted config, the phone number stays on the host's phone. The app
+   generates a personal invite link for every player except the host.
+   Players picked from contacts get a one-tap **iMessage invite** from the
+   lobby — the composer opens pre-addressed with their link (iOS requires
+   the sender to tap Send). Everyone else uses the share sheet.
 2. **Join** — players paste their invite message into the app (or tap the
    link — the app registers the `itsjustagame://` URL scheme). A joiner is
    greeted with "Welcome ⟨their name⟩ to ⟨host⟩'s game" before entering the

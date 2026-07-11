@@ -17,6 +17,8 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSContactsUsageDescription</key>
+	<string>Used only to fill in player names and address their invite by iMessage. Your contacts never leave this phone.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to work out the true direction from you to each target and to draw the results map. It is shared only with the players in your game, end-to-end encrypted.</string>
 	<key>UISupportedInterfaceOrientations</key>

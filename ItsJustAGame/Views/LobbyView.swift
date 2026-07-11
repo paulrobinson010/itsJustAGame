@@ -4,6 +4,14 @@ struct LobbyView: View {
     let session: GameSession
     let engine: HostEngine?
     let joined: Set<Int>
+    @State private var composeTarget: ComposeTarget?
+
+    private struct ComposeTarget: Identifiable {
+        let slot: Int
+        let phone: String
+        let message: String
+        var id: Int { slot }
+    }
 
     var body: some View {
         List {
@@ -37,9 +45,24 @@ struct LobbyView: View {
                             }
                             Spacer()
                             if session.saved.isHost && player.slot != 1 {
+                                if MessageComposeView.canSend,
+                                   let phone = session.saved.inviteePhones?[player.slot] {
+                                    Button {
+                                        composeTarget = ComposeTarget(
+                                            slot: player.slot,
+                                            phone: phone,
+                                            message: inviteMessage(for: player, config: config)
+                                        )
+                                    } label: {
+                                        Image(systemName: "message.fill")
+                                            .foregroundStyle(Theme.cyan)
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
                                 ShareLink(item: inviteMessage(for: player, config: config)) {
                                     Image(systemName: "square.and.arrow.up")
                                 }
+                                .buttonStyle(.borderless)
                             }
                         }
                     }
@@ -81,6 +104,9 @@ struct LobbyView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
+        .sheet(item: $composeTarget) { target in
+            MessageComposeView(recipients: [target.phone], body: target.message)
+        }
         .navigationTitle("Lobby")
         .navigationBarTitleDisplayMode(.inline)
     }
