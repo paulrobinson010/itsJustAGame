@@ -16,16 +16,33 @@ enum Theme {
     static let cyan = Color(red: 0.20, green: 0.85, blue: 1.00)
     static let magenta = Color(red: 1.00, green: 0.30, blue: 0.80)
 
-    // Type
-    static func display(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .bold, design: .rounded)
+    // Type. Display voice is Chakra Petch (bundled, OFL) — a squared
+    // techno face that matches the neon mark; body/small text stays SF
+    // rounded for legibility.
+    enum BrandFont {
+        static let bold = "ChakraPetch-Bold"
+        static let semiBold = "ChakraPetch-SemiBold"
+        static let medium = "ChakraPetch-Medium"
     }
 
-    static let title = Font.system(.title2, design: .rounded).weight(.bold)
-    static let headline = Font.system(.headline, design: .rounded)
+    static func display(_ size: CGFloat) -> Font {
+        .custom(BrandFont.bold, size: size)
+    }
+
+    static let title = Font.custom(BrandFont.bold, size: 21)
+    static let headline = Font.custom(BrandFont.semiBold, size: 17)
+    /// Small uppercase phase labels ("ROUND 2").
+    static let kicker = Font.custom(BrandFont.medium, size: 13)
     static let subheadline = Font.system(.subheadline, design: .rounded)
     static let caption = Font.system(.caption, design: .rounded)
     static let caption2 = Font.system(.caption2, design: .rounded)
+
+    /// The brand sweep, for wordmarks and hero moments only.
+    static let brandGradient = LinearGradient(
+        colors: [cyan, magenta],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
 
     /// Barely-there fill for cells, chips and icon wells.
     static let quietFill = Color.white.opacity(0.06)

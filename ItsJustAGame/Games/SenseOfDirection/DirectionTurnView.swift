@@ -42,7 +42,7 @@ struct DirectionTurnView: View {
         return VStack(spacing: 20) {
             Spacer()
             Text("Point toward…")
-                .font(Theme.subheadline)
+                .font(Theme.kicker)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .kerning(1.5)

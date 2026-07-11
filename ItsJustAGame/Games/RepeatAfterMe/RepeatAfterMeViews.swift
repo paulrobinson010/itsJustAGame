@@ -60,7 +60,7 @@ struct SequenceTurnView: View {
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: turn.alive, points: turn.points)
                 Text("Match \(turn.match) · \(turn.sequence.count) flashes")
-                    .font(Theme.subheadline)
+                    .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(1.5)
@@ -183,7 +183,7 @@ struct SequenceRevealView: View {
                 .padding(.horizontal, 24)
             VStack(spacing: 8) {
                 Text("The sequence")
-                    .font(Theme.caption)
+                    .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(1.2)

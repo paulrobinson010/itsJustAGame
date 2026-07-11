@@ -26,7 +26,7 @@ struct FlashTurnView: View {
                     HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
                         .opacity(flashing ? 0 : 1)
                     Text("Flash \(turn.turn)")
-                        .font(Theme.subheadline)
+                        .font(Theme.kicker)
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(1.5)

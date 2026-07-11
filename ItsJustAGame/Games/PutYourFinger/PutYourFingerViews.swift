@@ -21,7 +21,7 @@ struct FingerTurnView: View {
             VStack(spacing: 12) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
                 Text(turn.regionName)
-                    .font(Theme.subheadline)
+                    .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(1.5)

@@ -17,6 +17,12 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>ChakraPetch-Bold.ttf</string>
+		<string>ChakraPetch-SemiBold.ttf</string>
+		<string>ChakraPetch-Medium.ttf</string>
+	</array>
 	<key>NSContactsUsageDescription</key>
 	<string>Used only to fill in player names and address their invite by iMessage. Your contacts never leave this phone.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

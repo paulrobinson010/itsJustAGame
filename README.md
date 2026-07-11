@@ -198,8 +198,12 @@ from them:
 - Buttons are neon capsules with a soft glow (`PrimaryButtonStyle`, tint
   cyan by default, magenta where it means the opposite thing); secondary
   actions use `QuietButtonStyle`.
-- Rounded SF type everywhere (`Theme.display/title/headline/…`), uppercase
-  kerned kickers for phase labels ("ROUND 2").
+- Two type voices: **Chakra Petch** (bundled, SIL OFL — see
+  `ItsJustAGame/Fonts/OFL.txt`) for display sizes, titles, headlines,
+  buttons and the uppercase kerned kickers ("ROUND 2"); rounded SF for
+  body and small text. The wordmark is Chakra Petch in the
+  cyan→magenta `Theme.brandGradient` with a soft glow — reserve the
+  gradient for wordmarks and hero moments.
 - Continuous-corner cards (`.card()`, 20pt), capsule chips for players,
   neon-leaning 8-color player palette in `PlayerStyle` led by the brand
   cyan and magenta. Each player is **dealt a color at random by the host

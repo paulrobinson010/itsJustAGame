@@ -12,15 +12,23 @@ struct HomeView: View {
         NavigationStack {
             List {
                 Section {
-                    HStack {
-                        Spacer()
+                    VStack(spacing: 16) {
                         Image("Logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(height: 130)
-                            .shadow(color: Theme.cyan.opacity(0.25), radius: 24)
-                        Spacer()
+                            .frame(height: 120)
+                            .shadow(color: Theme.cyan.opacity(0.3), radius: 24)
+                        Text("IT'S JUST A GAME")
+                            .font(Theme.display(27))
+                            .kerning(2.5)
+                            .foregroundStyle(Theme.brandGradient)
+                            .shadow(color: Theme.cyan.opacity(0.35), radius: 14)
+                            .multilineTextAlignment(.center)
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
                 }
@@ -80,7 +88,8 @@ struct HomeView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle("It's Just a Game")
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showCreate) {
                 CreateGameView(model: model, myName: myName)
             }

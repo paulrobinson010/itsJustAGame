@@ -148,7 +148,7 @@ struct CardGuessView: View {
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: turn.alive, points: turn.points)
                 Text("Match \(turn.match)")
-                    .font(Theme.subheadline)
+                    .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(1.5)

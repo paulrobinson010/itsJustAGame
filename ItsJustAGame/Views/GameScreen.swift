@@ -223,7 +223,7 @@ struct RoundIntroView: View {
         VStack(spacing: 20) {
             Spacer()
             Text("Round \(round)")
-                .font(Theme.subheadline)
+                .font(Theme.kicker)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .kerning(1.5)

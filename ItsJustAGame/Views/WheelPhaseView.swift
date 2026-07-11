@@ -17,7 +17,7 @@ struct WheelPhaseView: View {
         ScrollView {
             VStack(spacing: 24) {
             Text("Round \(round)")
-                .font(Theme.subheadline)
+                .font(Theme.kicker)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .kerning(1.5)
@@ -117,7 +117,7 @@ struct TieBreakView: View {
     var body: some View {
         VStack(spacing: 24) {
             Text("Tie-breaker")
-                .font(Theme.subheadline)
+                .font(Theme.kicker)
                 .foregroundStyle(Theme.magenta)
                 .textCase(.uppercase)
                 .kerning(1.5)
