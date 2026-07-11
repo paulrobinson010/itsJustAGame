@@ -15,6 +15,9 @@ enum GamePhase: Hashable {
     // Higher or Lower
     case cardGuess(CardTurn)
     case cardReveal(CardReveal)
+    // Repeat After Me
+    case sequenceTurn(SequenceTurn)
+    case sequenceReveal(SequenceReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int)
     case gameEnd(winner: Int)
@@ -167,6 +170,26 @@ final class GameSession {
         )
     }
 
+    // MARK: - Repeat After Me input
+
+    func submitSequence(taps: [Int], for turn: SequenceTurn) {
+        let id = RecordName.sequenceAnswer(saved.gameID, round: turn.round, match: turn.match, step: turn.step, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.sequenceAnswer(round: turn.round, match: turn.match, step: turn.step, slot: mySlot, taps: taps),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedSequence(for turn: SequenceTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.sequenceAnswer(saved.gameID, round: turn.round, match: turn.match, step: turn.step, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -243,6 +266,12 @@ final class GameSession {
         case .cardReveal(let reveal):
             points = reveal.points
             phase = .cardReveal(reveal)
+        case .sequenceTurn(let turn):
+            points = turn.points
+            phase = .sequenceTurn(turn)
+        case .sequenceReveal(let reveal):
+            points = reveal.points
+            phase = .sequenceReveal(reveal)
         case .tieBreakSpin(let candidates, let winner):
             phase = .tieBreak(candidates: candidates, winner: winner)
         case .roundEnd(let round, let winners, let rounds):

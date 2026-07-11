@@ -86,6 +86,8 @@ struct GameScreen: View {
         case .seekReveal(let reveal): return "seekreveal\(reveal.round)-\(reveal.turn)"
         case .cardGuess(let turn): return "cardguess\(turn.round)-\(turn.match)-\(turn.step)"
         case .cardReveal(let reveal): return "cardreveal\(reveal.round)-\(reveal.match)-\(reveal.step)"
+        case .sequenceTurn(let turn): return "seqturn\(turn.round)-\(turn.match)-\(turn.step)"
+        case .sequenceReveal(let reveal): return "seqreveal\(reveal.round)-\(reveal.match)-\(reveal.step)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -115,6 +117,10 @@ struct GameScreen: View {
             CardGuessView(session: session, turn: turn)
         case .cardReveal(let reveal):
             CardRevealView(session: session, reveal: reveal)
+        case .sequenceTurn(let turn):
+            SequenceTurnView(session: session, turn: turn)
+        case .sequenceReveal(let reveal):
+            SequenceRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner):

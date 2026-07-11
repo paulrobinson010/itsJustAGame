@@ -45,12 +45,14 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case senseOfDirection
     case hideAndSeek
     case higherOrLower
+    case repeatAfterMe
 
     var displayName: String {
         switch self {
         case .senseOfDirection: return "Sense of Direction"
         case .hideAndSeek: return "Hide & Seek"
         case .higherOrLower: return "Higher or Lower"
+        case .repeatAfterMe: return "Repeat After Me"
         }
     }
 
@@ -60,6 +62,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .senseOfDirection: return 2
         case .hideAndSeek: return 2
         case .higherOrLower: return 2
+        case .repeatAfterMe: return 2
         }
     }
 
@@ -68,6 +71,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .senseOfDirection: return "location.north.circle.fill"
         case .hideAndSeek: return "eye.slash.fill"
         case .higherOrLower: return "arrow.up.arrow.down"
+        case .repeatAfterMe: return "square.grid.2x2.fill"
         }
     }
 
@@ -79,6 +83,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Pick a hiding spot on the grid. Then everyone takes turns searching squares — the last player to be found wins the round."
         case .higherOrLower:
             return "A card is revealed. Call the next one higher or lower — wrong and you're out. Last player standing takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .repeatAfterMe:
+            return "Watch the pads flash, then tap the sequence back from memory. One mistake and you're out — last player standing takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -128,4 +134,9 @@ enum GameTiming {
     // Higher or Lower
     static let guessSeconds: Double = 10
     static let cardRevealSeconds: Double = 6
+
+    // Repeat After Me
+    static let sequenceStartLength = 3
+    static let sequenceFlashSeconds: Double = 0.65
+    static let sequenceRevealSeconds: Double = 6
 }

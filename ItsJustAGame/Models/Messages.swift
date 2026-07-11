@@ -20,6 +20,9 @@ enum HostMessage: Codable {
     // Higher or Lower
     case cardTurn(CardTurn)
     case cardReveal(CardReveal)
+    // Repeat After Me
+    case sequenceTurn(SequenceTurn)
+    case sequenceReveal(SequenceReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int)
@@ -37,6 +40,7 @@ enum PlayerMessage: Codable {
     case hide(round: Int, slot: Int, cell: Int)
     case seek(round: Int, turn: Int, slot: Int, cell: Int)
     case guess(round: Int, match: Int, step: Int, slot: Int, guess: HigherLowerGuess)
+    case sequenceAnswer(round: Int, match: Int, step: Int, slot: Int, taps: [Int])
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -180,6 +184,46 @@ struct CardReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Repeat After Me
+
+struct SequenceTurn: Codable, Hashable {
+    var round: Int
+    var match: Int
+    var step: Int
+    /// Pad indices 0–3, replayed in full each turn (it grows by one).
+    var sequence: [Int]
+    var alive: [Int]
+    var points: [Int: Int]
+    var startAt: Date
+    var watchSeconds: Double
+    var answerSeconds: Double
+
+    var watchEndsAt: Date { startAt.addingTimeInterval(watchSeconds) }
+    var deadline: Date { startAt.addingTimeInterval(watchSeconds + answerSeconds) }
+}
+
+struct SequencePlayerResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil when the player never answered at all.
+    var taps: [Int]?
+    var correct: Bool
+    var id: Int { slot }
+}
+
+struct SequenceReveal: Codable, Hashable {
+    var round: Int
+    var match: Int
+    var step: Int
+    var sequence: [Int]
+    var results: [SequencePlayerResult]
+    var eliminated: [Int]
+    var alive: [Int]
+    var matchWinners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -209,5 +253,9 @@ enum RecordName {
 
     static func guess(_ gameID: String, round: Int, match: Int, step: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-m\(match)-s\(step)-hl\(slot)"
+    }
+
+    static func sequenceAnswer(_ gameID: String, round: Int, match: Int, step: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-m\(match)-q\(step)-seq\(slot)"
     }
 }

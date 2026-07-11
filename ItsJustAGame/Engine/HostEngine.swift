@@ -134,6 +134,8 @@ final class HostEngine {
                 winners = await runHideAndSeekRound(round: round)
             case .higherOrLower:
                 winners = await runHigherLowerRound(round: round)
+            case .repeatAfterMe:
+                winners = await runRepeatAfterMeRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -575,6 +577,137 @@ final class HostEngine {
             guesses[slot] = Bool.random() ? .higher : .lower
         }
         return guesses
+    }
+
+    // MARK: - Repeat After Me
+
+    /// Matches until someone reaches the target points, exactly like
+    /// Higher or Lower — only the elimination test differs.
+    private func runRepeatAfterMeRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var match = 1
+        while !Task.isCancelled {
+            let matchWinners = await runSequenceMatch(round: round, match: match, players: players, pointsBefore: points)
+            for winner in matchWinners {
+                points[winner, default: 0] += 1
+            }
+            let champions = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+            if !champions.isEmpty {
+                return champions
+            }
+            if match >= GameTiming.maxTurnsPerRound {
+                let best = points.values.max() ?? 0
+                let leaders = players.filter { points[$0, default: 0] == best }
+                return leaders.isEmpty ? [players.first ?? 1] : leaders
+            }
+            match += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    /// One memory match: the sequence grows by one pad each turn and every
+    /// player alive must tap it back exactly. A mistake — or no answer at
+    /// all — eliminates (this is a skill test, so there is no random-mercy
+    /// fallback like Higher or Lower's). Last standing wins; if everyone
+    /// left fails the same sequence, they all win.
+    private func runSequenceMatch(round: Int, match: Int, players: [Int], pointsBefore: [Int: Int]) async -> [Int] {
+        var alive = players
+        var sequence = (0..<GameTiming.sequenceStartLength).map { _ in Int.random(in: 0..<4) }
+        var step = 1
+        while !Task.isCancelled {
+            if step > 1 {
+                sequence.append(Int.random(in: 0..<4))
+            }
+            let watchSeconds = 1.0 + Double(sequence.count) * GameTiming.sequenceFlashSeconds + 0.5
+            let answerSeconds = max(6.0, Double(sequence.count) * 1.2)
+            let turn = SequenceTurn(
+                round: round,
+                match: match,
+                step: step,
+                sequence: sequence,
+                alive: alive,
+                points: pointsBefore,
+                startAt: Date().addingTimeInterval(2),
+                watchSeconds: watchSeconds,
+                answerSeconds: answerSeconds
+            )
+            await send(.sequenceTurn(turn))
+            let answers = await collectSequenceAnswers(for: turn)
+
+            var results: [SequencePlayerResult] = []
+            var eliminated: [Int] = []
+            for slot in alive {
+                let taps = answers[slot]
+                let correct = taps == sequence
+                if !correct {
+                    eliminated.append(slot)
+                }
+                results.append(SequencePlayerResult(slot: slot, taps: taps, correct: correct))
+            }
+            let survivors = alive.filter { !eliminated.contains($0) }
+
+            var matchWinners: [Int] = []
+            if survivors.count == 1 {
+                matchWinners = survivors
+            } else if survivors.isEmpty {
+                matchWinners = eliminated
+            } else if step >= 20 {
+                matchWinners = survivors
+            }
+
+            var pointsAfter = pointsBefore
+            for winner in matchWinners {
+                pointsAfter[winner, default: 0] += 1
+            }
+            let roundWinners = matchWinners.isEmpty
+                ? []
+                : players.filter { pointsAfter[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = SequenceReveal(
+                round: round,
+                match: match,
+                step: step,
+                sequence: sequence,
+                results: results,
+                eliminated: eliminated,
+                alive: survivors,
+                matchWinners: matchWinners,
+                points: pointsAfter,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.sequenceRevealSeconds + 2) : nil
+            )
+            await send(.sequenceReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.sequenceRevealSeconds))
+            if !matchWinners.isEmpty {
+                return matchWinners
+            }
+            alive = survivors
+            step += 1
+        }
+        return []
+    }
+
+    private func collectSequenceAnswers(for turn: SequenceTurn) async -> [Int: [Int]] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var answers: [Int: [Int]] = [:]
+        while !Task.isCancelled {
+            let missing = turn.alive.filter { answers[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.sequenceAnswer(config.gameID, round: turn.round, match: turn.match, step: turn.step, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .sequenceAnswer(_, _, _, let slot, let taps) = message else { continue }
+                    answers[slot] = taps
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        return answers
     }
 
     private func send(_ message: HostMessage) async {

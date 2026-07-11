@@ -81,6 +81,18 @@ call rather than auto-elimination, so a network blip can't knock anyone
 out. The host deals from a real shuffled 52-card deck, reshuffling when it
 runs dry.
 
+### Repeat After Me
+
+A Simon-style memory duel on a 2×2 pad of cyan, magenta, lime and amber.
+The pads flash a sequence (starting at 3, growing by one each turn — every
+device flashes in step off the shared start timestamp); everyone alive
+then taps it back from memory before the deadline. One wrong pad, a short
+answer, or no answer eliminates you — this is a skill test, so unlike
+Higher or Lower there is no random-mercy fallback for silence. Last player
+standing takes the point; if everyone left fails the same sequence they
+all score. First to 3 points wins the round, ties share, and the
+game-level tie-break wheel applies as everywhere else.
+
 ### End-to-end encryption
 
 - Creating a game generates a random 256-bit ChaCha20-Poly1305 key on the
