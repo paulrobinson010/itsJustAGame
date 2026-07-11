@@ -64,6 +64,8 @@ struct HomeView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
             .navigationTitle("It's Just a Game")
             .sheet(isPresented: $showCreate) {
                 CreateGameView(model: model, myName: myName)

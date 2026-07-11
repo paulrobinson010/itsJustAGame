@@ -12,7 +12,11 @@ enum GamePhase: Hashable {
     case hiding(HideStart)
     case seekTurn(SeekTurnStart)
     case seekReveal(SeekReveal)
-    case roundEnd(round: Int, winner: Int)
+    // Higher or Lower
+    case cardGuess(CardTurn)
+    case cardReveal(CardReveal)
+    case roundEnd(round: Int, winners: [Int])
+    case tieBreak(candidates: [Int], winner: Int)
     case gameEnd(winner: Int)
 }
 
@@ -53,6 +57,13 @@ final class GameSession {
 
     func name(_ slot: Int) -> String {
         config?.name(slot) ?? "Player \(slot)"
+    }
+
+    /// "Ann", "Ann & Bob", "Ann, Bob & Cat".
+    func names(_ slots: [Int]) -> String {
+        let list = slots.map { name($0) }
+        guard list.count > 1 else { return list.first ?? "" }
+        return list.dropLast().joined(separator: ", ") + " & " + (list.last ?? "")
     }
 
     func start() {
@@ -136,6 +147,26 @@ final class GameSession {
         )
     }
 
+    // MARK: - Higher or Lower input
+
+    func submitGuess(_ guess: HigherLowerGuess, for turn: CardTurn) {
+        let id = RecordName.guess(saved.gameID, round: turn.round, match: turn.match, step: turn.step, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.guess(round: turn.round, match: turn.match, step: turn.step, slot: mySlot, guess: guess),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedGuess(for turn: CardTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.guess(saved.gameID, round: turn.round, match: turn.match, step: turn.step, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -206,9 +237,17 @@ final class GameSession {
             phase = .seekTurn(turnStart)
         case .seekReveal(let reveal):
             phase = .seekReveal(reveal)
-        case .roundEnd(let round, let winner, let rounds):
+        case .cardTurn(let turn):
+            points = turn.points
+            phase = .cardGuess(turn)
+        case .cardReveal(let reveal):
+            points = reveal.points
+            phase = .cardReveal(reveal)
+        case .tieBreakSpin(let candidates, let winner):
+            phase = .tieBreak(candidates: candidates, winner: winner)
+        case .roundEnd(let round, let winners, let rounds):
             roundsWon = rounds
-            phase = .roundEnd(round: round, winner: winner)
+            phase = .roundEnd(round: round, winners: winners)
         case .gameEnd(let winner, let rounds):
             roundsWon = rounds
             phase = .gameEnd(winner: winner)

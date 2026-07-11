@@ -17,7 +17,13 @@ enum HostMessage: Codable {
     case hideStart(HideStart)
     case seekTurn(SeekTurnStart)
     case seekReveal(SeekReveal)
-    case roundEnd(round: Int, winner: Int, roundsWon: [Int: Int])
+    // Higher or Lower
+    case cardTurn(CardTurn)
+    case cardReveal(CardReveal)
+    /// Several players reached the winning round count together — the
+    /// wheel decides the overall winner, totally at random (host rolled).
+    case tieBreakSpin(candidates: [Int], winner: Int)
+    case roundEnd(round: Int, winners: [Int], roundsWon: [Int: Int])
     case gameEnd(winner: Int, roundsWon: [Int: Int])
 }
 
@@ -30,6 +36,7 @@ enum PlayerMessage: Codable {
     case answer(DirectionAnswer)
     case hide(round: Int, slot: Int, cell: Int)
     case seek(round: Int, turn: Int, slot: Int, cell: Int)
+    case guess(round: Int, match: Int, step: Int, slot: Int, guess: HigherLowerGuess)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -117,8 +124,60 @@ struct SeekReveal: Codable, Hashable {
     var searched: [Int]
     var found: [Int: Int]
     var remainingHidden: [Int]
-    var roundWinner: Int?
+    /// Non-empty when the match ended. Several winners when the final
+    /// search revealed the last hiders together — they share the round.
+    var roundWinners: [Int]
     var nextTurnAt: Date?
+}
+
+// MARK: - Higher or Lower
+
+enum CardSuit: String, Codable, CaseIterable, Hashable {
+    case spades, hearts, diamonds, clubs
+}
+
+struct PlayingCard: Codable, Hashable {
+    /// 1 (ace) through 13 (king). Ace is low.
+    var rank: Int
+    var suit: CardSuit
+}
+
+enum HigherLowerGuess: String, Codable, Hashable {
+    case higher, lower
+}
+
+struct CardTurn: Codable, Hashable {
+    var round: Int
+    var match: Int
+    var step: Int
+    var card: PlayingCard
+    var alive: [Int]
+    var points: [Int: Int]
+    var startAt: Date
+    var guessSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(guessSeconds) }
+}
+
+struct CardReveal: Codable, Hashable {
+    var round: Int
+    var match: Int
+    var step: Int
+    var previousCard: PlayingCard
+    var nextCard: PlayingCard
+    var guesses: [Int: HigherLowerGuess]
+    /// Eliminated by this reveal.
+    var eliminated: [Int]
+    /// Still standing after this reveal.
+    var alive: [Int]
+    /// Same rank twice — nobody is eliminated.
+    var isTie: Bool
+    /// Non-empty when the match ended; every winner scores a point.
+    var matchWinners: [Int]
+    var points: [Int: Int]
+    /// Non-empty when someone (or several at once) reached the target points.
+    var roundWinners: [Int]
+    var nextAt: Date?
 }
 
 /// Deterministic record IDs. Everything is fetched by ID rather than by
@@ -146,5 +205,9 @@ enum RecordName {
 
     static func seek(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-s\(turn)-seek\(slot)"
+    }
+
+    static func guess(_ gameID: String, round: Int, match: Int, step: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-m\(match)-s\(step)-hl\(slot)"
     }
 }

@@ -44,11 +44,13 @@ struct GameConfig: Codable, Hashable {
 enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case senseOfDirection
     case hideAndSeek
+    case higherOrLower
 
     var displayName: String {
         switch self {
         case .senseOfDirection: return "Sense of Direction"
         case .hideAndSeek: return "Hide & Seek"
+        case .higherOrLower: return "Higher or Lower"
         }
     }
 
@@ -57,6 +59,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         switch self {
         case .senseOfDirection: return 2
         case .hideAndSeek: return 2
+        case .higherOrLower: return 2
         }
     }
 
@@ -64,6 +67,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         switch self {
         case .senseOfDirection: return "location.north.circle.fill"
         case .hideAndSeek: return "eye.slash.fill"
+        case .higherOrLower: return "arrow.up.arrow.down"
         }
     }
 
@@ -73,6 +77,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "A place will appear. Point the arrow toward it — closest direction wins the point. First to \(GameTiming.pointsToWinRound) points takes the round."
         case .hideAndSeek:
             return "Pick a hiding spot on the grid. Then everyone takes turns searching squares — the last player to be found wins the round."
+        case .higherOrLower:
+            return "A card is revealed. Call the next one higher or lower — wrong and you're out. Last player standing takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -118,4 +124,8 @@ enum GameTiming {
     static let hideSeconds: Double = 15
     static let seekSeconds: Double = 15
     static let seekRevealSeconds: Double = 6
+
+    // Higher or Lower
+    static let guessSeconds: Double = 10
+    static let cardRevealSeconds: Double = 6
 }

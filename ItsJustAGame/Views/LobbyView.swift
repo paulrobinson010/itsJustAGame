@@ -76,6 +76,8 @@ struct LobbyView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.background)
         .navigationTitle("Lobby")
         .navigationBarTitleDisplayMode(.inline)
     }

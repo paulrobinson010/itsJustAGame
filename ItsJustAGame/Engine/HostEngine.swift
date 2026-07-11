@@ -126,20 +126,35 @@ final class HostEngine {
             let game = await waitForChoice(round: round, chooser: chooser)
             await send(.roundStart(round: round, game: game))
             try? await Task.sleep(for: .seconds(3))
-            let winner: Int
+            let winners: [Int]
             switch game {
             case .senseOfDirection:
-                winner = await runDirectionRound(round: round)
+                winners = [await runDirectionRound(round: round)]
             case .hideAndSeek:
-                winner = await runHideAndSeekRound(round: round)
+                winners = await runHideAndSeekRound(round: round)
+            case .higherOrLower:
+                winners = await runHigherLowerRound(round: round)
             }
-            roundsWon[winner, default: 0] += 1
-            if roundsWon[winner, default: 0] >= config.roundsToWin {
-                await send(.gameEnd(winner: winner, roundsWon: roundsWon))
+            for winner in winners {
+                roundsWon[winner, default: 0] += 1
+            }
+            let champions = joined.sorted().filter { roundsWon[$0, default: 0] >= config.roundsToWin }
+            if champions.count == 1 {
+                await send(.gameEnd(winner: champions[0], roundsWon: roundsWon))
                 gameRunning = false
                 return
             }
-            await send(.roundEnd(round: round, winner: winner, roundsWon: roundsWon))
+            if champions.count > 1 {
+                // Several players hit the target together — the wheel picks
+                // the overall winner, totally at random.
+                let overall = champions.randomElement() ?? champions[0]
+                await send(.tieBreakSpin(candidates: champions, winner: overall))
+                try? await Task.sleep(for: .seconds(GameTiming.wheelSpinSeconds + 3))
+                await send(.gameEnd(winner: overall, roundsWon: roundsWon))
+                gameRunning = false
+                return
+            }
+            await send(.roundEnd(round: round, winners: winners, roundsWon: roundsWon))
             try? await Task.sleep(for: .seconds(GameTiming.betweenRoundsSeconds))
             round += 1
         }
@@ -291,7 +306,7 @@ final class HostEngine {
     /// One full match: everyone hides on the grid, then players search in a
     /// shuffled run order until only one player is left hidden — they win
     /// the round. Found players keep taking their seek turns.
-    private func runHideAndSeekRound(round: Int) async -> Int {
+    private func runHideAndSeekRound(round: Int) async -> [Int] {
         let players = joined.sorted()
         let gridSize = 5
         let hideStart = HideStart(
@@ -338,13 +353,13 @@ final class HostEngine {
             }
 
             let hidden = players.filter { found[$0] == nil }
-            var roundWinner: Int?
+            var roundWinners: [Int] = []
             if hidden.count == 1 {
-                roundWinner = hidden[0]
+                roundWinners = hidden
             } else if hidden.isEmpty {
                 // The last hiders were all revealed by the same search —
-                // the round goes to one of them at random.
-                roundWinner = revealed.randomElement()
+                // they were all "last to be found", so they share the round.
+                roundWinners = revealed
             }
 
             let reveal = SeekReveal(
@@ -357,17 +372,17 @@ final class HostEngine {
                 searched: searched,
                 found: found,
                 remainingHidden: hidden,
-                roundWinner: roundWinner,
-                nextTurnAt: roundWinner == nil ? Date().addingTimeInterval(GameTiming.seekRevealSeconds + 2) : nil
+                roundWinners: roundWinners,
+                nextTurnAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.seekRevealSeconds + 2) : nil
             )
             await send(.seekReveal(reveal))
-            if let roundWinner {
-                return roundWinner
+            if !roundWinners.isEmpty {
+                return roundWinners
             }
             try? await Task.sleep(for: .seconds(GameTiming.seekRevealSeconds))
             turn += 1
         }
-        return players.first ?? 1
+        return [players.first ?? 1]
     }
 
     private func collectHideSpots(for hideStart: HideStart, players: [Int]) async -> [Int: Int] {
@@ -415,8 +430,156 @@ final class HostEngine {
         Set(0..<cellCount).subtracting(searched).randomElement() ?? 0
     }
 
+    // MARK: - Higher or Lower
+
+    /// Matches until someone reaches the target points. Every winner of a
+    /// match scores; several players can hit the target together and all
+    /// win the round (the game-level tie-break handles the rest).
+    private func runHigherLowerRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var deck = Deck()
+        var match = 1
+        while !Task.isCancelled {
+            let matchWinners = await runHigherLowerMatch(
+                round: round,
+                match: match,
+                players: players,
+                pointsBefore: points,
+                deck: &deck
+            )
+            for winner in matchWinners {
+                points[winner, default: 0] += 1
+            }
+            let champions = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+            if !champions.isEmpty {
+                return champions
+            }
+            if match >= GameTiming.maxTurnsPerRound {
+                // Safety valve: award the round to whoever leads.
+                let best = points.values.max() ?? 0
+                let leaders = players.filter { points[$0, default: 0] == best }
+                return leaders.isEmpty ? [players.first ?? 1] : leaders
+            }
+            match += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    /// One elimination match: everyone alive calls the next card higher or
+    /// lower; wrong calls are out. A tied rank eliminates nobody. Last one
+    /// standing wins — and if the final survivors all fall together, they
+    /// were all "last to be eliminated" and all win.
+    private func runHigherLowerMatch(
+        round: Int,
+        match: Int,
+        players: [Int],
+        pointsBefore: [Int: Int],
+        deck: inout Deck
+    ) async -> [Int] {
+        var alive = players
+        var current = deck.draw()
+        var step = 1
+        while !Task.isCancelled {
+            let turn = CardTurn(
+                round: round,
+                match: match,
+                step: step,
+                card: current,
+                alive: alive,
+                points: pointsBefore,
+                startAt: Date().addingTimeInterval(2),
+                guessSeconds: GameTiming.guessSeconds
+            )
+            await send(.cardTurn(turn))
+            let guesses = await collectGuesses(for: turn)
+
+            let next = deck.draw()
+            var eliminated: [Int] = []
+            var isTie = false
+            if next.rank == current.rank {
+                isTie = true
+            } else {
+                let correct: HigherLowerGuess = next.rank > current.rank ? .higher : .lower
+                eliminated = alive.filter { guesses[$0] != correct }
+            }
+            let survivors = alive.filter { !eliminated.contains($0) }
+
+            var matchWinners: [Int] = []
+            if survivors.count == 1 {
+                matchWinners = survivors
+            } else if survivors.isEmpty {
+                matchWinners = eliminated
+            } else if step >= 20 {
+                // Safety valve for an absurdly lucky table.
+                matchWinners = survivors
+            }
+
+            var pointsAfter = pointsBefore
+            for winner in matchWinners {
+                pointsAfter[winner, default: 0] += 1
+            }
+            let roundWinners = matchWinners.isEmpty
+                ? []
+                : players.filter { pointsAfter[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = CardReveal(
+                round: round,
+                match: match,
+                step: step,
+                previousCard: current,
+                nextCard: next,
+                guesses: guesses,
+                eliminated: eliminated,
+                alive: survivors,
+                isTie: isTie,
+                matchWinners: matchWinners,
+                points: pointsAfter,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.cardRevealSeconds + 2) : nil
+            )
+            await send(.cardReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.cardRevealSeconds))
+            if !matchWinners.isEmpty {
+                return matchWinners
+            }
+            alive = survivors
+            current = next
+            step += 1
+        }
+        return []
+    }
+
+    private func collectGuesses(for turn: CardTurn) async -> [Int: HigherLowerGuess] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var guesses: [Int: HigherLowerGuess] = [:]
+        while !Task.isCancelled {
+            let missing = turn.alive.filter { guesses[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.guess(config.gameID, round: turn.round, match: turn.match, step: turn.step, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .guess(_, _, _, let slot, let guess) = message else { continue }
+                    guesses[slot] = guess
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        // A silent player gets a random call rather than auto-elimination,
+        // so a network blip can't knock someone out.
+        for slot in turn.alive where guesses[slot] == nil {
+            guesses[slot] = Bool.random() ? .higher : .lower
+        }
+        return guesses
+    }
+
     private func send(_ message: HostMessage) async {
         for attempt in 0..<3 {
+
             do {
                 let body = try crypto.seal(message)
                 try await transport.put(id: RecordName.host(config.gameID, seq: seq), body: body)

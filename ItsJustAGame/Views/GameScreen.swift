@@ -30,7 +30,7 @@ struct GameScreen: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background(Theme.background)
             .animation(.easeInOut(duration: 0.35), value: contentKey)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -84,7 +84,10 @@ struct GameScreen: View {
         case .hiding(let hideStart): return "hide\(hideStart.round)"
         case .seekTurn(let turnStart): return "seek\(turnStart.round)-\(turnStart.turn)"
         case .seekReveal(let reveal): return "seekreveal\(reveal.round)-\(reveal.turn)"
+        case .cardGuess(let turn): return "cardguess\(turn.round)-\(turn.match)-\(turn.step)"
+        case .cardReveal(let reveal): return "cardreveal\(reveal.round)-\(reveal.match)-\(reveal.step)"
         case .roundEnd(let round, _): return "roundend\(round)"
+        case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
         }
     }
@@ -108,8 +111,14 @@ struct GameScreen: View {
             SeekTurnView(session: session, turnStart: turnStart)
         case .seekReveal(let reveal):
             SeekRevealView(session: session, reveal: reveal)
-        case .roundEnd(let round, let winner):
-            RoundEndView(session: session, round: round, winner: winner)
+        case .cardGuess(let turn):
+            CardGuessView(session: session, turn: turn)
+        case .cardReveal(let reveal):
+            CardRevealView(session: session, reveal: reveal)
+        case .roundEnd(let round, let winners):
+            RoundEndView(session: session, round: round, winners: winners)
+        case .tieBreak(let candidates, let winner):
+            TieBreakView(session: session, candidates: candidates, winner: winner)
         case .gameEnd(let winner):
             GameEndView(session: session, winner: winner) { close() }
         }
@@ -222,14 +231,14 @@ struct RoundStandingsView: View {
 struct RoundEndView: View {
     let session: GameSession
     let round: Int
-    let winner: Int
+    let winners: [Int]
 
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
             Text("🏆")
                 .font(.system(size: 64))
-            Text("\(session.name(winner)) wins round \(round)!")
+            Text("\(session.names(winners)) \(winners.count == 1 ? "wins" : "win") round \(round)!")
                 .font(Theme.display(30))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)

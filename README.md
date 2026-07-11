@@ -33,6 +33,11 @@ Everything the game sends between devices is **end-to-end encrypted**.
    game). Each round is one mini game. Within Sense of Direction, each
    *turn* is one target place; the turn winner gets a point, and the first
    player to 3 points takes the round.
+6. **Ties share** — when several players win a point or a round together,
+   they all score. If several players reach the winning round count at the
+   same moment, a tie-breaker wheel of just those players spins and the
+   overall winner is decided totally at random (rolled on the host device,
+   like all randomness).
 
 ### Sense of Direction
 
@@ -60,6 +65,21 @@ keeps taking their seek turns. The last player left hidden wins the round
 (if the final search reveals the last several hiders at once, the round goes
 to one of them at random). A seeker who doesn't pick in time has a random
 square searched for them, so the game always moves and always terminates.
+If the final search reveals the last several hiders at once they were all
+"found last" and share the round.
+
+### Higher or Lower
+
+A playing card is revealed (drawn in-app; ace is low). Everyone still
+standing calls the next card **higher** (cyan) or **lower** (magenta)
+within 10 seconds — wrong calls are eliminated, and a tied rank eliminates
+nobody. Last player standing wins the match and scores a point; if the
+final survivors all fall on the same card they were all "last to be
+eliminated" and each scores. First to 3 points wins the round (several can
+get there together and all take the round). A silent player gets a random
+call rather than auto-elimination, so a network blip can't knock anyone
+out. The host deals from a real shuffled 52-card deck, reshuffling when it
+runs dry.
 
 ### End-to-end encryption
 
@@ -115,15 +135,23 @@ Very simple, but it should look expensive. The rules live in
 `Views/Theme.swift` and every screen (and every future mini game) must pull
 from them:
 
-- Quiet, near-monochrome surfaces — `Theme.quietFill` fills and
-  `Theme.hairline` outlines instead of loud colored backgrounds.
-- **One accent** (indigo, defined in the asset catalog with a dark-mode
-  variant). The single loud element on a screen is the primary action —
-  a `PrimaryButtonStyle` capsule. Secondary actions use `QuietButtonStyle`.
+- **Dark, always.** A near-black canvas (`Theme.background`), raised
+  surfaces (`Theme.surface`), white text. The app forces dark mode.
+- **Cyan and magenta** are the brand. Cyan (`Theme.cyan`, also the asset
+  catalog accent) is the primary — actions, selections, "correct".
+  Magenta (`Theme.magenta`) is the counterpoint — urgency, "lower",
+  eliminations, tie-breakers. Nothing else gets to be loud: everything
+  non-accent is `Theme.quietFill` fills and `Theme.hairline` outlines.
+- Buttons are neon capsules with a soft glow (`PrimaryButtonStyle`, tint
+  cyan by default, magenta where it means the opposite thing); secondary
+  actions use `QuietButtonStyle`.
 - Rounded SF type everywhere (`Theme.display/title/headline/…`), uppercase
   kerned kickers for phase labels ("ROUND 2").
 - Continuous-corner cards (`.card()`, 20pt), capsule chips for players,
-  muted 8-color player palette in `PlayerStyle`.
+  neon-leaning 8-color player palette in `PlayerStyle` led by the brand
+  cyan and magenta.
+- Playing cards are bright white with ink/magenta pips — the one bright
+  object on the table.
 - Phases cross-fade with a slight scale (see `GameScreen.contentKey`) —
   motion is soft and brief, never bouncy.
 

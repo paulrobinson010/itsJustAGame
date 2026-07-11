@@ -98,6 +98,72 @@ struct WheelPhaseView: View {
     }
 }
 
+/// Several players reached the winning round count together — a wheel of
+/// just the tied players spins and lands on the host-rolled random winner.
+struct TieBreakView: View {
+    let session: GameSession
+    let candidates: [Int]
+    let winner: Int
+
+    @State private var rotation: Double = 0
+    @State private var finished = false
+
+    private var candidatePlayers: [PlayerInfo] {
+        candidates.compactMap { session.config?.player($0) }
+    }
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Text("Tie-breaker")
+                .font(Theme.subheadline)
+                .foregroundStyle(Theme.magenta)
+                .textCase(.uppercase)
+                .kerning(1.5)
+            Text("\(session.names(candidates)) all hit \(session.config?.roundsToWin ?? 0) rounds!")
+                .font(Theme.display(24))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Text("The wheel decides — totally at random.")
+                .font(Theme.subheadline)
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .top) {
+                WheelShapeView(players: candidatePlayers)
+                    .rotationEffect(.degrees(rotation))
+                Image(systemName: "arrowtriangle.down.fill")
+                    .font(.title)
+                    .foregroundStyle(Theme.magenta)
+                    .offset(y: -10)
+            }
+            .frame(width: 300, height: 300)
+            .padding(.top, 12)
+
+            Text(finished ? "🎉 \(session.name(winner)) takes the game!" : "Spinning…")
+                .font(Theme.headline)
+            Spacer()
+        }
+        .padding(.top, 24)
+        .onAppear { spin() }
+    }
+
+    private func spin() {
+        let players = candidatePlayers
+        guard let index = players.firstIndex(where: { $0.slot == winner }), !players.isEmpty else {
+            finished = true
+            return
+        }
+        let segment = 360.0 / Double(players.count)
+        let landing = 360.0 * 6 - (Double(index) + 0.5) * segment
+        withAnimation(.easeOut(duration: GameTiming.wheelSpinSeconds)) {
+            rotation = landing
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(GameTiming.wheelSpinSeconds + 0.3))
+            finished = true
+        }
+    }
+}
+
 struct WheelShapeView: View {
     let players: [PlayerInfo]
 

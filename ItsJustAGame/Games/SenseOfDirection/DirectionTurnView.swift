@@ -69,7 +69,7 @@ struct DirectionTurnView: View {
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        remaining < 5 ? Color.red : Color.accentColor,
+                        remaining < 5 ? Theme.magenta : Theme.cyan,
                         style: StrokeStyle(lineWidth: 6, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -183,7 +183,7 @@ struct CompassDial: View {
 
     private func dialFace(size: CGFloat) -> some View {
         ZStack {
-            Circle().fill(Color(.secondarySystemBackground))
+            Circle().fill(Theme.surface)
             Circle().stroke(Theme.hairline, lineWidth: 1)
             ForEach(0..<8, id: \.self) { index in
                 Text(Self.labels[index])

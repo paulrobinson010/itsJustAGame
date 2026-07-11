@@ -29,6 +29,8 @@ struct JoinGameView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
             .navigationTitle("Join a game")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

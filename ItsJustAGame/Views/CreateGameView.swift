@@ -32,6 +32,8 @@ struct CreateGameView: View {
                     Text("Every player needs a name. You are player 1 — everyone else gets their own invite link to send from the lobby.")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
             .navigationTitle("New game")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

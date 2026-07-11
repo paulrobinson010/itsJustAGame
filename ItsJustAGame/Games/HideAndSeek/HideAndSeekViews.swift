@@ -323,8 +323,8 @@ struct SeekRevealView: View {
     private var footer: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Group {
-                if let winner = reveal.roundWinner {
-                    Text("🏆 \(session.name(winner)) was the last one hidden — wins the round!")
+                if !reveal.roundWinners.isEmpty {
+                    Text("🏆 \(session.names(reveal.roundWinners)) \(reveal.roundWinners.count == 1 ? "was" : "were") found last — \(reveal.roundWinners.count == 1 ? "wins" : "they share") the round!")
                         .font(Theme.headline)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)

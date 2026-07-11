@@ -10,6 +10,7 @@ struct ItsJustAGameApp: App {
                 .onOpenURL { url in
                     model.handle(url: url)
                 }
+                .preferredColorScheme(.dark)
         }
     }
 }
