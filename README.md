@@ -231,6 +231,32 @@ first.
 - Timing values (15 s aim, reveal pauses, etc.) live in one place
   (`GameTiming`) so we can tune them once the prototype is in hand.
 
+## Universal links (going live)
+
+Everything for tappable `https://itsjustagame.robbo-online.uk/join/…`
+links is already in the repo — the `docs/` folder is a ready GitHub Pages
+site (AASA file, landing page, join page) and the app carries the
+Associated Domains entitlement and parses both link forms. To switch on:
+
+1. DNS: `CNAME itsjustagame.robbo-online.uk → paulrobinson010.github.io`.
+2. GitHub → Settings → Pages: deploy from branch, folder `/docs`; set the
+   custom domain (the `docs/CNAME` file already matches); enforce HTTPS.
+3. Edit `docs/.well-known/apple-app-site-association`: replace `TEAMID`
+   with your 10-character Apple Team ID (and the bundle ID if you changed
+   it from `com.paulrobinson.ItsJustAGame`).
+4. Verify: `curl https://itsjustagame.robbo-online.uk/.well-known/apple-app-site-association`
+   returns the JSON.
+5. Flip `InviteLink.useUniversalLinks` to `true`, rebuild, delete and
+   reinstall the app on each device (iOS fetches the AASA at install).
+6. If tapped links stubbornly open Safari instead of the app, the usual
+   culprit is the AASA content-type GitHub Pages serves; fronting the
+   subdomain with free Cloudflare and forcing `application/json` on that
+   path fixes it.
+
+The privacy model is unchanged: the key rides in the URL fragment, which
+browsers never send to a server — GitHub only ever sees the random game
+ID and slot. The join page's copy button reads the fragment locally.
+
 ## Roadmap
 
 - More mini games (the wheel/choice mechanic already supports them —

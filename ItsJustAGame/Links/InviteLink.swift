@@ -1,15 +1,20 @@
 import Foundation
 
-/// Invite links look like:
+/// Invite links come in two equivalent forms, both carrying the encryption
+/// key in the URL fragment — which browsers never send to any server:
 ///
 ///     itsjustagame://join/<gameID>/<slot>#<key>
+///     https://itsjustagame.robbo-online.uk/join/<gameID>/<slot>#<key>
 ///
-/// The encryption key rides in the URL fragment. For the custom scheme this
-/// is cosmetic (the URL never touches a server), but it means the format is
-/// already correct if we later move to https universal links, where
-/// fragments are not sent to the web server.
+/// The app parses both. Which form gets *generated* is controlled by
+/// `useUniversalLinks` — flip it to true once the domain and its GitHub
+/// Pages site (in /docs) are live, and shared links become tappable
+/// universal links that open the app directly.
 enum InviteLink {
     static let scheme = "itsjustagame"
+    static let webHost = "itsjustagame.robbo-online.uk"
+    /// Keep false until the domain is serving /docs over HTTPS.
+    static let useUniversalLinks = false
 
     struct Parsed: Hashable {
         var gameID: String
@@ -18,13 +23,22 @@ enum InviteLink {
     }
 
     static func url(gameID: String, slot: Int, key: String) -> String {
-        "\(scheme)://join/\(gameID)/\(slot)#\(key)"
+        if useUniversalLinks {
+            return "https://\(webHost)/join/\(gameID)/\(slot)#\(key)"
+        }
+        return "\(scheme)://join/\(gameID)/\(slot)#\(key)"
     }
 
     static func parse(_ url: URL) -> Parsed? {
-        guard url.scheme?.lowercased() == scheme,
-              url.host()?.lowercased() == "join" else { return nil }
-        let parts = url.pathComponents.filter { $0 != "/" }
+        var parts = url.pathComponents.filter { $0 != "/" }
+        if url.scheme?.lowercased() == scheme {
+            guard url.host()?.lowercased() == "join" else { return nil }
+        } else if url.scheme?.lowercased() == "https" || url.scheme?.lowercased() == "http" {
+            guard url.host()?.lowercased() == webHost, parts.first == "join" else { return nil }
+            parts.removeFirst()
+        } else {
+            return nil
+        }
         guard parts.count == 2,
               let slot = Int(parts[1]),
               let key = url.fragment(), !key.isEmpty else { return nil }

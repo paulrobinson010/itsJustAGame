@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the game — It's Just a Game</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0d17;
+    color: #fff;
+    font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+  }
+  .wrap { max-width: 420px; }
+  h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 12px; }
+  .accent { color: #33d9ff; }
+  p { color: rgba(255,255,255,0.65); line-height: 1.5; margin-bottom: 16px; }
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    margin-bottom: 12px;
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .primary { background: #33d9ff; color: #0a0d17; box-shadow: 0 4px 24px rgba(51,217,255,0.35); }
+  .quiet { background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.14); }
+  .note { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin-top: 16px; }
+  .hidden { display: none; }
+  .dot { font-size: 3rem; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="dot">👋</div>
+    <div id="join" class="hidden">
+      <h1>You're invited to a <span class="accent">game</span>!</h1>
+      <p>If you have <strong>It's Just a Game</strong> installed, open it in the app.
+         Otherwise copy your invite and paste it into the app once it's on your phone.</p>
+      <a id="open" class="btn primary" href="#">Open in the app</a>
+      <button id="copy" class="btn quiet">Copy invite link</button>
+      <p class="note">Your invite's secret key lives in the part of the link after the
+         “#”. Browsers never send that to any server — this page reads it only on
+         your device.</p>
+    </div>
+    <div id="plain" class="hidden">
+      <h1>It's <span class="accent">Just</span> a Game</h1>
+      <p>That page doesn't exist. If someone sent you an invite link, open the
+         whole link they sent you.</p>
+    </div>
+  </div>
+<script>
+  // Everything below runs locally. The fragment (the key) never leaves
+  // this device — it is not part of any request the browser makes.
+  (function () {
+    var path = window.location.pathname;
+    var isJoin = path.indexOf("/join/") === 0;
+    document.getElementById(isJoin ? "join" : "plain").classList.remove("hidden");
+    if (!isJoin) { return; }
+
+    var appLink = "itsjustagame://join/" +
+      path.slice("/join/".length).replace(/\/+$/, "") +
+      window.location.hash;
+
+    document.getElementById("open").setAttribute("href", appLink);
+
+    document.getElementById("copy").addEventListener("click", function () {
+      var full = window.location.href;
+      var button = this;
+      function done() {
+        button.textContent = "Copied!";
+        setTimeout(function () { button.textContent = "Copy invite link"; }, 2000);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(full).then(done);
+      } else {
+        window.prompt("Copy your invite link:", full);
+      }
+    });
+  })();
+</script>
+</body>
+</html>
