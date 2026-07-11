@@ -29,7 +29,7 @@ struct CreateGameView: View {
                 } header: {
                     Text("Players")
                 } footer: {
-                    Text("You are player 1. Everyone else gets their own invite link — send each person theirs from the lobby.")
+                    Text("Every player needs a name. You are player 1 — everyone else gets their own invite link to send from the lobby.")
                 }
             }
             .navigationTitle("New game")
@@ -40,15 +40,20 @@ struct CreateGameView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        let list = (0..<playerCount).map { index in
-                            let trimmed = names[index].trimmingCharacters(in: .whitespaces)
-                            return trimmed.isEmpty ? "Player \(index + 1)" : trimmed
-                        }
-                        model.createGame(roundsToWin: roundsToWin, playerNames: list)
+                        model.createGame(roundsToWin: roundsToWin, playerNames: trimmedNames)
                         dismiss()
                     }
+                    .disabled(!allPlayersNamed)
                 }
             }
         }
+    }
+
+    private var trimmedNames: [String] {
+        (0..<playerCount).map { names[$0].trimmingCharacters(in: .whitespaces) }
+    }
+
+    private var allPlayersNamed: Bool {
+        trimmedNames.allSatisfy { !$0.isEmpty }
     }
 }

@@ -34,7 +34,7 @@ struct LobbyView: View {
                             }
                             Spacer()
                             if session.saved.isHost && player.slot != 1 {
-                                ShareLink(item: inviteURL(for: player)) {
+                                ShareLink(item: inviteMessage(for: player, config: config)) {
                                     Image(systemName: "square.and.arrow.up")
                                 }
                             }
@@ -76,7 +76,10 @@ struct LobbyView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func inviteURL(for player: PlayerInfo) -> String {
-        InviteLink.url(gameID: session.saved.gameID, slot: player.slot, key: session.saved.keyBase64URL)
+    /// The whole message is safe to paste into the app — the joiner just
+    /// copies everything and the link is found inside it.
+    private func inviteMessage(for player: PlayerInfo, config: GameConfig) -> String {
+        let url = InviteLink.url(gameID: session.saved.gameID, slot: player.slot, key: session.saved.keyBase64URL)
+        return "\(player.name), you're invited to \(config.name(1))'s game on It's Just a Game! Tap the link, or copy this whole message and paste it in the app:\n\(url)"
     }
 }

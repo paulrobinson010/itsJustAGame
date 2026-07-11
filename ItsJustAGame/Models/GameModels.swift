@@ -61,6 +61,9 @@ struct SavedGame: Codable, Hashable, Identifiable {
     var hostConfig: GameConfig?
     var title: String
     var createdAt: Date
+    /// True until a joiner has seen their "Welcome to the game" greeting.
+    /// Optional so older saved games decode cleanly.
+    var needsWelcome: Bool?
 
     var id: String { gameID }
 }

@@ -8,6 +8,7 @@ struct GameScreen: View {
     let model: AppModel
     @State private var session: GameSession
     @State private var engine: HostEngine?
+    @State private var showWelcome: Bool
 
     init(saved: SavedGame, model: AppModel) {
         self.saved = saved
@@ -15,6 +16,7 @@ struct GameScreen: View {
         let crypto = GameCrypto(base64URL: saved.keyBase64URL) ?? GameCrypto()
         let transport = CloudKitTransport()
         _session = State(initialValue: GameSession(saved: saved, transport: transport, crypto: crypto))
+        _showWelcome = State(initialValue: saved.needsWelcome == true)
         if saved.isHost, let config = saved.hostConfig {
             _engine = State(initialValue: HostEngine(config: config, transport: transport, crypto: crypto))
         }
@@ -23,21 +25,13 @@ struct GameScreen: View {
     var body: some View {
         NavigationStack {
             Group {
-                switch session.phase {
-                case .lobby(let joined):
-                    LobbyView(session: session, engine: engine, joined: joined)
-                case .wheel(let round, let chooser):
-                    WheelPhaseView(session: session, round: round, chooser: chooser)
-                case .roundIntro(let round, let game):
-                    RoundIntroView(round: round, game: game)
-                case .turn(let turnStart):
-                    DirectionTurnView(session: session, turnStart: turnStart)
-                case .reveal(let reveal):
-                    RevealView(session: session, reveal: reveal)
-                case .roundEnd(let round, let winner):
-                    RoundEndView(session: session, round: round, winner: winner)
-                case .gameEnd(let winner):
-                    GameEndView(session: session, winner: winner) { close() }
+                if showWelcome {
+                    WelcomeView(session: session) {
+                        showWelcome = false
+                        model.store.markWelcomed(saved)
+                    }
+                } else {
+                    phaseContent
                 }
             }
             .toolbar {
@@ -66,8 +60,74 @@ struct GameScreen: View {
         }
     }
 
+    @ViewBuilder
+    private var phaseContent: some View {
+        switch session.phase {
+        case .lobby(let joined):
+            LobbyView(session: session, engine: engine, joined: joined)
+        case .wheel(let round, let chooser):
+            WheelPhaseView(session: session, round: round, chooser: chooser)
+        case .roundIntro(let round, let game):
+            RoundIntroView(round: round, game: game)
+        case .turn(let turnStart):
+            DirectionTurnView(session: session, turnStart: turnStart)
+        case .reveal(let reveal):
+            RevealView(session: session, reveal: reveal)
+        case .roundEnd(let round, let winner):
+            RoundEndView(session: session, round: round, winner: winner)
+        case .gameEnd(let winner):
+            GameEndView(session: session, winner: winner) { close() }
+        }
+    }
+
     private func close() {
         model.activeGame = nil
+    }
+}
+
+/// Shown once to a player who has just joined via an invite link, as soon
+/// as the game details have been fetched and decrypted.
+struct WelcomeView: View {
+    let session: GameSession
+    var onBegin: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Text("👋")
+                .font(.system(size: 64))
+            if let config = session.config {
+                Text("Welcome \(config.name(session.mySlot))")
+                    .font(.largeTitle.bold())
+                    .multilineTextAlignment(.center)
+                Text("to \(config.name(1))'s game!")
+                    .font(.title2)
+                    .multilineTextAlignment(.center)
+                Text("First to \(config.roundsToWin) rounds wins. Head to the lobby while everyone joins.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                Button {
+                    onBegin()
+                } label: {
+                    Text("Begin")
+                        .frame(maxWidth: 200)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .padding(.top, 8)
+            } else {
+                ProgressView()
+                Text("Getting your game ready…")
+                    .font(.headline)
+                Text("Fetching and decrypting the game details.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding()
     }
 }
 

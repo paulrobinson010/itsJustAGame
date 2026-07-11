@@ -64,7 +64,8 @@ final class AppModel {
             isHost: false,
             hostConfig: nil,
             title: "Joined game",
-            createdAt: Date()
+            createdAt: Date(),
+            needsWelcome: true
         )
         store.add(saved)
         joinError = nil

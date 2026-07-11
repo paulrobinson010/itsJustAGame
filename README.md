@@ -12,10 +12,16 @@ Everything the game sends between devices is **end-to-end encrypted**.
 ### Game flow
 
 1. **Create** — the host picks how many rounds it takes to win, how many
-   players, and their names. The app generates a personal invite link for
-   every player except the host.
-2. **Join** — players paste their link into the app (or just tap it — the
-   app registers the `itsjustagame://` URL scheme).
+   players, and their names (every player must be named). The app generates
+   a personal invite link for every player except the host, to send by
+   iMessage, WhatsApp, etc.
+2. **Join** — players paste their invite message into the app (or tap the
+   link — the app registers the `itsjustagame://` URL scheme). A joiner is
+   greeted with "Welcome ⟨their name⟩ to ⟨host⟩'s game" before entering the
+   lobby. Note: some messaging apps don't make custom-scheme links tappable,
+   which is why the share message says "copy this whole message and paste it
+   in the app" — the app finds the link inside the pasted text. Universal
+   links (`https://…`) are the eventual fix.
 3. **Lobby** — the host sees everyone join, then starts the game.
 4. **Wheel** — a spinning wheel picks who chooses the round's mini game. The
    result is decided at random on the host device; the wheel animation just

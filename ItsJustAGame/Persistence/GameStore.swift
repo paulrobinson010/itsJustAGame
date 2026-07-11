@@ -24,6 +24,12 @@ final class GameStore {
         save()
     }
 
+    func markWelcomed(_ game: SavedGame) {
+        guard let index = games.firstIndex(where: { $0.gameID == game.gameID }) else { return }
+        games[index].needsWelcome = false
+        save()
+    }
+
     private var fileURL: URL {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
