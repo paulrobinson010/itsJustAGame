@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.paulrobinson.ItsJustAGame"],
+        "appIDs": ["UPF9A27355.com.paulrobinson.ItsJustAGame"],
         "components": [
           { "/": "/join/*" }
         ]
