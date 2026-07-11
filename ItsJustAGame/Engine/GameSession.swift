@@ -25,6 +25,9 @@ final class GameSession {
     private(set) var config: GameConfig?
     private(set) var points: [Int: Int] = [:]
     private(set) var roundsWon: [Int: Int] = [:]
+    /// Everyone who had joined by the time the game started. Joins only
+    /// happen in the lobby, so the last lobby message is authoritative.
+    private(set) var joinedSlots: Set<Int> = [1]
     private(set) var lastError: String?
 
     private let transport: any GameTransport
@@ -143,6 +146,7 @@ final class GameSession {
         case .gameCreated(let config):
             self.config = config
         case .lobby(let joined):
+            joinedSlots = Set(joined)
             if case .lobby = phase {
                 phase = .lobby(joined: Set(joined))
             }

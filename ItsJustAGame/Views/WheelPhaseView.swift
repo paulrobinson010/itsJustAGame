@@ -38,15 +38,22 @@ struct WheelPhaseView: View {
                         Text("You pick the game!")
                             .font(.headline)
                         ForEach(MiniGameType.allCases, id: \.self) { game in
+                            let available = session.joinedSlots.count >= game.minPlayers
                             Button {
                                 hasChosen = true
                                 session.submitChoice(round: round, game: game)
                             } label: {
-                                Label(game.displayName, systemImage: "location.north.circle.fill")
-                                    .frame(maxWidth: .infinity)
+                                VStack(spacing: 2) {
+                                    Label(game.displayName, systemImage: "location.north.circle.fill")
+                                    if !available {
+                                        Text("Needs at least \(game.minPlayers) players")
+                                            .font(.caption2)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(hasChosen)
+                            .disabled(hasChosen || !available)
                         }
                         if hasChosen {
                             Text("Starting…")

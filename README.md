@@ -25,7 +25,10 @@ Everything the game sends between devices is **end-to-end encrypted**.
 3. **Lobby** — the host sees everyone join, then starts the game.
 4. **Wheel** — a spinning wheel picks who chooses the round's mini game. The
    result is decided at random on the host device; the wheel animation just
-   lands on it.
+   lands on it. Each mini game declares a minimum player count and is only
+   offered when enough players have joined (Sense of Direction: 2) — the
+   host enforces this, and a game can't start at all below the smallest
+   minimum.
 5. **Round** — a *game* is made of *rounds* (first to N rounds wins the
    game). Each round is one mini game. Within Sense of Direction, each
    *turn* is one target place; the turn winner gets a point, and the first

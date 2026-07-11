@@ -42,8 +42,12 @@ final class HostEngine {
         gameTask = nil
     }
 
+    var canBeginGame: Bool {
+        !gameRunning && !resumeBlocked && joined.count >= MiniGameType.smallestMinimum
+    }
+
     func beginGame() {
-        guard !gameRunning, !resumeBlocked else { return }
+        guard canBeginGame else { return }
         gameRunning = true
         lobbyTask?.cancel()
         lobbyTask = nil
@@ -151,11 +155,16 @@ final class HostEngine {
                let body = found[id],
                let message = try? crypto.open(PlayerMessage.self, from: body),
                case .choice(_, _, let game) = message {
-                return game
+                // The host is authoritative: a game without enough players
+                // can't be chosen, whatever the chooser's device claimed.
+                if joined.count >= game.minPlayers {
+                    return game
+                }
+                break
             }
             try? await Task.sleep(for: .seconds(1.5))
         }
-        return .senseOfDirection
+        return MiniGameType.available(for: joined.count).randomElement() ?? .senseOfDirection
     }
 
     private func runDirectionRound(round: Int) async -> Int {

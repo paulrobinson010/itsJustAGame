@@ -59,10 +59,14 @@ struct LobbyView: View {
                                 )
                                 .frame(maxWidth: .infinity)
                             }
-                            .disabled(engine.gameRunning)
+                            .disabled(!engine.canBeginGame)
                         }
                     } footer: {
-                        Text("Send each player their own link. The links carry the game's secret key, so everything stays end-to-end encrypted — share them privately.")
+                        if joined.count < MiniGameType.smallestMinimum {
+                            Text("At least \(MiniGameType.smallestMinimum) players must join before the game can start. Send each player their own link — the links carry the game's secret key, so share them privately.")
+                        } else {
+                            Text("Send each player their own link. The links carry the game's secret key, so everything stays end-to-end encrypted — share them privately.")
+                        }
                     }
                 } else {
                     Section {

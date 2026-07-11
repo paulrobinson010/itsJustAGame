@@ -49,6 +49,23 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .senseOfDirection: return "Sense of Direction"
         }
     }
+
+    /// A game can only be chosen when at least this many players have joined.
+    var minPlayers: Int {
+        switch self {
+        case .senseOfDirection: return 2
+        }
+    }
+
+    static func available(for playerCount: Int) -> [MiniGameType] {
+        allCases.filter { playerCount >= $0.minPlayers }
+    }
+
+    /// The smallest minimum across all games — below this, no round can be
+    /// played at all, so a game can't start.
+    static var smallestMinimum: Int {
+        allCases.map(\.minPlayers).min() ?? 2
+    }
 }
 
 /// What each device persists locally about a game it is part of. This is the
