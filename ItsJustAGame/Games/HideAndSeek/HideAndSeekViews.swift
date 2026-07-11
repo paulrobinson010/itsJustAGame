@@ -14,7 +14,10 @@ struct CellAppearance {
     var searched = false
     var selected = false
     var isMine = false
-    var revealedSlots: [Int] = []
+    /// The local player's dealt color, used to mark their hiding spot.
+    var mineColor: Color = Theme.cyan
+    /// Dealt colors of the players revealed on this cell.
+    var revealedColors: [Color] = []
 }
 
 struct HideSeekGrid: View {
@@ -46,11 +49,11 @@ struct GridCellView: View {
             .fill(background)
             .aspectRatio(1, contentMode: .fit)
             .overlay {
-                if !appearance.revealedSlots.isEmpty {
+                if !appearance.revealedColors.isEmpty {
                     HStack(spacing: 2) {
-                        ForEach(appearance.revealedSlots, id: \.self) { slot in
+                        ForEach(appearance.revealedColors.indices, id: \.self) { index in
                             Circle()
-                                .fill(PlayerStyle.color(for: slot))
+                                .fill(appearance.revealedColors[index])
                                 .frame(width: 10, height: 10)
                                 .overlay(Circle().stroke(.white, lineWidth: 1))
                         }
@@ -79,7 +82,7 @@ struct GridCellView: View {
     }
 
     private var background: Color {
-        if appearance.isMine { return Color.accentColor.opacity(0.85) }
+        if appearance.isMine { return appearance.mineColor.opacity(0.85) }
         if appearance.searched { return Color.primary.opacity(0.02) }
         return Color.primary.opacity(0.05)
     }
@@ -102,7 +105,7 @@ struct HideSeekStatusBar: View {
             ForEach(slots, id: \.self) { slot in
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(PlayerStyle.color(for: slot))
+                        .fill(session.color(slot))
                         .frame(width: 8, height: 8)
                     Text(session.name(slot))
                         .font(Theme.caption2)
@@ -120,7 +123,7 @@ struct HideSeekStatusBar: View {
                 .background(Theme.quietFill, in: Capsule())
                 .overlay(
                     Capsule().stroke(
-                        slot == seeker ? PlayerStyle.color(for: slot).opacity(0.7) : .clear,
+                        slot == seeker ? session.color(slot).opacity(0.7) : .clear,
                         lineWidth: 1.5
                     )
                 )
@@ -153,7 +156,8 @@ struct HideView: View {
                 HideSeekGrid(gridSize: hideStart.gridSize) { cell in
                     CellAppearance(
                         selected: selected == cell && !submitted,
-                        isMine: submitted && session.myHideCells[hideStart.round] == cell
+                        isMine: submitted && session.myHideCells[hideStart.round] == cell,
+                        mineColor: session.color(session.mySlot)
                     )
                 } onTap: { cell in
                     guard !submitted else { return }
@@ -236,7 +240,8 @@ struct SeekTurnView: View {
                         searched: turnStart.searched.contains(cell),
                         selected: selected == cell && isMyTurn && !submitted,
                         isMine: session.myHideCells[turnStart.round] == cell && !turnStart.searched.contains(cell),
-                        revealedSlots: turnStart.found.filter { $0.value == cell }.map(\.key).sorted()
+                        mineColor: session.color(session.mySlot),
+                        revealedColors: turnStart.found.filter { $0.value == cell }.map(\.key).sorted().map { session.color($0) }
                     )
                 } onTap: { cell in
                     guard isMyTurn, !submitted, !turnStart.searched.contains(cell) else { return }
@@ -302,7 +307,8 @@ struct SeekRevealView: View {
                     searched: reveal.searched.contains(cell),
                     selected: cell == reveal.cell,
                     isMine: session.myHideCells[reveal.round] == cell && !reveal.searched.contains(cell),
-                    revealedSlots: reveal.found.filter { $0.value == cell }.map(\.key).sorted()
+                    mineColor: session.color(session.mySlot),
+                    revealedColors: reveal.found.filter { $0.value == cell }.map(\.key).sorted().map { session.color($0) }
                 )
             }
             footer

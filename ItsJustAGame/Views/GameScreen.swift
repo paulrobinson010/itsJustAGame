@@ -157,7 +157,7 @@ struct ScoreBar: View {
             ForEach(session.players) { player in
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(PlayerStyle.color(for: player.slot))
+                        .fill(player.color)
                         .frame(width: 8, height: 8)
                     Text(player.name)
                         .font(Theme.caption)
@@ -222,7 +222,7 @@ struct RoundStandingsView: View {
             ForEach(session.players) { player in
                 HStack(spacing: 10) {
                     Circle()
-                        .fill(PlayerStyle.color(for: player.slot))
+                        .fill(player.color)
                         .frame(width: 10, height: 10)
                     Text(player.name)
                         .font(Theme.subheadline)
@@ -233,7 +233,7 @@ struct RoundStandingsView: View {
                     HStack(spacing: 5) {
                         ForEach(0..<total, id: \.self) { index in
                             Circle()
-                                .fill(index < won ? PlayerStyle.color(for: player.slot) : Theme.quietFill)
+                                .fill(index < won ? player.color : Theme.quietFill)
                                 .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
                                 .frame(width: 8, height: 8)
                         }

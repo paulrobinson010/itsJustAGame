@@ -71,8 +71,8 @@ struct FingerTurnView: View {
                     Annotation("", coordinate: pin.coordinate) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 30))
-                            .foregroundStyle(Theme.cyan)
-                            .shadow(color: Theme.cyan.opacity(0.7), radius: 8)
+                            .foregroundStyle(session.color(session.mySlot))
+                            .shadow(color: session.color(session.mySlot).opacity(0.7), radius: 8)
                     }
                 }
             }
@@ -168,7 +168,7 @@ struct FingerRevealView: View {
             return GuessLine(
                 id: outcome.slot,
                 start: coordinate.clCoordinate,
-                color: PlayerStyle.color(for: outcome.slot)
+                color: session.color(outcome.slot)
             )
         }
     }
@@ -192,7 +192,7 @@ struct FingerRevealView: View {
             ForEach(placedOutcomes) { outcome in
                 Annotation(pinLabel(for: outcome), coordinate: outcome.coordinate!.clCoordinate) {
                     Circle()
-                        .fill(PlayerStyle.color(for: outcome.slot))
+                        .fill(session.color(outcome.slot))
                         .frame(width: 14, height: 14)
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                 }
@@ -229,7 +229,7 @@ struct FingerRevealView: View {
             ForEach(sortedOutcomes) { outcome in
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(PlayerStyle.color(for: outcome.slot))
+                        .fill(session.color(outcome.slot))
                         .frame(width: 8, height: 8)
                     Text(session.name(outcome.slot))
                         .font(Theme.subheadline)

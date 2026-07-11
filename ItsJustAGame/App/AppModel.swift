@@ -10,8 +10,11 @@ final class AppModel {
 
     @discardableResult
     func createGame(roundsToWin: Int, playerNames: [String]) -> SavedGame {
+        // Deal everyone a color at random from the palette, fixed for the
+        // whole game.
+        let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
         let players = playerNames.enumerated().map { index, name in
-            PlayerInfo(slot: index + 1, name: name)
+            PlayerInfo(slot: index + 1, name: name, colorIndex: colorIndices[index % colorIndices.count])
         }
         let config = GameConfig(
             gameID: UUID().uuidString.lowercased(),

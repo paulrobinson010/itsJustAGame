@@ -41,7 +41,7 @@ struct RevealView: View {
             ForEach(sortedOutcomes) { outcome in
                 HStack {
                     Circle()
-                        .fill(PlayerStyle.color(for: outcome.slot))
+                        .fill(session.color(outcome.slot))
                         .frame(width: 10, height: 10)
                     Text(session.name(outcome.slot))
                         .lineLimit(1)
@@ -105,7 +105,7 @@ struct RevealMap: View {
             ForEach(placedOutcomes) { outcome in
                 Annotation(session.name(outcome.slot), coordinate: outcome.coordinate!.clCoordinate) {
                     Circle()
-                        .fill(PlayerStyle.color(for: outcome.slot))
+                        .fill(session.color(outcome.slot))
                         .frame(width: 14, height: 14)
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                 }
@@ -131,7 +131,7 @@ struct RevealMap: View {
                 id: outcome.slot,
                 start: start.clCoordinate,
                 end: end.clCoordinate,
-                color: PlayerStyle.color(for: outcome.slot)
+                color: session.color(outcome.slot)
             )
         }
     }

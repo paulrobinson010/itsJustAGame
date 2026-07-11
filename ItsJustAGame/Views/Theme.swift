@@ -97,7 +97,19 @@ enum PlayerStyle {
         Color(red: 0.48, green: 0.64, blue: 1.00),  // azure
     ]
 
+    static func color(index: Int) -> Color {
+        palette[((index % palette.count) + palette.count) % palette.count]
+    }
+
+    /// Fallback when no dealt color is known (e.g. before the config has
+    /// been fetched): slot order.
     static func color(for slot: Int) -> Color {
-        palette[(slot - 1 + palette.count * 8) % palette.count]
+        color(index: slot - 1)
+    }
+}
+
+extension PlayerInfo {
+    var color: Color {
+        PlayerStyle.color(index: colorIndex ?? (slot - 1))
     }
 }

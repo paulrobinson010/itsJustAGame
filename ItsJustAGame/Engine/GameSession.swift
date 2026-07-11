@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 enum GamePhase: Hashable {
     case lobby(joined: Set<Int>)
@@ -66,6 +67,11 @@ final class GameSession {
 
     func name(_ slot: Int) -> String {
         config?.name(slot) ?? "Player \(slot)"
+    }
+
+    /// The player's dealt color, fixed for the whole game.
+    func color(_ slot: Int) -> Color {
+        config?.player(slot)?.color ?? PlayerStyle.color(for: slot)
     }
 
     /// "Ann", "Ann & Bob", "Ann, Bob & Cat".

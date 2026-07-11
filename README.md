@@ -187,7 +187,11 @@ from them:
   kerned kickers for phase labels ("ROUND 2").
 - Continuous-corner cards (`.card()`, 20pt), capsule chips for players,
   neon-leaning 8-color player palette in `PlayerStyle` led by the brand
-  cyan and magenta.
+  cyan and magenta. Each player is **dealt a color at random by the host
+  when the game is created** (stored in the encrypted game config) and
+  keeps it everywhere for the whole game — chips, wheel segments, map
+  pins, lines, grid reveals, your own hiding spot and pin. Look up colors
+  via `session.color(slot)` or `player.color`, never by slot arithmetic.
 - Playing cards are bright white with ink/magenta pips — the one bright
   object on the table.
 - Phases cross-fade with a slight scale (see `GameScreen.contentKey`) —

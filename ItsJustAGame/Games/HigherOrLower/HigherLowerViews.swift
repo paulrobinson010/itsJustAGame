@@ -102,7 +102,7 @@ struct HigherLowerStatusBar: View {
                 let out = !alive.contains(slot)
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(PlayerStyle.color(for: slot))
+                        .fill(session.color(slot))
                         .frame(width: 8, height: 8)
                     Text(session.name(slot))
                         .font(Theme.caption2)
@@ -111,7 +111,7 @@ struct HigherLowerStatusBar: View {
                     HStack(spacing: 3) {
                         ForEach(0..<GameTiming.pointsToWinRound, id: \.self) { index in
                             Circle()
-                                .fill(index < points[slot, default: 0] ? PlayerStyle.color(for: slot) : Color.white.opacity(0.15))
+                                .fill(index < points[slot, default: 0] ? session.color(slot) : Color.white.opacity(0.15))
                                 .frame(width: 5, height: 5)
                         }
                     }
@@ -258,7 +258,7 @@ struct CardRevealView: View {
                 if let guess = reveal.guesses[slot] {
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(PlayerStyle.color(for: slot))
+                            .fill(session.color(slot))
                             .frame(width: 8, height: 8)
                         Text(session.name(slot))
                             .font(Theme.subheadline)

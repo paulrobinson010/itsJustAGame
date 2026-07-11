@@ -23,6 +23,10 @@ struct Coordinate: Codable, Hashable {
 struct PlayerInfo: Codable, Hashable, Identifiable {
     var slot: Int
     var name: String
+    /// Index into the player palette, dealt at random by the host when the
+    /// game is created and used everywhere for the whole game. Optional so
+    /// older games decode; they fall back to slot order.
+    var colorIndex: Int?
     var id: Int { slot }
 }
 

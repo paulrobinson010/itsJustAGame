@@ -24,6 +24,9 @@ struct LobbyView: View {
                         HStack {
                             Image(systemName: joined.contains(player.slot) ? "checkmark.circle.fill" : "circle.dotted")
                                 .foregroundStyle(joined.contains(player.slot) ? .green : .secondary)
+                            Circle()
+                                .fill(player.color)
+                                .frame(width: 10, height: 10)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(player.name)
                                 if player.slot == session.mySlot {

@@ -216,7 +216,7 @@ struct SequenceRevealView: View {
             ForEach(reveal.results) { result in
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(PlayerStyle.color(for: result.slot))
+                        .fill(session.color(result.slot))
                         .frame(width: 8, height: 8)
                     Text(session.name(result.slot))
                         .font(Theme.subheadline)

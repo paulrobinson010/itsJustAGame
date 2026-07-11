@@ -191,7 +191,7 @@ struct WheelShapeView: View {
                         )
                         path.closeSubpath()
                     }
-                    .fill(PlayerStyle.color(for: player.slot).opacity(0.85))
+                    .fill(player.color.opacity(0.85))
 
                     Text(player.name)
                         .font(.system(.footnote, design: .rounded).bold())
