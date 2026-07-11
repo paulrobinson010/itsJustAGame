@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.paulrobinson.ItsJustAGame.join</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>itsjustagame</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is used to work out the true direction from you to each target and to draw the results map. It is shared only with the players in your game, end-to-end encrypted.</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+</dict>
+</plist>
