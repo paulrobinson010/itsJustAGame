@@ -13,7 +13,9 @@ struct WheelPhaseView: View {
     @State private var hasChosen = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        // Scrolls because the chooser now lists every mini game.
+        ScrollView {
+            VStack(spacing: 24) {
             Text("Round \(round)")
                 .font(Theme.subheadline)
                 .foregroundStyle(.secondary)
@@ -73,10 +75,10 @@ struct WheelPhaseView: View {
                 }
             }
             .frame(minHeight: 120)
-
-            Spacer()
+            }
+            .padding(.top, 24)
+            .padding(.bottom, 24)
         }
-        .padding(.top, 24)
         .onAppear { spin() }
     }
 

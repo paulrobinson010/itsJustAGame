@@ -18,6 +18,12 @@ enum GamePhase: Hashable {
     // Repeat After Me
     case sequenceTurn(SequenceTurn)
     case sequenceReveal(SequenceReveal)
+    // Lightning
+    case flashTurn(FlashTurn)
+    case flashReveal(FlashReveal)
+    // Put Your Finger On It
+    case fingerTurn(FingerTurn)
+    case fingerReveal(FingerReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int)
     case gameEnd(winner: Int)
@@ -190,6 +196,46 @@ final class GameSession {
         )
     }
 
+    // MARK: - Lightning input
+
+    func submitReaction(elapsedMs: Int?, falseStart: Bool, for turn: FlashTurn) {
+        let id = RecordName.reaction(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.reaction(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs, falseStart: falseStart),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedReaction(for turn: FlashTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.reaction(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Put Your Finger On It input
+
+    func submitFinger(coordinate: Coordinate, for turn: FingerTurn) {
+        let id = RecordName.fingerGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.fingerGuess(round: turn.round, turn: turn.turn, slot: mySlot, coordinate: coordinate),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedFinger(for turn: FingerTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.fingerGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -272,6 +318,18 @@ final class GameSession {
         case .sequenceReveal(let reveal):
             points = reveal.points
             phase = .sequenceReveal(reveal)
+        case .flashTurn(let turn):
+            points = turn.points
+            phase = .flashTurn(turn)
+        case .flashReveal(let reveal):
+            points = reveal.points
+            phase = .flashReveal(reveal)
+        case .fingerTurn(let turn):
+            points = turn.points
+            phase = .fingerTurn(turn)
+        case .fingerReveal(let reveal):
+            points = reveal.points
+            phase = .fingerReveal(reveal)
         case .tieBreakSpin(let candidates, let winner):
             phase = .tieBreak(candidates: candidates, winner: winner)
         case .roundEnd(let round, let winners, let rounds):

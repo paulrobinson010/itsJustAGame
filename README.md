@@ -141,6 +141,32 @@ ItsJustAGame/
 └── Views/          Home, Create, Join, Lobby, Wheel, GameScreen
 ```
 
+### Lightning
+
+A reaction duel. The screen goes dark — "wait for it…" — then flashes cyan
+at a random moment rolled by the host. Tap the instant it flashes; your
+reaction time is measured **locally in milliseconds against the shared
+flash timestamp**, so network latency never affects fairness. Tap before
+the flash and it's a false start (you can't win that flash); never tap and
+you score nothing. Fastest finger takes the point, exact ties share, first
+to 3 points wins the round. Caveat: the flash moment relies on device
+clocks being NTP-synced (normally within tens of ms) — a badly skewed
+clock would make the flash feel early/late on that device.
+
+### Put Your Finger On It
+
+Geography by feel. A bare satellite map appears — no place names, no
+borders — and everyone is asked where a place is ("Where is Algeria?").
+Tap to drop your pin (adjust freely), lock it in before the 15 seconds
+run out. Closest pin to the place's capital takes the point; first to 3
+points wins the round. One region per round, drawn from a curated atlas
+(`FingerAtlas`): Europe, Africa, Asia and South America ask countries;
+the United States region asks states (target: the state capital).
+Alaska and Hawaii are omitted from the US region since they sit outside
+the continental map view. The capital's location stays on the host until
+the reveal, which shows the starred capital, everyone's pins, and
+distances in km.
+
 ## Design language
 
 Very simple, but it should look expensive. The rules live in

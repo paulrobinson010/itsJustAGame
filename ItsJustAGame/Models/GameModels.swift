@@ -46,6 +46,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case hideAndSeek
     case higherOrLower
     case repeatAfterMe
+    case lightning
+    case putYourFingerOnIt
 
     var displayName: String {
         switch self {
@@ -53,6 +55,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .hideAndSeek: return "Hide & Seek"
         case .higherOrLower: return "Higher or Lower"
         case .repeatAfterMe: return "Repeat After Me"
+        case .lightning: return "Lightning"
+        case .putYourFingerOnIt: return "Put Your Finger On It"
         }
     }
 
@@ -63,6 +67,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .hideAndSeek: return 2
         case .higherOrLower: return 2
         case .repeatAfterMe: return 2
+        case .lightning: return 2
+        case .putYourFingerOnIt: return 2
         }
     }
 
@@ -72,6 +78,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .hideAndSeek: return "eye.slash.fill"
         case .higherOrLower: return "arrow.up.arrow.down"
         case .repeatAfterMe: return "square.grid.2x2.fill"
+        case .lightning: return "bolt.fill"
+        case .putYourFingerOnIt: return "hand.point.up.left.fill"
         }
     }
 
@@ -85,6 +93,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "A card is revealed. Call the next one higher or lower — wrong and you're out. Last player standing takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .repeatAfterMe:
             return "Watch the pads flash, then tap the sequence back from memory. One mistake and you're out — last player standing takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .lightning:
+            return "Wait for the flash, then tap as fast as you can — jump early and you're out of the running. Fastest finger takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .putYourFingerOnIt:
+            return "A bare map appears and you're asked where a place is. Tap to drop your pin — closest to its capital takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -139,4 +151,14 @@ enum GameTiming {
     static let sequenceStartLength = 3
     static let sequenceFlashSeconds: Double = 0.65
     static let sequenceRevealSeconds: Double = 6
+
+    // Lightning
+    static let flashWaitMinSeconds: Double = 2
+    static let flashWaitMaxSeconds: Double = 7
+    static let tapWindowSeconds: Double = 4
+    static let flashRevealSeconds: Double = 6
+
+    // Put Your Finger On It
+    static let fingerGuessSeconds: Double = 15
+    static let fingerRevealSeconds: Double = 10
 }

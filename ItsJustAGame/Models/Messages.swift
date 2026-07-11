@@ -23,6 +23,12 @@ enum HostMessage: Codable {
     // Repeat After Me
     case sequenceTurn(SequenceTurn)
     case sequenceReveal(SequenceReveal)
+    // Lightning
+    case flashTurn(FlashTurn)
+    case flashReveal(FlashReveal)
+    // Put Your Finger On It
+    case fingerTurn(FingerTurn)
+    case fingerReveal(FingerReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int)
@@ -41,6 +47,8 @@ enum PlayerMessage: Codable {
     case seek(round: Int, turn: Int, slot: Int, cell: Int)
     case guess(round: Int, match: Int, step: Int, slot: Int, guess: HigherLowerGuess)
     case sequenceAnswer(round: Int, match: Int, step: Int, slot: Int, taps: [Int])
+    case reaction(round: Int, turn: Int, slot: Int, elapsedMs: Int?, falseStart: Bool)
+    case fingerGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -224,6 +232,80 @@ struct SequenceReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Lightning
+
+struct FlashTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// The host-rolled random moment the screen flashes. Reaction time is
+    /// measured locally against this shared timestamp, so network latency
+    /// never affects fairness.
+    var flashAt: Date
+    var tapWindowSeconds: Double
+
+    var deadline: Date { flashAt.addingTimeInterval(tapWindowSeconds) }
+}
+
+struct FlashResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil = never tapped (unless falseStart).
+    var elapsedMs: Int?
+    var falseStart: Bool
+    var id: Int { slot }
+}
+
+struct FlashReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [FlashResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Put Your Finger On It
+
+struct FingerTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var regionName: String
+    var regionCenter: Coordinate
+    var regionSpanLat: Double
+    var regionSpanLon: Double
+    /// The place being asked about ("Where is Algeria?"). The capital
+    /// coordinate stays on the host until the reveal.
+    var placeName: String
+    var points: [Int: Int]
+    var startAt: Date
+    var guessSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(guessSeconds) }
+}
+
+struct FingerOutcome: Codable, Hashable, Identifiable {
+    var slot: Int
+    var coordinate: Coordinate?
+    var distanceKm: Double?
+    var id: Int { slot }
+}
+
+struct FingerReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var regionName: String
+    var placeName: String
+    var capitalName: String
+    var target: Coordinate
+    var outcomes: [FingerOutcome]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -257,5 +339,13 @@ enum RecordName {
 
     static func sequenceAnswer(_ gameID: String, round: Int, match: Int, step: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-m\(match)-q\(step)-seq\(slot)"
+    }
+
+    static func reaction(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-f\(turn)-tap\(slot)"
+    }
+
+    static func fingerGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-p\(turn)-pin\(slot)"
     }
 }

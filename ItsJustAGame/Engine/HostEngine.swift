@@ -136,6 +136,10 @@ final class HostEngine {
                 winners = await runHigherLowerRound(round: round)
             case .repeatAfterMe:
                 winners = await runRepeatAfterMeRound(round: round)
+            case .lightning:
+                winners = await runLightningRound(round: round)
+            case .putYourFingerOnIt:
+                winners = await runFingerRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -708,6 +712,187 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(1.5))
         }
         return answers
+    }
+
+    // MARK: - Lightning
+
+    /// Flash turns until someone reaches the target points. Everyone plays
+    /// every flash; the fastest valid tap wins the point (exact ties share).
+    private func runLightningRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let startAt = Date().addingTimeInterval(2)
+            let wait = Double.random(in: GameTiming.flashWaitMinSeconds...GameTiming.flashWaitMaxSeconds)
+            let turnMessage = FlashTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: startAt,
+                flashAt: startAt.addingTimeInterval(wait),
+                tapWindowSeconds: GameTiming.tapWindowSeconds
+            )
+            await send(.flashTurn(turnMessage))
+            let results = await collectReactions(for: turnMessage, players: players)
+
+            let valid = results.values.filter { !$0.falseStart && $0.elapsedMs != nil }
+            let best = valid.compactMap(\.elapsedMs).min()
+            let winners = best.map { fastest in
+                valid.filter { $0.elapsedMs == fastest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = FlashReveal(
+                round: round,
+                turn: turn,
+                results: players.compactMap { results[$0] },
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.flashRevealSeconds + 2) : nil
+            )
+            await send(.flashReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.flashRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectReactions(for turn: FlashTurn, players: [Int]) async -> [Int: FlashResult] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var results: [Int: FlashResult] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { results[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.reaction(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .reaction(_, _, let slot, let elapsedMs, let falseStart) = message else { continue }
+                    results[slot] = FlashResult(slot: slot, elapsedMs: elapsedMs, falseStart: falseStart)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        for slot in players where results[slot] == nil {
+            results[slot] = FlashResult(slot: slot, elapsedMs: nil, falseStart: false)
+        }
+        return results
+    }
+
+    // MARK: - Put Your Finger On It
+
+    /// One region per round; each turn asks for a place in it. Closest pin
+    /// to the capital takes the point.
+    private func runFingerRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        let region = FingerAtlas.regions.randomElement() ?? FingerAtlas.regions[0]
+        var usedPlaces: Set<String> = []
+        var turn = 1
+        while !Task.isCancelled {
+            let fresh = region.places.filter { !usedPlaces.contains($0.name) }
+            guard let place = (fresh.randomElement() ?? region.places.randomElement()) else {
+                return [players.first ?? 1]
+            }
+            usedPlaces.insert(place.name)
+            let turnMessage = FingerTurn(
+                round: round,
+                turn: turn,
+                regionName: region.name,
+                regionCenter: region.center,
+                regionSpanLat: region.spanLat,
+                regionSpanLon: region.spanLon,
+                placeName: place.name,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                guessSeconds: GameTiming.fingerGuessSeconds
+            )
+            await send(.fingerTurn(turnMessage))
+            let guesses = await collectFingerGuesses(for: turnMessage, players: players)
+
+            var outcomes: [FingerOutcome] = []
+            for slot in players {
+                let coordinate = guesses[slot]
+                let distanceKm = coordinate.map {
+                    DirectionMath.distanceMeters(from: $0, to: place.coordinate) / 1000
+                }
+                outcomes.append(FingerOutcome(slot: slot, coordinate: coordinate, distanceKm: distanceKm))
+            }
+            let best = outcomes.compactMap(\.distanceKm).min()
+            let winners = best.map { closest in
+                outcomes.filter { $0.distanceKm == closest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = FingerReveal(
+                round: round,
+                turn: turn,
+                regionName: region.name,
+                placeName: place.name,
+                capitalName: place.capital,
+                target: place.coordinate,
+                outcomes: outcomes,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.fingerRevealSeconds + 2) : nil
+            )
+            await send(.fingerReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.fingerRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectFingerGuesses(for turn: FingerTurn, players: [Int]) async -> [Int: Coordinate] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var guesses: [Int: Coordinate] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { guesses[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.fingerGuess(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .fingerGuess(_, _, let slot, let coordinate) = message else { continue }
+                    guesses[slot] = coordinate
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        return guesses
+    }
+
+    private func pointLeaders(points: [Int: Int], players: [Int]) -> [Int] {
+        let best = points.values.max() ?? 0
+        let leaders = players.filter { points[$0, default: 0] == best }
+        return leaders.isEmpty ? [players.first ?? 1] : leaders
     }
 
     private func send(_ message: HostMessage) async {
