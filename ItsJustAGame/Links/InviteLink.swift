@@ -14,7 +14,7 @@ enum InviteLink {
     static let scheme = "itsjustagame"
     static let webHost = "itsjustagame.robbo-online.uk"
     /// Keep false until the domain is serving /docs over HTTPS.
-    static let useUniversalLinks = false
+    static let useUniversalLinks = true
 
     struct Parsed: Hashable {
         var gameID: String
