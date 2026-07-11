@@ -18,6 +18,11 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to work out the true direction from you to each target and to draw the results map. It is shared only with the players in your game, end-to-end encrypted.</string>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+		<key>UIImageName</key>
+		<string>Logo</string>
+	</dict>
 </dict>
 </plist>

@@ -12,6 +12,20 @@ struct HomeView: View {
         NavigationStack {
             List {
                 Section {
+                    HStack {
+                        Spacer()
+                        Image("Logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 130)
+                            .shadow(color: Theme.cyan.opacity(0.25), radius: 24)
+                        Spacer()
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                }
+
+                Section {
                     TextField("Your name", text: $myName)
                         .textInputAutocapitalization(.words)
                 } header: {

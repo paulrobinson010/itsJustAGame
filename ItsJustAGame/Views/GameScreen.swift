@@ -306,8 +306,11 @@ struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            Text("👋")
-                .font(.system(size: 64))
+            Image("Logo")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 140)
+                .shadow(color: Theme.magenta.opacity(0.25), radius: 24)
             if let config = session.config {
                 Text("Welcome \(config.name(session.mySlot))")
                     .font(Theme.display(34))
