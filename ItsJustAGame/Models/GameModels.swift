@@ -43,10 +43,12 @@ struct GameConfig: Codable, Hashable {
 
 enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case senseOfDirection
+    case hideAndSeek
 
     var displayName: String {
         switch self {
         case .senseOfDirection: return "Sense of Direction"
+        case .hideAndSeek: return "Hide & Seek"
         }
     }
 
@@ -54,6 +56,23 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     var minPlayers: Int {
         switch self {
         case .senseOfDirection: return 2
+        case .hideAndSeek: return 2
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .senseOfDirection: return "location.north.circle.fill"
+        case .hideAndSeek: return "eye.slash.fill"
+        }
+    }
+
+    var introText: String {
+        switch self {
+        case .senseOfDirection:
+            return "A place will appear. Point the arrow toward it — closest direction wins the point. First to \(GameTiming.pointsToWinRound) points takes the round."
+        case .hideAndSeek:
+            return "Pick a hiding spot on the grid. Then everyone takes turns searching squares — the last player to be found wins the round."
         }
     }
 
@@ -94,4 +113,9 @@ enum GameTiming {
     static let wheelSpinSeconds: Double = 5
     static let pointsToWinRound = 3
     static let maxTurnsPerRound = 10
+
+    // Hide & Seek
+    static let hideSeconds: Double = 15
+    static let seekSeconds: Double = 15
+    static let seekRevealSeconds: Double = 6
 }

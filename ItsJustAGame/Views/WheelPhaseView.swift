@@ -44,7 +44,7 @@ struct WheelPhaseView: View {
                                 session.submitChoice(round: round, game: game)
                             } label: {
                                 VStack(spacing: 2) {
-                                    Label(game.displayName, systemImage: "location.north.circle.fill")
+                                    Label(game.displayName, systemImage: game.iconName)
                                     if !available {
                                         Text("Needs at least \(game.minPlayers) players")
                                             .font(.caption2)

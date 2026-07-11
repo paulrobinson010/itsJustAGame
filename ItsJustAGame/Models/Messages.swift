@@ -10,8 +10,13 @@ enum HostMessage: Codable {
     case lobby(joined: [Int])
     case wheel(round: Int, chooser: Int)
     case roundStart(round: Int, game: MiniGameType)
+    // Sense of Direction
     case turnStart(TurnStart)
     case turnReveal(TurnReveal)
+    // Hide & Seek
+    case hideStart(HideStart)
+    case seekTurn(SeekTurnStart)
+    case seekReveal(SeekReveal)
     case roundEnd(round: Int, winner: Int, roundsWon: [Int: Int])
     case gameEnd(winner: Int, roundsWon: [Int: Int])
 }
@@ -23,6 +28,8 @@ enum PlayerMessage: Codable {
     case join(slot: Int, name: String, coordinate: Coordinate?)
     case choice(round: Int, slot: Int, game: MiniGameType)
     case answer(DirectionAnswer)
+    case hide(round: Int, slot: Int, cell: Int)
+    case seek(round: Int, turn: Int, slot: Int, cell: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -71,6 +78,49 @@ struct TurnReveal: Codable, Hashable {
     var nextTurnAt: Date?
 }
 
+// MARK: - Hide & Seek
+
+struct HideStart: Codable, Hashable {
+    var round: Int
+    var gridSize: Int
+    var startAt: Date
+    var hideSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(hideSeconds) }
+    var cellCount: Int { gridSize * gridSize }
+}
+
+struct SeekTurnStart: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var seeker: Int
+    var order: [Int]
+    var gridSize: Int
+    var startAt: Date
+    var seekSeconds: Double
+    var searched: [Int]
+    /// slot -> cell where that player was found
+    var found: [Int: Int]
+
+    var deadline: Date { startAt.addingTimeInterval(seekSeconds) }
+    var cellCount: Int { gridSize * gridSize }
+}
+
+struct SeekReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var seeker: Int
+    var cell: Int
+    var gridSize: Int
+    /// Players revealed by this search.
+    var revealed: [Int]
+    var searched: [Int]
+    var found: [Int: Int]
+    var remainingHidden: [Int]
+    var roundWinner: Int?
+    var nextTurnAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -88,5 +138,13 @@ enum RecordName {
 
     static func answer(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-t\(turn)-ans\(slot)"
+    }
+
+    static func hide(_ gameID: String, round: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-hide\(slot)"
+    }
+
+    static func seek(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-s\(turn)-seek\(slot)"
     }
 }

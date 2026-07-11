@@ -73,6 +73,12 @@ struct GameScreen: View {
             DirectionTurnView(session: session, turnStart: turnStart)
         case .reveal(let reveal):
             RevealView(session: session, reveal: reveal)
+        case .hiding(let hideStart):
+            HideView(session: session, hideStart: hideStart)
+        case .seekTurn(let turnStart):
+            SeekTurnView(session: session, turnStart: turnStart)
+        case .seekReveal(let reveal):
+            SeekRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winner):
             RoundEndView(session: session, round: round, winner: winner)
         case .gameEnd(let winner):
@@ -173,13 +179,13 @@ struct RoundIntroView: View {
             Spacer()
             Text("Round \(round)")
                 .font(.title.bold())
-            Image(systemName: "location.north.circle.fill")
+            Image(systemName: game.iconName)
                 .font(.system(size: 72))
                 .foregroundStyle(.blue)
             Text(game.displayName)
                 .font(.largeTitle.bold())
                 .multilineTextAlignment(.center)
-            Text("A place will appear. Point the arrow toward it — closest direction wins the point. First to \(GameTiming.pointsToWinRound) points takes the round.")
+            Text(game.introText)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 32)

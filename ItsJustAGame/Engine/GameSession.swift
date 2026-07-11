@@ -5,8 +5,13 @@ enum GamePhase: Hashable {
     case lobby(joined: Set<Int>)
     case wheel(round: Int, chooser: Int)
     case roundIntro(round: Int, game: MiniGameType)
+    // Sense of Direction
     case turn(TurnStart)
     case reveal(TurnReveal)
+    // Hide & Seek
+    case hiding(HideStart)
+    case seekTurn(SeekTurnStart)
+    case seekReveal(SeekReveal)
     case roundEnd(round: Int, winner: Int)
     case gameEnd(winner: Int)
 }
@@ -96,6 +101,41 @@ final class GameSession {
         )
     }
 
+    // MARK: - Hide & Seek input
+
+    /// My hiding spot per round, so the grid can mark it. Only kept in
+    /// memory — after a relaunch the marker is lost but the host still has
+    /// the authoritative spot.
+    private(set) var myHideCells: [Int: Int] = [:]
+
+    func submitHide(cell: Int, for hideStart: HideStart) {
+        guard myHideCells[hideStart.round] == nil else { return }
+        myHideCells[hideStart.round] = cell
+        let id = RecordName.hide(saved.gameID, round: hideStart.round, slot: mySlot)
+        Task {
+            await publish(PlayerMessage.hide(round: hideStart.round, slot: mySlot, cell: cell), id: id)
+        }
+    }
+
+    func hasSubmittedHide(for hideStart: HideStart) -> Bool {
+        myHideCells[hideStart.round] != nil
+    }
+
+    func submitSeek(cell: Int, for turnStart: SeekTurnStart) {
+        let id = RecordName.seek(saved.gameID, round: turnStart.round, turn: turnStart.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.seek(round: turnStart.round, turn: turnStart.turn, slot: mySlot, cell: cell), id: id)
+        }
+    }
+
+    func hasSubmittedSeek(for turnStart: SeekTurnStart) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.seek(saved.gameID, round: turnStart.round, turn: turnStart.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -160,6 +200,12 @@ final class GameSession {
         case .turnReveal(let reveal):
             points = reveal.points
             phase = .reveal(reveal)
+        case .hideStart(let hideStart):
+            phase = .hiding(hideStart)
+        case .seekTurn(let turnStart):
+            phase = .seekTurn(turnStart)
+        case .seekReveal(let reveal):
+            phase = .seekReveal(reveal)
         case .roundEnd(let round, let winner, let rounds):
             roundsWon = rounds
             phase = .roundEnd(round: round, winner: winner)

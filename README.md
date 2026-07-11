@@ -49,6 +49,18 @@ with the real world using the compass, so you can physically point instead of
 dragging. On-screen dragging is the default because colocated players could
 copy each other's physical pointing.
 
+### Hide & Seek
+
+Everyone secretly picks a hiding square on a 5×5 grid within 15 seconds
+(no pick → a random square is assigned). The host then shuffles all players
+into a run order, and in that order players take turns searching any square
+that hasn't been searched yet — each search reveals every player hiding
+there. Being found knocks you out of hiding but not out of seeking: everyone
+keeps taking their seek turns. The last player left hidden wins the round
+(if the final search reveals the last several hiders at once, the round goes
+to one of them at random). A seeker who doesn't pick in time has a random
+square searched for them, so the game always moves and always terminates.
+
 ### End-to-end encryption
 
 - Creating a game generates a random 256-bit ChaCha20-Poly1305 key on the

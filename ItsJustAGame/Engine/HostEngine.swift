@@ -126,7 +126,13 @@ final class HostEngine {
             let game = await waitForChoice(round: round, chooser: chooser)
             await send(.roundStart(round: round, game: game))
             try? await Task.sleep(for: .seconds(3))
-            let winner = await runDirectionRound(round: round)
+            let winner: Int
+            switch game {
+            case .senseOfDirection:
+                winner = await runDirectionRound(round: round)
+            case .hideAndSeek:
+                winner = await runHideAndSeekRound(round: round)
+            }
             roundsWon[winner, default: 0] += 1
             if roundsWon[winner, default: 0] >= config.roundsToWin {
                 await send(.gameEnd(winner: winner, roundsWon: roundsWon))
@@ -278,6 +284,135 @@ final class HostEngine {
             roundWinner: roundWinner,
             nextTurnAt: roundWinner == nil ? Date().addingTimeInterval(GameTiming.revealSeconds + 3) : nil
         )
+    }
+
+    // MARK: - Hide & Seek
+
+    /// One full match: everyone hides on the grid, then players search in a
+    /// shuffled run order until only one player is left hidden — they win
+    /// the round. Found players keep taking their seek turns.
+    private func runHideAndSeekRound(round: Int) async -> Int {
+        let players = joined.sorted()
+        let gridSize = 5
+        let hideStart = HideStart(
+            round: round,
+            gridSize: gridSize,
+            startAt: Date().addingTimeInterval(2),
+            hideSeconds: GameTiming.hideSeconds
+        )
+        await send(.hideStart(hideStart))
+        let spots = await collectHideSpots(for: hideStart, players: players)
+        let order = players.shuffled()
+        var searched: [Int] = []
+        var found: [Int: Int] = [:]
+        var turn = 1
+
+        while !Task.isCancelled {
+            let seeker = order[(turn - 1) % order.count]
+            let turnStart = SeekTurnStart(
+                round: round,
+                turn: turn,
+                seeker: seeker,
+                order: order,
+                gridSize: gridSize,
+                startAt: Date().addingTimeInterval(2),
+                seekSeconds: GameTiming.seekSeconds,
+                searched: searched,
+                found: found
+            )
+            await send(.seekTurn(turnStart))
+
+            var pick = await collectSeekPick(for: turnStart)
+            if let cell = pick, cell < 0 || cell >= hideStart.cellCount || searched.contains(cell) {
+                pick = nil
+            }
+            let cell = pick ?? randomUnsearchedCell(searched: searched, cellCount: hideStart.cellCount)
+            searched.append(cell)
+
+            let revealed = spots
+                .filter { $0.value == cell && found[$0.key] == nil }
+                .map(\.key)
+                .sorted()
+            for slot in revealed {
+                found[slot] = cell
+            }
+
+            let hidden = players.filter { found[$0] == nil }
+            var roundWinner: Int?
+            if hidden.count == 1 {
+                roundWinner = hidden[0]
+            } else if hidden.isEmpty {
+                // The last hiders were all revealed by the same search —
+                // the round goes to one of them at random.
+                roundWinner = revealed.randomElement()
+            }
+
+            let reveal = SeekReveal(
+                round: round,
+                turn: turn,
+                seeker: seeker,
+                cell: cell,
+                gridSize: gridSize,
+                revealed: revealed,
+                searched: searched,
+                found: found,
+                remainingHidden: hidden,
+                roundWinner: roundWinner,
+                nextTurnAt: roundWinner == nil ? Date().addingTimeInterval(GameTiming.seekRevealSeconds + 2) : nil
+            )
+            await send(.seekReveal(reveal))
+            if let roundWinner {
+                return roundWinner
+            }
+            try? await Task.sleep(for: .seconds(GameTiming.seekRevealSeconds))
+            turn += 1
+        }
+        return players.first ?? 1
+    }
+
+    private func collectHideSpots(for hideStart: HideStart, players: [Int]) async -> [Int: Int] {
+        let deadline = hideStart.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var spots: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { spots[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map { RecordName.hide(config.gameID, round: hideStart.round, slot: $0) }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .hide(_, let slot, let cell) = message else { continue }
+                    spots[slot] = (0..<hideStart.cellCount).contains(cell)
+                        ? cell
+                        : Int.random(in: 0..<hideStart.cellCount)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        // Anyone who never picked gets hidden somewhere random.
+        for slot in players where spots[slot] == nil {
+            spots[slot] = Int.random(in: 0..<hideStart.cellCount)
+        }
+        return spots
+    }
+
+    private func collectSeekPick(for turnStart: SeekTurnStart) async -> Int? {
+        let id = RecordName.seek(config.gameID, round: turnStart.round, turn: turnStart.turn, slot: turnStart.seeker)
+        let deadline = turnStart.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        while !Task.isCancelled && Date() < deadline {
+            if let found = try? await transport.get(ids: [id]),
+               let body = found[id],
+               let message = try? crypto.open(PlayerMessage.self, from: body),
+               case .seek(_, _, _, let cell) = message {
+                return cell
+            }
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        return nil
+    }
+
+    private func randomUnsearchedCell(searched: [Int], cellCount: Int) -> Int {
+        Set(0..<cellCount).subtracting(searched).randomElement() ?? 0
     }
 
     private func send(_ message: HostMessage) async {
