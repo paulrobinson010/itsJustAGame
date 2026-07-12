@@ -38,7 +38,7 @@ struct WheelPhaseView: View {
                         VStack(spacing: 12) {
                             Text("You pick the game!")
                                 .font(Theme.headline)
-                            ForEach(MiniGameType.allCases, id: \.self) { game in
+                            ForEach(MiniGameType.menu, id: \.self) { game in
                                 let available = session.joinedSlots.count >= game.minPlayers
                                 Button {
                                     hasChosen = true

@@ -104,6 +104,12 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         }
     }
 
+    /// Chooser menu order: alphabetical by display name, however cases are
+    /// declared and whatever gets added later.
+    static var menu: [MiniGameType] {
+        allCases.sorted { $0.displayName < $1.displayName }
+    }
+
     static func available(for playerCount: Int) -> [MiniGameType] {
         allCases.filter { playerCount >= $0.minPlayers }
     }
