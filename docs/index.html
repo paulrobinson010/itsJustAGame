@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>It's Just a Game</title>
+<title>It's Just a Game — the private party game</title>
+<meta name="description" content="A private, end-to-end encrypted party game for friends and family. Six mini games, one wheel, no servers that can read anything.">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -13,39 +14,154 @@
     background: #0a0d17;
     color: #fff;
     font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 24px;
+    line-height: 1.55;
   }
-  .wrap { max-width: 420px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px; }
+  .hero { text-align: center; padding-top: 64px; }
+  .logo { width: 170px; height: 170px; filter: drop-shadow(0 0 28px rgba(51,217,255,0.25)); }
   h1 {
     font-family: "Chakra Petch", ui-rounded, sans-serif;
-    font-size: 1.9rem;
+    font-size: clamp(1.7rem, 6vw, 2.4rem);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 12px;
+    margin: 18px 0 14px;
     background: linear-gradient(90deg, #33d9ff, #ff4dcc);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
-  .accent, .pop { color: inherit; }
-  p { color: rgba(255,255,255,0.65); line-height: 1.5; margin-bottom: 12px; }
-  .logo { width: 160px; height: 160px; margin-bottom: 16px; filter: drop-shadow(0 0 24px rgba(51,217,255,0.25)); }
+  .tagline { color: rgba(255,255,255,0.7); font-size: 1.05rem; max-width: 480px; margin: 0 auto; }
+  h2 {
+    font-family: "Chakra Petch", ui-rounded, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin: 72px 0 20px;
+    text-align: center;
+  }
+  .steps { display: grid; gap: 12px; }
+  .step {
+    display: flex; gap: 14px; align-items: baseline;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    padding: 16px 20px;
+  }
+  .step b { font-family: "Chakra Petch", sans-serif; color: #33d9ff; font-size: 1.1rem; }
+  .step p { color: rgba(255,255,255,0.75); }
+  .games { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .game {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    padding: 18px 18px 16px;
+  }
+  .game .icon { font-size: 1.6rem; }
+  .game h3 {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 1.02rem;
+    margin: 8px 0 6px;
+    color: #fff;
+  }
+  .game p { color: rgba(255,255,255,0.65); font-size: 0.92rem; }
+  .privacy-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,77,204,0.35);
+    border-radius: 18px;
+    padding: 22px;
+    text-align: center;
+  }
+  .privacy-card p { color: rgba(255,255,255,0.75); margin-bottom: 8px; }
+  .privacy-card ul {
+    list-style: none;
+    color: rgba(255,255,255,0.65);
+    font-size: 0.95rem;
+    margin: 12px 0 18px;
+  }
+  .privacy-card li { margin: 4px 0; }
+  .btn {
+    display: inline-block;
+    padding: 13px 26px;
+    border-radius: 999px;
+    font-family: "Chakra Petch", sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    background: #33d9ff;
+    color: #0a0d17;
+    box-shadow: 0 4px 24px rgba(51,217,255,0.35);
+  }
+  footer {
+    margin-top: 80px;
+    padding: 28px 0 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.88rem;
+  }
+  footer a { color: #33d9ff; text-decoration: none; }
 </style>
 </head>
 <body>
   <div class="wrap">
-    <img class="logo" src="/logo.png" alt="It's Just a Game logo">
-    <h1>It's <span class="accent">Just</span> a <span class="pop">Game</span></h1>
-    <p>A private, end-to-end encrypted party game for friends and family.
-       Mini games, one wheel, no servers that can read anything.</p>
-    <p>Got an invite? Open your link on your iPhone with the app installed
-       and you'll jump straight into the lobby.</p>
+    <div class="hero">
+      <img class="logo" src="/logo.png" alt="It's Just a Game logo">
+      <h1>It's Just a Game</h1>
+      <p class="tagline">A private, end-to-end encrypted party game for friends and family.
+         Six mini games, one wheel — and no servers that can read anything.</p>
+    </div>
+
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><b>1</b><p>One person starts a game, names the players, and sends each of them
+        their own invite link — by iMessage, WhatsApp, however you like.</p></div>
+      <div class="step"><b>2</b><p>Everyone joins with a tap. A spinning wheel picks who chooses each
+        round's mini game. Win rounds; first to the target takes the game.</p></div>
+      <div class="step"><b>3</b><p>Rematch is one tap — the next game starts by itself for the whole
+        crew, no new links needed.</p></div>
+    </div>
+
+    <h2>The games</h2>
+    <div class="games">
+      <div class="game"><span class="icon">🧭</span><h3>Sense of Direction</h3>
+        <p>A place appears — point your arrow at it from where you're standing.
+           GPS knows the truth. Closest bearing takes the point.</p></div>
+      <div class="game"><span class="icon">🙈</span><h3>Hide &amp; Seek</h3>
+        <p>Secretly pick a square on the grid, then take turns searching.
+           The last player left hidden wins the round.</p></div>
+      <div class="game"><span class="icon">🃏</span><h3>Higher or Lower</h3>
+        <p>A card is dealt. Call the next one higher or lower — wrong and
+           you're out. Last one standing scores.</p></div>
+      <div class="game"><span class="icon">🔁</span><h3>Repeat After Me</h3>
+        <p>Watch the pads flash, then tap the sequence back from memory.
+           It grows every turn. One slip and you're out.</p></div>
+      <div class="game"><span class="icon">⚡</span><h3>Lightning</h3>
+        <p>Wait for it… TAP! Reaction measured to the millisecond.
+           Jump early and it's a false start.</p></div>
+      <div class="game"><span class="icon">📍</span><h3>Put Your Finger On It</h3>
+        <p>A bare map with no names, a place to find, 15 seconds.
+           Drop your pin closest to its capital.</p></div>
+    </div>
+
+    <h2>Privacy</h2>
+    <div class="privacy-card">
+      <p><strong>The whole game is end-to-end encrypted.</strong></p>
+      <ul>
+        <li>No accounts, no ads, no analytics, no tracking.</li>
+        <li>The encryption key travels only inside your invite link — servers store unreadable ciphertext.</li>
+        <li>Contacts and locations are used on your device, shared only with your own game's players.</li>
+      </ul>
+      <a class="btn" href="/privacy">Read the privacy policy</a>
+    </div>
+
+    <footer>
+      <p>Questions? <a href="mailto:paul@treadgame.com">paul@treadgame.com</a></p>
+      <p style="margin-top:6px"><a href="/privacy">Privacy policy</a></p>
+    </footer>
   </div>
 </body>
 </html>

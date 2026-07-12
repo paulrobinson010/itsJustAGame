@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — It's Just a Game</title>
+<meta name="description" content="Privacy policy for It's Just a Game: end-to-end encrypted, no accounts, no analytics, no tracking.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0d17;
+    color: #fff;
+    font-family: ui-rounded, -apple-system, "SF Pro Rounded", system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px; }
+  .home { font-size: 0.9rem; }
+  .home a { color: #33d9ff; text-decoration: none; }
+  h1 {
+    font-family: "Chakra Petch", ui-rounded, sans-serif;
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin: 20px 0 6px;
+    background: linear-gradient(90deg, #33d9ff, #ff4dcc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .date { color: rgba(255,255,255,0.45); font-size: 0.9rem; margin-bottom: 28px; }
+  h2 {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 1.05rem;
+    color: #33d9ff;
+    margin: 34px 0 10px;
+  }
+  p, li { color: rgba(255,255,255,0.78); }
+  p { margin-bottom: 12px; }
+  ul { margin: 0 0 12px 22px; }
+  li { margin: 5px 0; }
+  .callout {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(51,217,255,0.35);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  a { color: #33d9ff; }
+  footer {
+    margin-top: 64px;
+    padding: 24px 0 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.88rem;
+  }
+  footer a { text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="home"><a href="/">← It's Just a Game</a></p>
+    <h1>Privacy Policy</h1>
+    <p class="date">Effective 12 July 2026</p>
+
+    <div class="callout">
+      <p style="margin:0"><strong>The short version:</strong> the whole game is end-to-end
+      encrypted, there are no accounts, and we run no servers. We — the developers — cannot
+      read your games, your names, your locations, or anything else. There are no ads, no
+      analytics, and no tracking of any kind.</p>
+    </div>
+
+    <h2>How the game keeps itself private</h2>
+    <p>When someone starts a game, their device generates a random encryption key. That key
+       travels only inside the invite links sent to the other players, and it never touches
+       a server: in web links it sits in the URL fragment (the part after “#”), which browsers
+       do not send when requesting a page. Every message the game exchanges — player names,
+       guesses, locations, scores — is encrypted on the device with that key before it leaves
+       the phone.</p>
+    <p>Encrypted messages pass through Apple's iCloud (CloudKit) purely as a mailbox. Apple's
+       servers store ciphertext under random identifiers; neither Apple nor we can decrypt it.
+       Only the people holding an invite link for that specific game can.</p>
+
+    <h2>What the app uses on your device</h2>
+    <ul>
+      <li><strong>Your name</strong> — whatever you or your host typed. It lives inside the
+        encrypted game, visible only to that game's players.</li>
+      <li><strong>Location</strong> (optional, with your permission) — used by the
+        “Sense of Direction” mini game to compute the true direction to a target and to draw
+        the results map. Your location is shared, encrypted, only with the players in your
+        game — that reveal map is part of the game. Decline location access and you can still
+        play everything else.</li>
+      <li><strong>Contacts</strong> (optional, with your permission) — used by the game's host
+        to fill in player names and address invites by iMessage. Contacts are read on the
+        device only and are never uploaded anywhere. Invitees' numbers or emails stay on the
+        host's phone.</li>
+      <li><strong>iCloud account</strong> — the app uses your device's iCloud sign-in to write
+        to the CloudKit mailbox. We never see your Apple ID or any account details.</li>
+    </ul>
+
+    <h2>What we collect about you</h2>
+    <p>Nothing. The app contains no analytics, no crash-reporting SDKs, no advertising, no
+       fingerprinting, and no third-party code that phones home. We operate no servers and
+       hold no databases of users. We could not sell your data even if we wanted to,
+       because we do not have any.</p>
+
+    <h2>Data retention and deletion</h2>
+    <p>Encrypted game records remain in Apple's CloudKit public database under random
+       identifiers. Without an invite link's key they are unreadable noise. Leaving a game
+       from within the app deletes its key from your device; deleting the app removes all
+       locally stored games and keys. Standard Apple retention applies to the ciphertext
+       itself.</p>
+
+    <h2>This website</h2>
+    <p>This site is static and hosted on GitHub Pages. It sets no cookies and runs no
+       analytics. If you open an invite link in a browser, the secret key in the “#” fragment
+       is read only by your browser on your device — it is never transmitted to the server.
+       As with any web host, GitHub's infrastructure may keep standard server logs
+       (for example, IP addresses); see
+       <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.
+       The headline font is loaded from Google Fonts, which serves the font file to your
+       browser and may log that request; see
+       <a href="https://developers.google.com/fonts/faq/privacy">Google Fonts and privacy</a>.</p>
+
+    <h2>Children</h2>
+    <p>The app is a family party game with no accounts, no chat with strangers, no purchases
+       and no data collection. Games can only be joined by someone who was privately sent an
+       invite link.</p>
+
+    <h2>Changes</h2>
+    <p>If this policy changes, the new version will be posted at this address with an updated
+       effective date.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about privacy or the app:
+       <a href="mailto:paul@treadgame.com">paul@treadgame.com</a></p>
+
+    <footer>
+      <p><a href="/">It's Just a Game</a> · <a href="mailto:paul@treadgame.com">paul@treadgame.com</a></p>
+    </footer>
+  </div>
+</body>
+</html>
