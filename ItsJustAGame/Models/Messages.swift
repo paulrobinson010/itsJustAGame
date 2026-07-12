@@ -35,6 +35,9 @@ enum HostMessage: Codable {
     // Push Your Luck
     case diceStep(DiceStep)
     case diceReveal(DiceReveal)
+    // Gold Rush
+    case goldTurn(GoldTurn)
+    case goldReveal(GoldReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -67,6 +70,7 @@ enum PlayerMessage: Codable {
     case fingerGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
     case clockTap(round: Int, turn: Int, slot: Int, elapsedMs: Int)
     case dice(round: Int, run: Int, step: Int, slot: Int, push: Bool)
+    case goldPick(round: Int, turn: Int, slot: Int, cell: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -395,6 +399,39 @@ struct DiceReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Gold Rush
+
+struct GoldTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var gridSize: Int
+    /// Coin value per cell — the same board on every device.
+    var coins: [Int]
+    /// Everyone's pocketed coin totals — the round score.
+    var totals: [Int: Int]
+    var startAt: Date
+    var pickSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(pickSeconds) }
+    var cellCount: Int { gridSize * gridSize }
+}
+
+struct GoldReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var gridSize: Int
+    var coins: [Int]
+    /// slot -> picked cell, for everyone who picked.
+    var picks: [Int: Int]
+    /// Cells picked by two or more players — nobody scores those.
+    var clashes: [Int]
+    /// slot -> coins won this turn.
+    var gains: [Int: Int]
+    var totals: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -444,5 +481,9 @@ enum RecordName {
 
     static func dice(_ gameID: String, round: Int, run: Int, step: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-u\(run)-d\(step)-pl\(slot)"
+    }
+
+    static func goldPick(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-au\(turn)-gld\(slot)"
     }
 }

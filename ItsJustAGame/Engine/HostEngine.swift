@@ -163,6 +163,8 @@ final class HostEngine {
                 winners = await runClockRound(round: round)
             case .pushYourLuck:
                 winners = await runDiceRound(round: round)
+            case .goldRush:
+                winners = await runGoldRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -1153,6 +1155,98 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return choices
+    }
+
+    // MARK: - Gold Rush
+
+    /// Turns of secret picks on a shared coin board. Unique picks pocket
+    /// their coins, collisions score nothing; first to the target wins the
+    /// round (shared if several cross together).
+    private func runGoldRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var totals: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = GoldTurn(
+                round: round,
+                turn: turn,
+                gridSize: 5,
+                coins: Self.makeGoldBoard(),
+                totals: totals,
+                startAt: Date().addingTimeInterval(2),
+                pickSeconds: GameTiming.goldPickSeconds
+            )
+            await send(.goldTurn(turnMessage))
+            let picks = await collectGoldPicks(for: turnMessage, players: players)
+
+            var pickCounts: [Int: Int] = [:]
+            for cell in picks.values {
+                pickCounts[cell, default: 0] += 1
+            }
+            let clashes = pickCounts.filter { $0.value > 1 }.map(\.key).sorted()
+            var gains: [Int: Int] = [:]
+            for (slot, cell) in picks where pickCounts[cell] == 1 {
+                let value = turnMessage.coins.indices.contains(cell) ? turnMessage.coins[cell] : 0
+                gains[slot] = value
+                totals[slot, default: 0] += value
+            }
+            let roundWinners = players.filter { totals[$0, default: 0] >= GameTiming.goldTarget }
+
+            let reveal = GoldReveal(
+                round: round,
+                turn: turn,
+                gridSize: turnMessage.gridSize,
+                coins: turnMessage.coins,
+                picks: picks,
+                clashes: clashes,
+                gains: gains,
+                totals: totals,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.goldRevealSeconds + 2) : nil
+            )
+            await send(.goldReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.goldRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.goldMaxTurns {
+                let best = totals.values.max() ?? 0
+                let leaders = players.filter { totals[$0, default: 0] == best }
+                return leaders.isEmpty ? [players.first ?? 1] : leaders
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    /// One juicy square, a couple of good ones, and a long tail — the same
+    /// spread every turn, shuffled into fresh positions.
+    private static func makeGoldBoard() -> [Int] {
+        let values = [10, 8, 6, 6, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1]
+        return values.shuffled()
+    }
+
+    private func collectGoldPicks(for turn: GoldTurn, players: [Int]) async -> [Int: Int] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var picks: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { picks[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.goldPick(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .goldPick(_, _, let slot, let cell) = message,
+                          (0..<turn.cellCount).contains(cell) else { continue }
+                    picks[slot] = cell
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return picks
     }
 
     private func pointLeaders(points: [Int: Int], players: [Int]) -> [Int] {

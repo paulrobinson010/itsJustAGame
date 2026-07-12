@@ -205,6 +205,16 @@ connection can't bust you. The round finishes its current run, then
 everyone with 20+ banked wins it (shared if several cross together);
 after 12 runs the leaders take it.
 
+### Gold Rush
+
+Schelling-point greed. Every turn the host deals a fresh 5×5 board of coin
+values (one 10, one 8, and a long tail — same spread, shuffled positions)
+that everyone sees identically. Each player secretly stakes **one**
+square within 12 seconds: alone on it, you pocket its coins; two or more
+on the same square and nobody scores it. A tapped-but-unconfirmed square
+auto-stakes at the deadline; no pick sits the turn out. First to 30 coins
+wins the round (shared if several cross together); leaders after 15 turns.
+
 ## Design language
 
 Very simple, but it should look expensive. The rules live in

@@ -146,6 +146,8 @@ struct GameScreen: View {
         case .clockReveal(let reveal): return "clockreveal\(reveal.round)-\(reveal.turn)"
         case .diceStep(let step): return "dice\(step.round)-\(step.run)-\(step.step)"
         case .diceReveal(let reveal): return "dicereveal\(reveal.round)-\(reveal.run)-\(reveal.step)"
+        case .goldTurn(let turn): return "gold\(turn.round)-\(turn.turn)"
+        case .goldReveal(let reveal): return "goldreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -195,6 +197,10 @@ struct GameScreen: View {
             DiceStepView(session: session, step: step)
         case .diceReveal(let reveal):
             DiceRevealView(session: session, reveal: reveal)
+        case .goldTurn(let turn):
+            GoldTurnView(session: session, turn: turn)
+        case .goldReveal(let reveal):
+            GoldRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -237,6 +243,14 @@ struct GameScreen: View {
                 SoundPlayer.shared.play(.lose)
             } else if reveal.runOver {
                 SoundPlayer.shared.play(.point)
+            } else {
+                SoundPlayer.shared.play(.tick)
+            }
+        case .goldReveal(let reveal):
+            if (reveal.gains[session.mySlot] ?? 0) > 0 {
+                SoundPlayer.shared.play(.point)
+            } else if reveal.picks[session.mySlot] != nil {
+                SoundPlayer.shared.play(.lose)
             } else {
                 SoundPlayer.shared.play(.tick)
             }

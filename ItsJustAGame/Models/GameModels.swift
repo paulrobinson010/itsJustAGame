@@ -54,6 +54,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case putYourFingerOnIt
     case tenSeconds
     case pushYourLuck
+    case goldRush
 
     var displayName: String {
         switch self {
@@ -65,6 +66,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .putYourFingerOnIt: return "Put Your Finger On It"
         case .tenSeconds: return "Ten Seconds"
         case .pushYourLuck: return "Push Your Luck"
+        case .goldRush: return "Gold Rush"
         }
     }
 
@@ -79,6 +81,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .putYourFingerOnIt: return 2
         case .tenSeconds: return 2
         case .pushYourLuck: return 2
+        case .goldRush: return 2
         }
     }
 
@@ -92,6 +95,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .putYourFingerOnIt: return "hand.point.up.left.fill"
         case .tenSeconds: return "stopwatch.fill"
         case .pushYourLuck: return "dice.fill"
+        case .goldRush: return "sparkles"
         }
     }
 
@@ -113,6 +117,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "The clock counts up, then hides. Keep counting in your head and tap at exactly the target. Closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .pushYourLuck:
             return "The pot grows one die at a time. Push to ride it or bank your share — but a skull wipes out everyone still riding. First to bank \(GameTiming.diceBankTarget) wins the round."
+        case .goldRush:
+            return "Same board, one secret pick each. Alone on a square? Pocket its coins. Share it? Nobody scores. First to \(GameTiming.goldTarget) coins wins the round."
         }
     }
 
@@ -212,4 +218,10 @@ enum GameTiming {
     static let diceRevealSeconds: Double = 5
     static let diceBankTarget = 20
     static let diceMaxRuns = 12
+
+    // Gold Rush
+    static let goldPickSeconds: Double = 12
+    static let goldRevealSeconds: Double = 6
+    static let goldTarget = 30
+    static let goldMaxTurns = 15
 }

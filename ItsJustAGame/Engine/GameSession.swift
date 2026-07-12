@@ -31,6 +31,9 @@ enum GamePhase: Hashable {
     // Push Your Luck
     case diceStep(DiceStep)
     case diceReveal(DiceReveal)
+    // Gold Rush
+    case goldTurn(GoldTurn)
+    case goldReveal(GoldReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -293,6 +296,26 @@ final class GameSession {
         )
     }
 
+    // MARK: - Gold Rush input
+
+    func submitGold(cell: Int, for turn: GoldTurn) {
+        let id = RecordName.goldPick(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.goldPick(round: turn.round, turn: turn.turn, slot: mySlot, cell: cell),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedGold(for turn: GoldTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.goldPick(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -400,6 +423,12 @@ final class GameSession {
         case .diceReveal(let reveal):
             points = reveal.banks
             phase = .diceReveal(reveal)
+        case .goldTurn(let turn):
+            points = turn.totals
+            phase = .goldTurn(turn)
+        case .goldReveal(let reveal):
+            points = reveal.totals
+            phase = .goldReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):
