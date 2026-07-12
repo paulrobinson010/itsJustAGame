@@ -10,6 +10,16 @@ struct ClockTurnView: View {
 
     @State private var submitted = false
 
+    /// Simplify: the clock stays visible longer — or (top level) forever.
+    private var clockVisibleSeconds: Double {
+        switch session.myAssist {
+        case nil: return turn.visibleSeconds
+        case .little: return turn.visibleSeconds * 1.7
+        case .big: return turn.visibleSeconds * 2.5
+        case .cheating: return turn.maxSeconds
+        }
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.03)) { context in
             let elapsed = context.date.timeIntervalSince(turn.startAt)
@@ -59,7 +69,7 @@ struct ClockTurnView: View {
         } else if elapsed < 0 {
             Text("Get ready…")
                 .font(Theme.display(28))
-        } else if elapsed <= turn.visibleSeconds {
+        } else if elapsed <= clockVisibleSeconds && elapsed < turn.maxSeconds {
             Text(String(format: "%.2f", elapsed))
                 .font(Theme.display(64))
                 .monospacedDigit()
@@ -73,6 +83,10 @@ struct ClockTurnView: View {
                     .foregroundStyle(.secondary)
             }
         } else {
+            // Simplify (level 2): the dot swells on each whole second — a
+            // silent metronome to count along with.
+            let pulsing = session.myAssist == .big
+            let beat = elapsed.truncatingRemainder(dividingBy: 1) < 0.2
             VStack(spacing: 16) {
                 Text("?.??")
                     .font(Theme.display(64))
@@ -83,6 +97,7 @@ struct ClockTurnView: View {
                         .fill(Theme.magenta)
                         .frame(width: 10, height: 10)
                         .shadow(color: Theme.magenta.opacity(0.7), radius: 10)
+                        .scaleEffect(pulsing && beat ? 1.8 : 1)
                     Text("Keep counting…")
                         .font(Theme.headline)
                 }
@@ -99,7 +114,9 @@ struct ClockTurnView: View {
         session.submitClockTap(elapsedMs: Int(elapsed * 1000), for: turn)
     }
 
-    /// Audible pips while the clock is visible — a rhythm to carry with you.
+    /// Audible pips while the clock is visible — a rhythm to carry with
+    /// you. Always the shared window, even with Simplify on: longer ticks
+    /// would be audible to the room and give the help away.
     private func playVisibleTicks() async {
         for second in 1...Int(turn.visibleSeconds) {
             let at = turn.startAt.addingTimeInterval(Double(second))

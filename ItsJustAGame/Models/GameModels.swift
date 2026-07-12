@@ -27,6 +27,9 @@ struct PlayerInfo: Codable, Hashable, Identifiable {
     /// game is created and used everywhere for the whole game. Optional so
     /// older games decode; they fall back to slot order.
     var colorIndex: Int?
+    /// Simplification level for this player, nil when off. Set by the host
+    /// at creation and carried into rematches.
+    var assist: AssistLevel?
     var id: Int { slot }
 }
 

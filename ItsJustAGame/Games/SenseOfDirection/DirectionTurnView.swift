@@ -11,6 +11,7 @@ struct DirectionTurnView: View {
     @State private var bearingGuess: Double = 0
     @State private var compassMode = false
     @State private var submitted = false
+    @State private var assistArc: AssistArc?
 
     private var location: LocationService { LocationService.shared }
 
@@ -30,6 +31,7 @@ struct DirectionTurnView: View {
         }
         .task {
             submitted = session.hasSubmittedAnswer(for: turnStart)
+            await computeAssistArc()
             await autoSubmit()
         }
         .onDisappear {
@@ -74,7 +76,7 @@ struct DirectionTurnView: View {
                     )
                     .rotationEffect(.degrees(-90))
                     .frame(width: 320, height: 320)
-                CompassDial(bearingGuess: $bearingGuess, dialRotation: dialRotation)
+                CompassDial(bearingGuess: $bearingGuess, dialRotation: dialRotation, assistArc: assistArc)
                     .frame(width: 290, height: 290)
             }
             Text("\(Int(DirectionMath.normalize(bearingGuess).rounded()))° \(DirectionMath.compassLabel(bearingGuess))")
@@ -130,6 +132,23 @@ struct DirectionTurnView: View {
         }
     }
 
+    /// Simplify: a glowing arc on the dial that contains the true bearing,
+    /// narrower the more help the player gets. Computed locally from GPS —
+    /// the arc is skewed off-centre so its middle isn't the answer.
+    private func computeAssistArc() async {
+        guard let level = session.myAssist else { return }
+        guard let coordinate = await LocationService.shared.currentCoordinate() else { return }
+        let correct = DirectionMath.initialBearing(from: coordinate, to: turnStart.target.coordinate)
+        let halfWidth: Double
+        switch level {
+        case .little: halfWidth = 45
+        case .big: halfWidth = 22
+        case .cheating: halfWidth = 9
+        }
+        let skew = Double.random(in: -halfWidth * 0.4...halfWidth * 0.4)
+        assistArc = AssistArc(center: DirectionMath.normalize(correct + skew), halfWidth: halfWidth)
+    }
+
     private func submit() {
         guard !submitted else { return }
         submitted = true
@@ -149,9 +168,15 @@ struct DirectionTurnView: View {
     }
 }
 
+struct AssistArc {
+    var center: Double
+    var halfWidth: Double
+}
+
 struct CompassDial: View {
     @Binding var bearingGuess: Double
     var dialRotation: Double
+    var assistArc: AssistArc?
 
     private static let labels = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
@@ -186,6 +211,19 @@ struct CompassDial: View {
         ZStack {
             Circle().fill(Theme.surface)
             Circle().stroke(Theme.hairline, lineWidth: 1)
+            if let arc = assistArc {
+                // Somewhere in this glow — SwiftUI's trim starts at 3
+                // o'clock, bearings at 12, hence the -90.
+                Circle()
+                    .trim(from: 0, to: arc.halfWidth * 2 / 360)
+                    .stroke(
+                        Theme.cyan.opacity(0.4),
+                        style: StrokeStyle(lineWidth: size * 0.06, lineCap: .round)
+                    )
+                    .padding(size * 0.06)
+                    .rotationEffect(.degrees(arc.center - arc.halfWidth - 90))
+                    .shadow(color: Theme.cyan.opacity(0.4), radius: 8)
+            }
             ForEach(0..<8, id: \.self) { index in
                 Text(Self.labels[index])
                     .font(index % 2 == 0 ? Theme.headline : Theme.caption2)

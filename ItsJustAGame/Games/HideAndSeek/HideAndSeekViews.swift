@@ -14,6 +14,8 @@ struct CellAppearance {
     var searched = false
     var selected = false
     var isMine = false
+    /// Simplify: ruled out for the assisted seeker — nobody is hiding here.
+    var assistSafe = false
     /// The local player's dealt color, used to mark their hiding spot.
     var mineColor: Color = Theme.cyan
     /// Dealt colors of the players revealed on this cell.
@@ -62,6 +64,10 @@ struct GridCellView: View {
                     Image(systemName: "xmark")
                         .font(Theme.caption)
                         .foregroundStyle(.tertiary)
+                } else if appearance.assistSafe {
+                    Image(systemName: "minus")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.cyan.opacity(0.5))
                 } else if appearance.isMine {
                     Image(systemName: "person.fill")
                         .font(Theme.caption)
@@ -83,7 +89,7 @@ struct GridCellView: View {
 
     private var background: Color {
         if appearance.isMine { return appearance.mineColor.opacity(0.85) }
-        if appearance.searched { return Color.primary.opacity(0.02) }
+        if appearance.searched || appearance.assistSafe { return Color.primary.opacity(0.02) }
         return Color.primary.opacity(0.05)
     }
 }
@@ -214,6 +220,12 @@ struct SeekTurnView: View {
     private var isMyTurn: Bool { turnStart.seeker == session.mySlot }
     private var iAmFound: Bool { turnStart.found[session.mySlot] != nil }
 
+    /// Simplify: squares the host has ruled out for me — nobody's there.
+    private var safeCells: Set<Int> {
+        guard isMyTurn, let safe = turnStart.assistSafe?[session.mySlot] else { return [] }
+        return Set(safe)
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.2)) { context in
             let remaining = max(0, turnStart.deadline.timeIntervalSince(context.date))
@@ -241,11 +253,12 @@ struct SeekTurnView: View {
                         searched: turnStart.searched.contains(cell),
                         selected: selected == cell && isMyTurn && !submitted,
                         isMine: session.myHideCells[turnStart.round] == cell && !turnStart.searched.contains(cell),
+                        assistSafe: safeCells.contains(cell) && !turnStart.searched.contains(cell),
                         mineColor: session.color(session.mySlot),
                         revealedColors: turnStart.found.filter { $0.value == cell }.map(\.key).sorted().map { session.color($0) }
                     )
                 } onTap: { cell in
-                    guard isMyTurn, !submitted, !turnStart.searched.contains(cell) else { return }
+                    guard isMyTurn, !submitted, !turnStart.searched.contains(cell), !safeCells.contains(cell) else { return }
                     selected = cell
                 }
                 if isMyTurn {

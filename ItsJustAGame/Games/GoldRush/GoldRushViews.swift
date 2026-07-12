@@ -9,6 +9,14 @@ struct GoldTurnView: View {
     @State private var selected: Int?
     @State private var submitted = false
 
+    /// Simplify: outline the richest squares so the value spread is
+    /// impossible to miss.
+    private var hintedCells: Set<Int> {
+        guard session.myAssist != nil else { return [] }
+        let ranked = turn.coins.enumerated().sorted { $0.element > $1.element }
+        return Set(ranked.prefix(3).map(\.offset))
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.2)) { context in
             let remaining = max(0, turn.deadline.timeIntervalSince(context.date))
@@ -26,14 +34,18 @@ struct GoldTurnView: View {
                 GoldGrid(turnCoins: turn.coins, gridSize: turn.gridSize) { cell in
                     GoldCellState(
                         value: turn.coins[cell],
-                        selected: selected == cell && !submitted
+                        selected: selected == cell && !submitted,
+                        hinted: hintedCells.contains(cell) && !submitted
                     )
                 } onTap: { cell in
                     guard !submitted else { return }
                     selected = cell
                 }
                 if !submitted {
-                    Text("\(Int(remaining.rounded(.up)))s — clash with someone and nobody scores")
+                    Text(clashCaption)
+                        .font(Theme.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(Int(remaining.rounded(.up)))s")
                         .font(Theme.caption)
                         .foregroundStyle(.secondary)
                     Button {
@@ -59,6 +71,18 @@ struct GoldTurnView: View {
         }
     }
 
+    /// Simplify (levels 2–3): clashes cost the assisted player less.
+    private var clashCaption: String {
+        switch session.myAssist {
+        case nil, .little:
+            return "clash with someone and nobody scores"
+        case .big:
+            return "clash and you still keep half the coins"
+        case .cheating:
+            return "clashes can't hurt you — you keep the coins"
+        }
+    }
+
     private func submit(cell: Int) {
         guard !submitted else { return }
         submitted = true
@@ -81,6 +105,8 @@ struct GoldCellState {
     var value: Int
     var selected = false
     var clashed = false
+    /// Simplify: outlined as one of the richest squares.
+    var hinted = false
     var pickedColors: [Color] = []
     var won = false
 }
@@ -138,7 +164,10 @@ struct GoldCellView: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(strokeColor, lineWidth: state.selected || state.won || state.clashed ? 2.5 : 1)
+                    .stroke(
+                        strokeColor,
+                        lineWidth: state.selected || state.won || state.clashed ? 2.5 : (state.hinted ? 1.8 : 1)
+                    )
             }
     }
 
@@ -152,6 +181,7 @@ struct GoldCellView: View {
         if state.clashed { return Theme.magenta }
         if state.won { return Theme.cyan }
         if state.selected { return Color.accentColor }
+        if state.hinted { return Theme.cyan.opacity(0.45) }
         return Theme.hairline
     }
 }

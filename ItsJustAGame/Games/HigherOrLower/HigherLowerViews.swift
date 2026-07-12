@@ -142,6 +142,22 @@ struct CardGuessView: View {
 
     private var amAlive: Bool { turn.alive.contains(session.mySlot) }
 
+    /// Simplify: the call to nudge toward. Top level uses the host's
+    /// pre-drawn truth; level 2 just plays the odds. Nil when even (7) or
+    /// no help.
+    private var assistCall: HigherLowerGuess? {
+        guard let level = session.myAssist, amAlive else { return nil }
+        if level == .cheating {
+            // Nil on a tie — no glow, and the caption says you're safe.
+            return turn.assistCorrect?[session.mySlot]
+        }
+        guard level >= .big else { return nil }
+        let higherRanks = 13 - turn.card.rank
+        let lowerRanks = turn.card.rank - 1
+        if higherRanks == lowerRanks { return nil }
+        return higherRanks > lowerRanks ? .higher : .lower
+    }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.2)) { context in
             let remaining = max(0, turn.deadline.timeIntervalSince(context.date))
@@ -175,6 +191,12 @@ struct CardGuessView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle(tint: Theme.cyan))
+                        .overlay(
+                            Capsule().stroke(
+                                .white.opacity(assistCall == .higher ? 0.9 : 0),
+                                lineWidth: 2.5
+                            )
+                        )
                         Button {
                             submit(.lower)
                         } label: {
@@ -182,8 +204,19 @@ struct CardGuessView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
+                        .overlay(
+                            Capsule().stroke(
+                                .white.opacity(assistCall == .lower ? 0.9 : 0),
+                                lineWidth: 2.5
+                            )
+                        )
                     }
                     .padding(.horizontal, 24)
+                    if let hint = assistHint {
+                        Text(hint)
+                            .font(Theme.caption)
+                            .foregroundStyle(Theme.cyan)
+                    }
                 }
                 Spacer()
             }
@@ -192,6 +225,25 @@ struct CardGuessView: View {
         .task {
             submitted = session.hasSubmittedGuess(for: turn)
             await autoSubmit()
+        }
+    }
+
+    /// The caption under the buttons, escalating with the level.
+    private var assistHint: String? {
+        guard let level = session.myAssist, amAlive else { return nil }
+        switch level {
+        case .little:
+            let higherRanks = 13 - turn.card.rank
+            let lowerRanks = turn.card.rank - 1
+            return "\(higherRanks) rank\(higherRanks == 1 ? " is" : "s are") higher · \(lowerRanks) lower"
+        case .big:
+            guard let call = assistCall else { return "Dead even — pure luck this time" }
+            return "Better odds: \(call == .higher ? "Higher" : "Lower")"
+        case .cheating:
+            guard let truth = turn.assistCorrect?[session.mySlot] else {
+                return "Psst… it's a tie — you're safe either way"
+            }
+            return "Psst… it's \(truth == .higher ? "Higher" : "Lower")"
         }
     }
 

@@ -14,6 +14,8 @@ enum SequencePads {
 /// both light a pad to full brightness with a neon glow.
 struct SequencePadBoard: View {
     var highlighted: Int?
+    /// Simplify: a white ring on the pad to tap next.
+    var hintRing: Int?
     var tapsEnabled: Bool
     var onTap: (Int) -> Void
 
@@ -28,6 +30,10 @@ struct SequencePadBoard: View {
                     .fill(SequencePads.colors[pad].opacity(active ? 1 : 0.28))
                     .aspectRatio(1, contentMode: .fit)
                     .shadow(color: SequencePads.colors[pad].opacity(active ? 0.6 : 0), radius: 18)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(.white.opacity(hintRing == pad ? 0.85 : 0), lineWidth: 3)
+                    )
                     .animation(.easeOut(duration: 0.12), value: active)
                     .onTapGesture {
                         if tapsEnabled {
@@ -65,8 +71,10 @@ struct SequenceTurnView: View {
                     .textCase(.uppercase)
                     .kerning(1.5)
                 header(now: now, watching: watching)
+                let hint = assistHint(now: now, watching: watching)
                 SequencePadBoard(
-                    highlighted: watching ? watchHighlight(at: now) : tapFlash,
+                    highlighted: watching ? watchHighlight(at: now) : (tapFlash ?? (hint?.strong == true ? hint?.pad : nil)),
+                    hintRing: hint?.strong == false ? hint?.pad : nil,
                     tapsEnabled: canTap(now: now),
                     onTap: { pad in tap(pad) }
                 )
@@ -138,6 +146,25 @@ struct SequenceTurnView: View {
 
     private func canTap(now: Date) -> Bool {
         amAlive && !submitted && now >= turn.watchEndsAt && now < turn.deadline
+    }
+
+    /// Simplify: which pad to tap next. Level 1 blinks a ring every few
+    /// seconds, level 2 shows the ring constantly, level 3 lights the pad.
+    private func assistHint(now: Date, watching: Bool) -> (pad: Int, strong: Bool)? {
+        guard let level = session.myAssist,
+              amAlive, !submitted, !watching,
+              now >= turn.startAt, now < turn.deadline,
+              taps.count < turn.sequence.count else { return nil }
+        let next = turn.sequence[taps.count]
+        switch level {
+        case .little:
+            let phase = now.timeIntervalSince(turn.watchEndsAt).truncatingRemainder(dividingBy: 3)
+            return phase > 2.3 ? (next, false) : nil
+        case .big:
+            return (next, false)
+        case .cheating:
+            return (next, true)
+        }
     }
 
     private func tap(_ pad: Int) {

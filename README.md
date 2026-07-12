@@ -285,6 +285,38 @@ from them:
 - **iPad**: native (all orientations), with game content capped at a 700pt
   column; iPhone stays portrait.
 
+## Simplify (per-player help)
+
+The host can switch **Simplify** on for any player when creating the game
+and pick a level: *A little help*, *A big help* or *Basically cheating*
+(`AssistLevel`, stored on `PlayerInfo` inside the encrypted config, carried
+into rematches, restored by "Same players as last game"). It's invisible in
+play — nothing on other screens shows who has it.
+
+Every game implements all three levels:
+
+| Game | A little help | A big help | Basically cheating |
+| --- | --- | --- | --- |
+| Sense of Direction | wide glowing arc on the dial containing the true bearing | narrower arc | very tight arc |
+| Hide & Seek | 5 empty squares ruled out (dimmed + locked) on your seek turn | 10 ruled out | everything ruled out except the hiders plus two decoys |
+| Higher or Lower | rank odds shown | better call recommended | the host pre-draws and marks the actually-correct button |
+| Repeat After Me | next pad blinks a ring when you stall | ring always on next pad | next pad fully lit |
+| Lightning | dot turns cyan just before the flash | visible 3-2-1 countdown | countdown + your time counts ×0.6 |
+| Put Your Finger On It | big hint circle on the map (off-centre from the capital) | smaller circle | tiny circle |
+| Ten Seconds | clock visible ~1.7× longer | ~2.5× longer + silent pulsing beat | clock never hides |
+| Push Your Luck | skull odds shown | plain-English bank/ride advice | host pre-rolls — you're told if the next die is a skull |
+| Gold Rush | top-3 squares outlined | + clashes pay you half | + clashes pay you in full |
+| Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
+| Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
+| Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
+
+Mechanics that need host secrets (safe squares, the pre-drawn card, hint
+circles, the pre-rolled die) ride along in the turn messages keyed by slot
+(`assistSafe`, `assistCorrect`, `assistHints`, `assistPeek`) — every device
+receives them but only the assisted device renders its own. Scoring changes
+(gold clash protection, the circle bump) happen host-side in `HostEngine`.
+Audible cues never change with assist — the room would hear it.
+
 ## Getting started
 
 1. Open `ItsJustAGame.xcodeproj` in **Xcode 16 or later**.

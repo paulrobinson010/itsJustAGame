@@ -9,12 +9,22 @@ final class AppModel {
     var joinError: String?
 
     @discardableResult
-    func createGame(roundsToWin: Int, playerNames: [String], inviteeAddresses: [Int: String] = [:]) -> SavedGame {
+    func createGame(
+        roundsToWin: Int,
+        playerNames: [String],
+        inviteeAddresses: [Int: String] = [:],
+        assists: [Int: AssistLevel] = [:]
+    ) -> SavedGame {
         // Deal everyone a color at random from the palette, fixed for the
         // whole game.
         let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
         let players = playerNames.enumerated().map { index, name in
-            PlayerInfo(slot: index + 1, name: name, colorIndex: colorIndices[index % colorIndices.count])
+            PlayerInfo(
+                slot: index + 1,
+                name: name,
+                colorIndex: colorIndices[index % colorIndices.count],
+                assist: assists[index + 1]
+            )
         }
         let config = GameConfig(
             gameID: UUID().uuidString.lowercased(),

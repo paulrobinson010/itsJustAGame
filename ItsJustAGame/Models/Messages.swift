@@ -154,6 +154,9 @@ struct SeekTurnStart: Codable, Hashable {
     var searched: [Int]
     /// slot -> cell where that player was found
     var found: [Int: Int]
+    /// Simplify: unsearched cells nobody is hiding in, keyed by the
+    /// (assisted) seeker they're for. Only that device shows them.
+    var assistSafe: [Int: [Int]]?
 
     var deadline: Date { startAt.addingTimeInterval(seekSeconds) }
     var cellCount: Int { gridSize * gridSize }
@@ -201,6 +204,10 @@ struct CardTurn: Codable, Hashable {
     var points: [Int: Int]
     var startAt: Date
     var guessSeconds: Double
+    /// Simplify (top level): the actually-correct call, keyed by the
+    /// assisted player it's for — the host pre-draws the next card.
+    /// Absent on ties. Only that device shows it.
+    var assistCorrect: [Int: HigherLowerGuess]?
 
     var deadline: Date { startAt.addingTimeInterval(guessSeconds) }
 }
@@ -315,8 +322,17 @@ struct FingerTurn: Codable, Hashable {
     var points: [Int: Int]
     var startAt: Date
     var guessSeconds: Double
+    /// Simplify: a circle the capital sits inside (deliberately off-centre
+    /// so it doesn't pinpoint it), keyed by the assisted player it's for.
+    /// Only that device draws it.
+    var assistHints: [Int: FingerHint]?
 
     var deadline: Date { startAt.addingTimeInterval(guessSeconds) }
+}
+
+struct FingerHint: Codable, Hashable {
+    var center: Coordinate
+    var radiusKm: Double
 }
 
 struct FingerOutcome: Codable, Hashable, Identifiable {
@@ -388,6 +404,9 @@ struct DiceStep: Codable, Hashable {
     var banks: [Int: Int]
     var startAt: Date
     var chooseSeconds: Double
+    /// Simplify (top level): whether the pre-rolled next die is a skull,
+    /// keyed by the assisted rider it's for. Only that device shows it.
+    var assistPeek: [Int: Bool]?
 
     var deadline: Date { startAt.addingTimeInterval(chooseSeconds) }
 }

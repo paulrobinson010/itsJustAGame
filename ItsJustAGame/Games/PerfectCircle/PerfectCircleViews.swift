@@ -102,6 +102,20 @@ struct CircleTurnView: View {
                 .fill(Theme.surface)
             RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
                 .stroke(Theme.hairline, lineWidth: 1)
+            if let assist = session.myAssist, !submitted {
+                // Simplify: a guide ring to trace — faint and dashed at
+                // level 1, bolder from level 2 (level 3 also gets a score
+                // bump from the host).
+                Circle()
+                    .stroke(
+                        Theme.cyan.opacity(assist == .little ? 0.18 : 0.32),
+                        style: StrokeStyle(
+                            lineWidth: assist >= .big ? 10 : 5,
+                            dash: assist == .little ? [6, 9] : []
+                        )
+                    )
+                    .frame(width: canvasSize * 0.68, height: canvasSize * 0.68)
+            }
             if !strokePoints.isEmpty {
                 Path { path in
                     path.move(to: strokePoints[0])

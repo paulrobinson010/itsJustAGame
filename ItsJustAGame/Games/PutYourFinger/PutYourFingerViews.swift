@@ -43,7 +43,9 @@ struct FingerTurnView: View {
                     Text("Time's up — waiting for the reveal…")
                         .font(Theme.headline)
                 } else {
-                    Text("\(Int(remaining.rounded(.up)))s — tap the map to drop your pin")
+                    Text(hint == nil
+                         ? "\(Int(remaining.rounded(.up)))s — tap the map to drop your pin"
+                         : "\(Int(remaining.rounded(.up)))s — it's somewhere in the glowing circle")
                         .font(Theme.caption)
                         .foregroundStyle(.secondary)
                     Button {
@@ -64,11 +66,21 @@ struct FingerTurnView: View {
         }
     }
 
+    /// Simplify: the host's hint circle — the capital is somewhere inside.
+    private var hint: FingerHint? {
+        turn.assistHints?[session.mySlot]
+    }
+
     private var mapView: some View {
         MapReader { proxy in
             // Frozen on purpose: swipes and double-taps must not move the
             // map — a tap is your answer, and everyone sees the same view.
             Map(initialPosition: .region(initialRegion), interactionModes: []) {
+                if let hint {
+                    MapCircle(center: hint.center.clCoordinate, radius: hint.radiusKm * 1000)
+                        .foregroundStyle(Theme.cyan.opacity(0.12))
+                        .stroke(Theme.cyan.opacity(0.55), style: StrokeStyle(lineWidth: 2))
+                }
                 ForEach(pins) { pin in
                     Annotation("", coordinate: pin.coordinate) {
                         Image(systemName: "mappin.circle.fill")

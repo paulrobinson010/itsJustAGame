@@ -88,6 +88,13 @@ struct DiceStepView: View {
                     Text("Ride it or take it? \(Int(remaining.rounded(.up)))s")
                         .font(Theme.caption)
                         .foregroundStyle(.secondary)
+                    if let hint = assistHint {
+                        Text(hint.text)
+                            .font(Theme.caption.weight(.semibold))
+                            .foregroundStyle(hint.urgent ? Theme.magenta : Theme.cyan)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
                     HStack(spacing: 12) {
                         Button {
                             submit(push: true)
@@ -112,6 +119,29 @@ struct DiceStepView: View {
         }
         .task {
             submitted = session.hasSubmittedDice(for: step)
+        }
+    }
+
+    /// Simplify: odds at level 1, straight advice at level 2, and at the
+    /// top level the host's pre-rolled die — pure foreknowledge.
+    private var assistHint: (text: String, urgent: Bool)? {
+        guard let level = session.myAssist, amRiding else { return nil }
+        switch level {
+        case .little:
+            return ("1 die in 6 is a skull", false)
+        case .big:
+            let mine = step.banks[session.mySlot, default: 0]
+            if mine + step.pot >= GameTiming.diceBankTarget {
+                return ("Bank it — that wins you the round!", false)
+            }
+            return step.pot >= 10
+                ? ("That's a big pot — banking looks smart", false)
+                : ("The pot's still small — riding looks fine", false)
+        case .cheating:
+            guard let skull = step.assistPeek?[session.mySlot] else { return nil }
+            return skull
+                ? ("😈 The next die is a SKULL — bank, now!", true)
+                : ("😈 The next die is safe — ride it", false)
         }
     }
 

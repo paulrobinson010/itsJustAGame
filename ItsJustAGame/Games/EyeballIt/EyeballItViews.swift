@@ -7,15 +7,42 @@ struct EyeballTurnView: View {
     let session: GameSession
     let turn: EyeballTurn
 
-    @State private var guess: Double = 75
+    @State private var guess: Double
     @State private var submitted = false
 
     private let dots: [SharedLayout.Dot]
+    /// Simplify (levels 2–3): the slider narrows around the true count,
+    /// jittered by a seeded offset so its middle isn't the answer.
+    private let sliderRange: ClosedRange<Double>
+    private let assist: AssistLevel?
 
     init(session: GameSession, turn: EyeballTurn) {
         self.session = session
         self.turn = turn
         self.dots = SharedLayout.dots(seed: turn.seed, count: turn.count)
+        let assist = session.myAssist
+        self.assist = assist
+        if let assist, assist >= .big {
+            var generator = SeededGenerator(seed: turn.seed &+ UInt64(max(0, session.mySlot)))
+            let jitter = Double(Int.random(in: -6...6, using: &generator))
+            let halfWidth: Double = assist == .cheating ? 12 : 30
+            let center = Double(turn.count) + jitter
+            let lower = max(10, min(center - halfWidth, 200 - halfWidth * 2))
+            let upper = min(200, lower + halfWidth * 2)
+            self.sliderRange = lower...upper
+        } else {
+            self.sliderRange = 10...200
+        }
+        _guess = State(initialValue: (sliderRange.lowerBound + sliderRange.upperBound) / 2)
+    }
+
+    /// Simplify: the dots hang around longer before vanishing.
+    private var dotsEndAt: Date {
+        switch assist {
+        case nil: return turn.dotsEndAt
+        case .little: return turn.startAt.addingTimeInterval(turn.visibleSeconds * 1.6)
+        case .big, .cheating: return turn.startAt.addingTimeInterval(turn.visibleSeconds * 2.2)
+        }
     }
 
     var body: some View {
@@ -32,7 +59,7 @@ struct EyeballTurnView: View {
                     Text("Get ready…")
                         .font(Theme.display(26))
                     Spacer()
-                } else if now < turn.dotsEndAt {
+                } else if now < dotsEndAt {
                     Text("How many dots?")
                         .font(Theme.display(26))
                     dotField
@@ -91,9 +118,14 @@ struct EyeballTurnView: View {
                 .font(Theme.display(56))
                 .monospacedDigit()
                 .foregroundStyle(Theme.cyan)
-            Slider(value: $guess, in: 10...200, step: 1)
+            Slider(value: $guess, in: sliderRange, step: 1)
                 .tint(Theme.cyan)
                 .padding(.horizontal, 32)
+            if assist == .cheating {
+                Text("It's between \(Int(sliderRange.lowerBound)) and \(Int(sliderRange.upperBound))")
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.cyan)
+            }
             HStack(spacing: 10) {
                 nudge(-10)
                 nudge(-1)
@@ -114,7 +146,7 @@ struct EyeballTurnView: View {
 
     private func nudge(_ amount: Int) -> some View {
         Button {
-            guess = min(200, max(10, guess + Double(amount)))
+            guess = min(sliderRange.upperBound, max(sliderRange.lowerBound, guess + Double(amount)))
         } label: {
             Text(amount > 0 ? "+\(amount)" : "\(amount)")
                 .monospacedDigit()

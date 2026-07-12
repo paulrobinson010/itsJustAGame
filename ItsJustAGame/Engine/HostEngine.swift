@@ -216,7 +216,12 @@ final class HostEngine {
         let crypto = GameCrypto()
         let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
         let players = config.players.enumerated().map { index, player in
-            PlayerInfo(slot: player.slot, name: player.name, colorIndex: colorIndices[index % colorIndices.count])
+            PlayerInfo(
+                slot: player.slot,
+                name: player.name,
+                colorIndex: colorIndices[index % colorIndices.count],
+                assist: player.assist
+            )
         }
         let newConfig = GameConfig(
             gameID: UUID().uuidString.lowercased(),
@@ -240,6 +245,10 @@ final class HostEngine {
             createdAt: Date(),
             autoStart: true
         )
+    }
+
+    private func assistLevel(_ slot: Int) -> AssistLevel? {
+        config.player(slot)?.assist
     }
 
     private func pickChooser() -> Int {
@@ -415,7 +424,14 @@ final class HostEngine {
                 startAt: Date().addingTimeInterval(2),
                 seekSeconds: GameTiming.seekSeconds,
                 searched: searched,
-                found: found
+                found: found,
+                assistSafe: assistSafeCells(
+                    seeker: seeker,
+                    spots: spots,
+                    found: found,
+                    searched: searched,
+                    cellCount: hideStart.cellCount
+                )
             )
             await send(.seekTurn(turnStart))
 
@@ -423,7 +439,14 @@ final class HostEngine {
             if let cell = pick, cell < 0 || cell >= hideStart.cellCount || searched.contains(cell) {
                 pick = nil
             }
-            let cell = pick ?? randomUnsearchedCell(searched: searched, cellCount: hideStart.cellCount)
+            if let cell = pick, turnStart.assistSafe?[seeker]?.contains(cell) == true {
+                // Assisted seekers can't search a square already ruled out.
+                pick = nil
+            }
+            let cell = pick ?? randomUnsearchedCell(
+                searched: searched + (turnStart.assistSafe?[seeker] ?? []),
+                cellCount: hideStart.cellCount
+            )
             searched.append(cell)
 
             let revealed = spots
@@ -512,6 +535,31 @@ final class HostEngine {
         Set(0..<cellCount).subtracting(searched).randomElement() ?? 0
     }
 
+    /// Simplify: rule out squares nobody is hiding in for an assisted
+    /// seeker — a few, lots, or (top level) all but the occupied squares
+    /// plus a couple of decoys.
+    private func assistSafeCells(
+        seeker: Int,
+        spots: [Int: Int],
+        found: [Int: Int],
+        searched: [Int],
+        cellCount: Int
+    ) -> [Int: [Int]]? {
+        guard let level = assistLevel(seeker) else { return nil }
+        let occupied = Set(spots.filter { found[$0.key] == nil }.map(\.value))
+        let empties = (0..<cellCount)
+            .filter { !occupied.contains($0) && !searched.contains($0) }
+            .shuffled()
+        let count: Int
+        switch level {
+        case .little: count = min(5, empties.count)
+        case .big: count = min(10, empties.count)
+        case .cheating: count = max(0, empties.count - 2)
+        }
+        guard count > 0 else { return nil }
+        return [seeker: Array(empties.prefix(count)).sorted()]
+    }
+
     // MARK: - Higher or Lower
 
     /// Matches until someone reaches the target points. Every winner of a
@@ -563,6 +611,14 @@ final class HostEngine {
         var current = deck.draw()
         var step = 1
         while !Task.isCancelled {
+            // Pre-drawn so top-level Simplify can whisper the right call.
+            let next = deck.draw()
+            var assistCorrect: [Int: HigherLowerGuess]?
+            let cheats = alive.filter { assistLevel($0) == .cheating }
+            if !cheats.isEmpty && next.rank != current.rank {
+                let correct: HigherLowerGuess = next.rank > current.rank ? .higher : .lower
+                assistCorrect = Dictionary(uniqueKeysWithValues: cheats.map { ($0, correct) })
+            }
             let turn = CardTurn(
                 round: round,
                 match: match,
@@ -571,12 +627,12 @@ final class HostEngine {
                 alive: alive,
                 points: pointsBefore,
                 startAt: Date().addingTimeInterval(2),
-                guessSeconds: GameTiming.guessSeconds
+                guessSeconds: GameTiming.guessSeconds,
+                assistCorrect: assistCorrect
             )
             await send(.cardTurn(turn))
             let guesses = await collectGuesses(for: turn)
 
-            let next = deck.draw()
             var eliminated: [Int] = []
             var isTie = false
             if next.rank == current.rank {
@@ -885,6 +941,25 @@ final class HostEngine {
                 return [players.first ?? 1]
             }
             usedPlaces.insert(place.name)
+            var assistHints: [Int: FingerHint] = [:]
+            for slot in players {
+                guard let level = assistLevel(slot) else { continue }
+                let spanKm = min(region.spanLat, region.spanLon) * 111.0
+                let radiusKm: Double
+                switch level {
+                case .little: radiusKm = spanKm * 0.22
+                case .big: radiusKm = spanKm * 0.12
+                case .cheating: radiusKm = spanKm * 0.05
+                }
+                // Shove the circle's centre off the capital so the middle
+                // of the glow isn't the answer.
+                let center = DirectionMath.destination(
+                    from: place.coordinate,
+                    bearing: Double.random(in: 0..<360),
+                    distanceMeters: Double.random(in: 0...(radiusKm * 600))
+                )
+                assistHints[slot] = FingerHint(center: center, radiusKm: radiusKm)
+            }
             let turnMessage = FingerTurn(
                 round: round,
                 turn: turn,
@@ -895,7 +970,8 @@ final class HostEngine {
                 placeName: place.name,
                 points: points,
                 startAt: Date().addingTimeInterval(2),
-                guessSeconds: GameTiming.fingerGuessSeconds
+                guessSeconds: GameTiming.fingerGuessSeconds,
+                assistHints: assistHints.isEmpty ? nil : assistHints
             )
             await send(.fingerTurn(turnMessage))
             let guesses = await collectFingerGuesses(for: turnMessage, players: players)
@@ -1079,6 +1155,13 @@ final class HostEngine {
         var pot = Int.random(in: 2...6)
         var step = 1
         while !Task.isCancelled {
+            // Pre-rolled so top-level Simplify can peek at what's coming.
+            let prerolled = Int.random(in: 1...6)
+            var assistPeek: [Int: Bool]?
+            let peekers = riders.filter { assistLevel($0) == .cheating }
+            if !peekers.isEmpty {
+                assistPeek = Dictionary(uniqueKeysWithValues: peekers.map { ($0, prerolled == 1) })
+            }
             let stepMessage = DiceStep(
                 round: round,
                 run: run,
@@ -1087,7 +1170,8 @@ final class HostEngine {
                 riders: riders,
                 banks: banks,
                 startAt: Date().addingTimeInterval(2),
-                chooseSeconds: GameTiming.diceChooseSeconds
+                chooseSeconds: GameTiming.diceChooseSeconds,
+                assistPeek: assistPeek
             )
             await send(.diceStep(stepMessage))
             let choices = await collectDiceChoices(for: stepMessage)
@@ -1106,7 +1190,7 @@ final class HostEngine {
             if stillRiding.isEmpty {
                 runOver = true
             } else {
-                let drawn = Int.random(in: 1...6)
+                let drawn = prerolled
                 die = drawn
                 if drawn == 1 {
                     isSkull = true
@@ -1196,10 +1280,20 @@ final class HostEngine {
             }
             let clashes = pickCounts.filter { $0.value > 1 }.map(\.key).sorted()
             var gains: [Int: Int] = [:]
-            for (slot, cell) in picks where pickCounts[cell] == 1 {
+            for (slot, cell) in picks {
                 let value = turnMessage.coins.indices.contains(cell) ? turnMessage.coins[cell] : 0
-                gains[slot] = value
-                totals[slot, default: 0] += value
+                if pickCounts[cell] == 1 {
+                    gains[slot] = value
+                    totals[slot, default: 0] += value
+                } else if let level = assistLevel(slot), level >= .big {
+                    // Simplify clash protection: half coins at level 2,
+                    // full coins at level 3, even on a shared square.
+                    let kept = level == .cheating ? value : (value + 1) / 2
+                    if kept > 0 {
+                        gains[slot] = kept
+                        totals[slot, default: 0] += kept
+                    }
+                }
             }
             let roundWinners = players.filter { totals[$0, default: 0] >= GameTiming.goldTarget }
 
@@ -1364,9 +1458,15 @@ final class HostEngine {
             var results: [CircleResult] = []
             for slot in players {
                 let path = paths[slot]
+                var score = path.flatMap { CircleScore.evaluate(flat: $0) }
+                if let raw = score, assistLevel(slot) == .cheating {
+                    // Simplify (top level): a friendly nudge on the score,
+                    // on top of the guide ring their device draws.
+                    score = min(100, ((raw + 7) * 10).rounded() / 10)
+                }
                 results.append(CircleResult(
                     slot: slot,
-                    score: path.flatMap { CircleScore.evaluate(flat: $0) },
+                    score: score,
                     path: path
                 ))
             }

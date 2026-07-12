@@ -93,19 +93,35 @@ struct FlashTurnView: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
+                let untilFlash = turn.flashAt.timeIntervalSince(now)
+                let warned = assistWarned(untilFlash: untilFlash)
                 VStack(spacing: 16) {
                     Circle()
-                        .fill(Theme.magenta)
+                        .fill(warned ? Theme.cyan : Theme.magenta)
                         .frame(width: 14, height: 14)
-                        .shadow(color: Theme.magenta.opacity(0.7), radius: 12)
-                    Text("Wait for it…")
-                        .font(Theme.display(28))
+                        .shadow(color: (warned ? Theme.cyan : Theme.magenta).opacity(0.7), radius: 12)
+                    if warned, (session.myAssist ?? .little) >= .big {
+                        Text("\(Int(untilFlash.rounded(.up)))…")
+                            .font(Theme.display(44))
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.cyan)
+                    } else {
+                        Text("Wait for it…")
+                            .font(Theme.display(28))
+                    }
                     Text("Tap the moment the screen flashes.")
                         .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+    }
+
+    /// Simplify: heads-up before the flash — a colour change at level 1,
+    /// a visible countdown from level 2.
+    private func assistWarned(untilFlash: TimeInterval) -> Bool {
+        guard let level = session.myAssist, untilFlash > 0 else { return false }
+        return untilFlash <= (level >= .big ? 3 : 1.5)
     }
 
     private func handleTap() {
@@ -116,7 +132,11 @@ struct FlashTurnView: View {
             SoundPlayer.shared.play(.lose)
             session.submitReaction(elapsedMs: nil, falseStart: true, for: turn)
         } else if tapDate <= turn.deadline.addingTimeInterval(1) {
-            let ms = Int(tapDate.timeIntervalSince(turn.flashAt) * 1000)
+            var ms = Int(tapDate.timeIntervalSince(turn.flashAt) * 1000)
+            if session.myAssist == .cheating {
+                // Top-level Simplify: their reaction counts for less.
+                ms = Int(Double(ms) * 0.6)
+            }
             result = .tapped(ms: ms)
             SoundPlayer.shared.play(.lockin)
             session.submitReaction(elapsedMs: ms, falseStart: false, for: turn)

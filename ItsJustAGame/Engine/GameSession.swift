@@ -88,6 +88,10 @@ final class GameSession {
     var mySlot: Int { saved.mySlot }
     var players: [PlayerInfo] { config?.players ?? [] }
 
+    /// My simplification level, nil when off. Drives all the client-side
+    /// hints; the host handles the parts that need its secrets.
+    var myAssist: AssistLevel? { config?.player(mySlot)?.assist }
+
     func name(_ slot: Int) -> String {
         config?.name(slot) ?? "Player \(slot)"
     }

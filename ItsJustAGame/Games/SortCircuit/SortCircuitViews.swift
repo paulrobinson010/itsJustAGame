@@ -13,6 +13,7 @@ struct SortTurnView: View {
     @State private var wrongFlash: Int?
     @State private var resultMs: Int?
     @State private var submitted = false
+    @State private var lastProgressAt: Date?
 
     private let positions: [(x: Double, y: Double)]
 
@@ -86,7 +87,7 @@ struct SortTurnView: View {
                     .frame(width: size, height: size)
                 if now >= turn.startAt {
                     ForEach(1...turn.tileCount, id: \.self) { value in
-                        tile(value: value)
+                        tile(value: value, hinted: hintActive(now: now) && value == nextValue)
                             .position(
                                 x: positions[value - 1].x * size,
                                 y: positions[value - 1].y * size
@@ -105,7 +106,20 @@ struct SortTurnView: View {
         .padding(.horizontal, 24)
     }
 
-    private func tile(value: Int) -> some View {
+    /// Simplify: whether the next number should glow right now. Level 1
+    /// only after a couple of stuck seconds; levels 2–3 always.
+    private func hintActive(now: Date) -> Bool {
+        guard let level = session.myAssist,
+              !submitted, now >= turn.startAt, now < turn.deadline else { return false }
+        switch level {
+        case .little:
+            return now.timeIntervalSince(lastProgressAt ?? turn.startAt) > 2.5
+        case .big, .cheating:
+            return true
+        }
+    }
+
+    private func tile(value: Int, hinted: Bool = false) -> some View {
         let isDone = done.contains(value)
         return Text("\(value)")
             .font(Font.custom(Theme.BrandFont.bold, size: 22))
@@ -119,10 +133,11 @@ struct SortTurnView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(
-                        wrongFlash == value ? Theme.magenta : Theme.hairline,
-                        lineWidth: wrongFlash == value ? 2.5 : 1
+                        wrongFlash == value ? Theme.magenta : (hinted ? Theme.cyan : Theme.hairline),
+                        lineWidth: wrongFlash == value ? 2.5 : (hinted ? 2.5 : 1)
                     )
             )
+            .shadow(color: hinted ? Theme.cyan.opacity(0.5) : .clear, radius: 8)
             .onTapGesture { tap(value: value) }
     }
 
@@ -136,6 +151,7 @@ struct SortTurnView: View {
             SoundPlayer.shared.play(.tick)
             done.insert(value)
             nextValue += 1
+            lastProgressAt = now
             if nextValue > turn.tileCount {
                 let elapsed = Int(now.timeIntervalSince(turn.startAt) * 1000) + penaltyMs
                 resultMs = elapsed
@@ -148,7 +164,10 @@ struct SortTurnView: View {
                 )
             }
         } else {
-            penaltyMs += GameTiming.sortPenaltyMs
+            if session.myAssist != .cheating {
+                // Simplify (top level): slips are shown but cost no time.
+                penaltyMs += GameTiming.sortPenaltyMs
+            }
             wrongFlash = value
             Task {
                 try? await Task.sleep(for: .seconds(0.25))

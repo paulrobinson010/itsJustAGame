@@ -7,6 +7,7 @@ struct CreateGameView: View {
     @State private var playerCount = 3
     @State private var names: [String]
     @State private var addresses: [String?] = Array(repeating: nil, count: 8)
+    @State private var assists: [AssistLevel?] = Array(repeating: nil, count: 8)
     @State private var pickerMode: PickerMode?
 
     private enum PickerMode: Identifiable {
@@ -49,28 +50,48 @@ struct CreateGameView: View {
                         }
                     }
                     ForEach(0..<playerCount, id: \.self) { index in
-                        HStack {
-                            TextField(index == 0 ? "You" : "Player \(index + 1) name", text: $names[index])
-                                .textInputAutocapitalization(.words)
-                            if index > 0 {
-                                if addresses[index] != nil {
-                                    Image(systemName: "message.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(Theme.cyan)
+                        VStack(spacing: 8) {
+                            HStack {
+                                TextField(index == 0 ? "You" : "Player \(index + 1) name", text: $names[index])
+                                    .textInputAutocapitalization(.words)
+                                if index > 0 {
+                                    if addresses[index] != nil {
+                                        Image(systemName: "message.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Theme.cyan)
+                                    }
+                                    Button {
+                                        pickerMode = .single(index)
+                                    } label: {
+                                        Image(systemName: "person.crop.circle.badge.plus")
+                                    }
+                                    .buttonStyle(.borderless)
                                 }
-                                Button {
-                                    pickerMode = .single(index)
-                                } label: {
-                                    Image(systemName: "person.crop.circle.badge.plus")
+                            }
+                            HStack {
+                                Toggle(isOn: simplifyBinding(index)) {
+                                    Label("Simplify", systemImage: "wand.and.stars")
+                                        .font(Theme.caption)
+                                        .foregroundStyle(.secondary)
                                 }
-                                .buttonStyle(.borderless)
+                                .toggleStyle(.switch)
+                                .controlSize(.mini)
+                                if assists[index] != nil {
+                                    Picker("", selection: levelBinding(index)) {
+                                        ForEach(AssistLevel.allCases, id: \.self) { level in
+                                            Text(level.displayName).tag(level)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                }
                             }
                         }
                     }
                 } header: {
                     Text("Players")
                 } footer: {
-                    Text("Every player needs a name. Pick from contacts to fill names and send invites by iMessage straight from the lobby. Contacts never leave this phone.")
+                    Text("Every player needs a name. Pick from contacts to fill names and send invites by iMessage straight from the lobby. Contacts never leave this phone. Simplify quietly makes every mini game easier for that player — nothing in the game gives it away.")
                 }
             }
             .sheet(item: $pickerMode) { mode in
@@ -101,7 +122,8 @@ struct CreateGameView: View {
                         model.createGame(
                             roundsToWin: roundsToWin,
                             playerNames: trimmedNames,
-                            inviteeAddresses: inviteeAddresses
+                            inviteeAddresses: inviteeAddresses,
+                            assists: chosenAssists
                         )
                         dismiss()
                     }
@@ -129,6 +151,30 @@ struct CreateGameView: View {
         return result
     }
 
+    private var chosenAssists: [Int: AssistLevel] {
+        var result: [Int: AssistLevel] = [:]
+        for index in 0..<playerCount {
+            if let level = assists[index] {
+                result[index + 1] = level
+            }
+        }
+        return result
+    }
+
+    private func simplifyBinding(_ index: Int) -> Binding<Bool> {
+        Binding(
+            get: { assists[index] != nil },
+            set: { assists[index] = $0 ? .little : nil }
+        )
+    }
+
+    private func levelBinding(_ index: Int) -> Binding<AssistLevel> {
+        Binding(
+            get: { assists[index] ?? .little },
+            set: { assists[index] = $0 }
+        )
+    }
+
     private var lastHostedGame: SavedGame? {
         model.store.games.first { $0.isHost && $0.hostConfig != nil }
     }
@@ -150,9 +196,11 @@ struct CreateGameView: View {
         let others = config.players.filter { $0.slot != 1 }.prefix(7)
         guard !others.isEmpty else { return }
         playerCount = others.count + 1
+        assists[0] = config.player(1)?.assist
         for (offset, player) in others.enumerated() {
             names[offset + 1] = player.name
             addresses[offset + 1] = last.inviteeAddresses?[player.slot]
+            assists[offset + 1] = player.assist
         }
         roundsToWin = config.roundsToWin
     }
