@@ -19,16 +19,19 @@ final class HostEngine {
 
     private let transport: any GameTransport
     private let crypto: GameCrypto
+    /// Rematch games begin on their own once everyone has rejoined.
+    private let autoStart: Bool
     private var seq = 0
     private var lobbyTask: Task<Void, Never>?
     private var gameTask: Task<Void, Never>?
     private var playerCoordinates: [Int: Coordinate] = [:]
     private var lastChooser: Int?
 
-    init(config: GameConfig, transport: any GameTransport, crypto: GameCrypto) {
+    init(config: GameConfig, transport: any GameTransport, crypto: GameCrypto, autoStart: Bool = false) {
         self.config = config
         self.transport = transport
         self.crypto = crypto
+        self.autoStart = autoStart
     }
 
     func start() {
@@ -67,8 +70,17 @@ final class HostEngine {
         if let coordinate = await LocationService.shared.currentCoordinate() {
             playerCoordinates[1] = coordinate
         }
+        let lobbyOpenedAt = Date()
         while !Task.isCancelled && !gameRunning {
             await pollJoins()
+            if autoStart {
+                let everyone = Set(config.players.map(\.slot))
+                let waitedLongEnough = Date().timeIntervalSince(lobbyOpenedAt) > 25
+                if joined == everyone || (waitedLongEnough && joined.count >= MiniGameType.smallestMinimum) {
+                    beginGame()
+                    break
+                }
+            }
             try? await Task.sleep(for: .seconds(1))
         }
     }
@@ -85,6 +97,11 @@ final class HostEngine {
                 if let message = try? crypto.open(HostMessage.self, from: body) {
                     if case .lobby(let slots) = message { joined = Set(slots) }
                     if case .wheel = message { resumeBlocked = true }
+                    if case .rematch(let invite) = message {
+                        // A rematch already exists — reuse it, never mint a second.
+                        existingRematch = invite
+                        rematchAnnounced = true
+                    }
                 }
                 seq += 1
                 advanced = true
@@ -173,6 +190,8 @@ final class HostEngine {
     /// Returns the new game's SavedGame for this (host) device, or nil if a
     /// rematch was already announced or the game is still running.
     private(set) var rematchAnnounced = false
+    /// Found during stream recovery when this game already has a rematch.
+    private(set) var existingRematch: RematchInvite?
 
     func announceRematch() async -> SavedGame? {
         guard !gameRunning, !rematchAnnounced else { return nil }
@@ -201,7 +220,8 @@ final class HostEngine {
             isHost: true,
             hostConfig: newConfig,
             title: "\(newConfig.name(1))'s game · \(players.count) players",
-            createdAt: Date()
+            createdAt: Date(),
+            autoStart: true
         )
     }
 

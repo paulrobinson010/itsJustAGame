@@ -64,9 +64,15 @@ struct HomeView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(game.title)
                                         .foregroundStyle(.primary)
-                                    Text("\(game.isHost ? "Host" : "Player \(game.mySlot)") · \(game.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                    if let summary = game.summary {
+                                        Text("🏆 \(summary.name(summary.winner)) won · \(game.createdAt.formatted(date: .abbreviated, time: .omitted))")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("\(game.isHost ? "Host" : "Player \(game.mySlot)") · \(game.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }

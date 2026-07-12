@@ -132,8 +132,24 @@ struct SavedGame: Codable, Hashable, Identifiable {
     /// from contacts. Host-only and local-only: used to address iMessage
     /// invites, never distributed.
     var inviteeAddresses: [Int: String]?
+    /// Recorded when the game ends, so reopening shows the result
+    /// instantly instead of replaying the whole stream.
+    var summary: GameSummary?
+    /// Rematch games begin automatically once everyone (re)joins.
+    var autoStart: Bool?
 
     var id: String { gameID }
+}
+
+struct GameSummary: Codable, Hashable {
+    var winner: Int
+    var roundsWon: [Int: Int]
+    var players: [PlayerInfo]
+    var roundsToWin: Int
+
+    func name(_ slot: Int) -> String {
+        players.first { $0.slot == slot }?.name ?? "Player \(slot)"
+    }
 }
 
 enum GameTiming {

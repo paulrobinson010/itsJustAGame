@@ -40,14 +40,17 @@ Everything the game sends between devices is **end-to-end encrypted**.
    game). Each round is one mini game. Within Sense of Direction, each
    *turn* is one target place; the turn winner gets a point, and the first
    player to 3 points takes the round.
-6. **Rematch without links** — when a game ends, the host can tap
-   "Rematch": a fresh game (new ID, fresh key) is announced over the old
-   game's encrypted stream, so the same crew joins with one tap and nobody
-   ever needs a new invite link. Keys still rotate every game; colors are
-   re-dealt. The create screen also remembers your last rounds-to-win, can
-   refill "same players as last game", and the contact picker multi-selects
-   — while the lobby's "Invite all by iMessage" walks the pre-addressed
-   composers back-to-back.
+6. **Rematch without links** — when a game ends, the host taps "Rematch":
+   a fresh game (new ID, fresh key) is announced over the old game's
+   encrypted stream, every other player **joins automatically**, and the
+   new game **starts on its own** once everyone is in (or after ~25s with
+   whoever came). No links, no lobby taps. Keys still rotate every game;
+   colors are re-dealt. Finished games store their result: reopening one
+   shows the winner and standings instantly (no replay) with "Play again —
+   same crew" for the host. The create screen also remembers your last
+   rounds-to-win, can refill "same players as last game", and the contact
+   picker multi-selects — while the lobby's "Invite all by iMessage" walks
+   the pre-addressed composers back-to-back.
 7. **Ties share** — when several players win a point or a round together,
    they all score. If several players reach the winning round count at the
    same moment, a tie-breaker wheel of just those players spins and the

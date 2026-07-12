@@ -19,7 +19,12 @@ struct GameScreen: View {
         _session = State(initialValue: GameSession(saved: saved, transport: transport, crypto: crypto))
         _showWelcome = State(initialValue: saved.needsWelcome == true)
         if saved.isHost, let config = saved.hostConfig {
-            _engine = State(initialValue: HostEngine(config: config, transport: transport, crypto: crypto))
+            _engine = State(initialValue: HostEngine(
+                config: config,
+                transport: transport,
+                crypto: crypto,
+                autoStart: saved.autoStart == true
+            ))
         }
     }
 
@@ -32,7 +37,8 @@ struct GameScreen: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.background)
-            .animation(.easeInOut(duration: 0.35), value: contentKey)
+            // No cross-fades while the initial replay drains the stream.
+            .animation(session.caughtUp ? .easeInOut(duration: 0.35) : nil, value: contentKey)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Leave") { showLeaveConfirm = true }
@@ -67,11 +73,40 @@ struct GameScreen: View {
             session.stop()
             engine?.stop()
         }
+        .onChange(of: session.phase) { _, newPhase in
+            if case .gameEnd(let winner) = newPhase, saved.summary == nil, let config = session.config {
+                model.store.recordSummary(
+                    GameSummary(
+                        winner: winner,
+                        roundsWon: session.roundsWon,
+                        players: config.players,
+                        roundsToWin: config.roundsToWin
+                    ),
+                    for: saved
+                )
+            }
+        }
+        .onChange(of: session.pendingRematch) { _, invite in
+            // Rematches start straight away — no join button, no new link.
+            guard let invite, !saved.isHost else { return }
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                joinRematch(invite)
+            }
+        }
     }
 
     @ViewBuilder
     private var content: some View {
-        if showWelcome {
+        if let summary = saved.summary {
+            // A finished game reopens as its result, never a replay.
+            FinishedGameView(
+                session: session,
+                summary: summary,
+                onClose: { close() },
+                onPlayAgain: saved.isHost ? { hostRematch() } : nil
+            )
+        } else if showWelcome {
             WelcomeView(session: session) {
                 showWelcome = false
                 model.store.markWelcomed(saved)
@@ -85,6 +120,7 @@ struct GameScreen: View {
     /// on every state tweak inside a phase, so in-phase view state (drag
     /// positions, selections) survives.
     private var contentKey: String {
+        guard saved.summary == nil else { return "finished" }
         guard !showWelcome else { return "welcome" }
         switch session.phase {
         case .lobby: return "lobby"
@@ -153,8 +189,7 @@ struct GameScreen: View {
                 session: session,
                 winner: winner,
                 onClose: { close() },
-                onHostRematch: saved.isHost ? { hostRematch() } : nil,
-                onJoinRematch: { invite in joinRematch(invite) }
+                onHostRematch: saved.isHost ? { hostRematch() } : nil
             )
         }
     }
@@ -174,6 +209,11 @@ struct GameScreen: View {
 
     private func hostRematch() {
         guard let engine else { return }
+        if let invite = engine.existingRematch {
+            // This game already has a rematch — reopen it, never mint another.
+            openRematch(invite, asHost: true)
+            return
+        }
         Task {
             guard var newSaved = await engine.announceRematch() else { return }
             newSaved.inviteeAddresses = saved.inviteeAddresses
@@ -183,6 +223,10 @@ struct GameScreen: View {
     }
 
     private func joinRematch(_ invite: RematchInvite) {
+        openRematch(invite, asHost: false)
+    }
+
+    private func openRematch(_ invite: RematchInvite, asHost: Bool) {
         if let existing = model.store.games.first(where: { $0.gameID == invite.newGameID }) {
             model.activeGame = existing
             return
@@ -190,15 +234,97 @@ struct GameScreen: View {
         let newSaved = SavedGame(
             gameID: invite.newGameID,
             keyBase64URL: invite.newKeyBase64URL,
-            mySlot: session.mySlot,
-            isHost: false,
-            hostConfig: nil,
+            mySlot: asHost ? 1 : session.mySlot,
+            isHost: asHost,
+            hostConfig: asHost ? invite.config : nil,
             title: "\(invite.config.name(1))'s game · \(invite.config.players.count) players",
             createdAt: Date(),
-            needsWelcome: false
+            needsWelcome: false,
+            inviteeAddresses: asHost ? saved.inviteeAddresses : nil,
+            autoStart: true
         )
         model.store.add(newSaved)
         model.activeGame = newSaved
+    }
+}
+
+/// A finished game reopened later: the stored result, standings, and (for
+/// the host) a one-tap fresh game with the same crew. The session still
+/// replays quietly underneath so a rematch someone already started is
+/// discovered and joined automatically.
+struct FinishedGameView: View {
+    let session: GameSession
+    let summary: GameSummary
+    var onClose: () -> Void
+    var onPlayAgain: (() -> Void)?
+
+    @State private var playAgainTapped = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Text("🏆")
+                .font(.system(size: 64))
+            Text("\(summary.name(summary.winner)) won this game")
+                .font(Theme.display(30))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            standings
+            VStack(spacing: 12) {
+                if session.pendingRematch != nil, onPlayAgain == nil {
+                    Text("Next game found — joining…")
+                        .font(Theme.headline)
+                        .foregroundStyle(Theme.magenta)
+                } else if let onPlayAgain {
+                    Button {
+                        playAgainTapped = true
+                        onPlayAgain()
+                    } label: {
+                        Label("Play again — same crew", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: 240)
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(playAgainTapped)
+                }
+                Button {
+                    onClose()
+                } label: {
+                    Text("Back to home")
+                        .frame(maxWidth: 240)
+                }
+                .buttonStyle(QuietButtonStyle())
+            }
+            .padding(.top, 8)
+            Spacer()
+        }
+    }
+
+    private var standings: some View {
+        VStack(spacing: 14) {
+            ForEach(summary.players) { player in
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(player.color)
+                        .frame(width: 10, height: 10)
+                    Text(player.name)
+                        .font(Theme.subheadline)
+                        .lineLimit(1)
+                    Spacer()
+                    let won = summary.roundsWon[player.slot, default: 0]
+                    let total = max(summary.roundsToWin, won)
+                    HStack(spacing: 5) {
+                        ForEach(0..<total, id: \.self) { index in
+                            Circle()
+                                .fill(index < won ? player.color : Theme.quietFill)
+                                .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                }
+            }
+        }
+        .card()
+        .padding(.horizontal, 24)
     }
 }
 
@@ -329,7 +455,6 @@ struct GameEndView: View {
     let winner: Int
     var onClose: () -> Void
     var onHostRematch: (() -> Void)?
-    var onJoinRematch: ((RematchInvite) -> Void)?
 
     @State private var rematchStarted = false
 
@@ -354,16 +479,12 @@ struct GameEndView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(rematchStarted)
-                } else if let invite = session.pendingRematch, let onJoinRematch {
-                    Button {
-                        onJoinRematch(invite)
-                    } label: {
-                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
+                } else if session.pendingRematch != nil {
+                    Text("Rematch starting — joining…")
+                        .font(Theme.headline)
+                        .foregroundStyle(Theme.magenta)
                 } else {
-                    Text("If \(session.name(1)) starts a rematch, you can join it from here — no new link needed.")
+                    Text("If \(session.name(1)) starts a rematch, it begins here automatically — no new link needed.")
                         .font(Theme.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

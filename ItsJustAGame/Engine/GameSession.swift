@@ -49,6 +49,9 @@ final class GameSession {
     private(set) var joinedSlots: Set<Int> = [1]
     /// Set when the host announces a rematch after this game ends.
     private(set) var pendingRematch: RematchInvite?
+    /// False while the initial replay is draining the stream, so the UI can
+    /// skip animating through historical phases.
+    private(set) var caughtUp = false
     private(set) var lastError: String?
 
     private let transport: any GameTransport
@@ -266,6 +269,7 @@ final class GameSession {
     private func poll() async {
         while !Task.isCancelled {
             await fetchNextMessages()
+            caughtUp = true
             try? await Task.sleep(for: .seconds(0.75))
         }
     }

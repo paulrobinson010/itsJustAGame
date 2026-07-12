@@ -30,6 +30,13 @@ final class GameStore {
         save()
     }
 
+    func recordSummary(_ summary: GameSummary, for game: SavedGame) {
+        guard let index = games.firstIndex(where: { $0.gameID == game.gameID }),
+              games[index].summary == nil else { return }
+        games[index].summary = summary
+        save()
+    }
+
     private var fileURL: URL {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
