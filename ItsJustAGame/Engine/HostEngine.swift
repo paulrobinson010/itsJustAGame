@@ -69,7 +69,7 @@ final class HostEngine {
         }
         while !Task.isCancelled && !gameRunning {
             await pollJoins()
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .seconds(1))
         }
     }
 
@@ -123,8 +123,9 @@ final class HostEngine {
         while !Task.isCancelled {
             let chooser = pickChooser()
             lastChooser = chooser
-            await send(.wheel(round: round, chooser: chooser))
-            let game = await waitForChoice(round: round, chooser: chooser)
+            let spinSeconds = Double.random(in: 3...10)
+            await send(.wheel(round: round, chooser: chooser, spinSeconds: spinSeconds))
+            let game = await waitForChoice(round: round, chooser: chooser, spinSeconds: spinSeconds)
             await send(.roundStart(round: round, game: game))
             try? await Task.sleep(for: .seconds(3))
             let winners: [Int]
@@ -155,8 +156,9 @@ final class HostEngine {
                 // Several players hit the target together — the wheel picks
                 // the overall winner, totally at random.
                 let overall = champions.randomElement() ?? champions[0]
-                await send(.tieBreakSpin(candidates: champions, winner: overall))
-                try? await Task.sleep(for: .seconds(GameTiming.wheelSpinSeconds + 3))
+                let spinSeconds = Double.random(in: 3...8)
+                await send(.tieBreakSpin(candidates: champions, winner: overall, spinSeconds: spinSeconds))
+                try? await Task.sleep(for: .seconds(spinSeconds + 3))
                 await send(.gameEnd(winner: overall, roundsWon: roundsWon))
                 gameRunning = false
                 return
@@ -209,9 +211,9 @@ final class HostEngine {
         return candidates.randomElement() ?? 1
     }
 
-    private func waitForChoice(round: Int, chooser: Int) async -> MiniGameType {
+    private func waitForChoice(round: Int, chooser: Int, spinSeconds: Double) async -> MiniGameType {
         // Give the wheel animation time to play everywhere before looking.
-        try? await Task.sleep(for: .seconds(GameTiming.wheelSpinSeconds))
+        try? await Task.sleep(for: .seconds(spinSeconds + 0.5))
         let id = RecordName.choice(config.gameID, round: round, slot: chooser)
         let deadline = Date().addingTimeInterval(120)
         while !Task.isCancelled && Date() < deadline {
@@ -226,7 +228,7 @@ final class HostEngine {
                 }
                 break
             }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         return MiniGameType.available(for: joined.count).randomElement() ?? .senseOfDirection
     }
@@ -283,7 +285,7 @@ final class HostEngine {
                 }
             }
             if Date() > deadline { break }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         return answers
     }
@@ -445,7 +447,7 @@ final class HostEngine {
                 }
             }
             if Date() > deadline { break }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         // Anyone who never picked gets hidden somewhere random.
         for slot in players where spots[slot] == nil {
@@ -464,7 +466,7 @@ final class HostEngine {
                case .seek(_, _, _, let cell) = message {
                 return cell
             }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         return nil
     }
@@ -610,7 +612,7 @@ final class HostEngine {
                 }
             }
             if Date() > deadline { break }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         // A silent player gets a random call rather than auto-elimination,
         // so a network blip can't knock someone out.
@@ -746,7 +748,7 @@ final class HostEngine {
                 }
             }
             if Date() > deadline { break }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         return answers
     }
@@ -822,7 +824,7 @@ final class HostEngine {
                 }
             }
             if Date() > deadline { break }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         for slot in players where results[slot] == nil {
             results[slot] = FlashResult(slot: slot, elapsedMs: nil, falseStart: false)
@@ -921,7 +923,7 @@ final class HostEngine {
                 }
             }
             if Date() > deadline { break }
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
         return guesses
     }

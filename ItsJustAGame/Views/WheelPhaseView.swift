@@ -1,80 +1,74 @@
 import SwiftUI
 
 /// The spinning wheel that picks who chooses the round's game. The result
-/// was already decided by the host device — the wheel just animates to land
-/// on it.
+/// and the spin length (3–10s, host-rolled) were already decided — the
+/// wheel just animates to land on them, identically on every device.
 struct WheelPhaseView: View {
     let session: GameSession
     let round: Int
     let chooser: Int
+    let spinSeconds: Double
 
     @State private var rotation: Double = 0
     @State private var finished = false
     @State private var hasChosen = false
 
     var body: some View {
-        // Scrolls because the chooser now lists every mini game.
+        // Scrolls because the chooser lists every mini game.
         ScrollView {
             VStack(spacing: 24) {
-            Text("Round \(round)")
-                .font(Theme.kicker)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .kerning(1.5)
-            Text("Who picks the game?")
-                .font(Theme.display(28))
+                Text("Round \(round)")
+                    .font(Theme.kicker)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .kerning(1.5)
+                Text("Who picks the game?")
+                    .font(Theme.display(28))
 
-            ZStack(alignment: .top) {
-                WheelShapeView(players: session.players)
-                    .rotationEffect(.degrees(rotation))
-                Image(systemName: "arrowtriangle.down.fill")
-                    .font(.title)
-                    .foregroundStyle(Color.accentColor)
-                    .offset(y: -10)
-            }
-            .frame(width: 300, height: 300)
-            .padding(.top, 12)
+                SpinningWheel(players: session.players, rotation: rotation, pointerColor: Theme.cyan)
+                    .frame(width: 310, height: 310)
+                    .padding(.top, 8)
 
-            Group {
-                if !finished {
-                    Text("Spinning…")
-                        .font(Theme.subheadline)
-                        .foregroundStyle(.secondary)
-                } else if chooser == session.mySlot {
-                    VStack(spacing: 12) {
-                        Text("You pick the game!")
-                            .font(Theme.headline)
-                        ForEach(MiniGameType.allCases, id: \.self) { game in
-                            let available = session.joinedSlots.count >= game.minPlayers
-                            Button {
-                                hasChosen = true
-                                session.submitChoice(round: round, game: game)
-                            } label: {
-                                VStack(spacing: 2) {
-                                    Label(game.displayName, systemImage: game.iconName)
-                                    if !available {
-                                        Text("Needs at least \(game.minPlayers) players")
-                                            .font(Theme.caption2)
+                Group {
+                    if !finished {
+                        Text("Spinning…")
+                            .font(Theme.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else if chooser == session.mySlot {
+                        VStack(spacing: 12) {
+                            Text("You pick the game!")
+                                .font(Theme.headline)
+                            ForEach(MiniGameType.allCases, id: \.self) { game in
+                                let available = session.joinedSlots.count >= game.minPlayers
+                                Button {
+                                    hasChosen = true
+                                    session.submitChoice(round: round, game: game)
+                                } label: {
+                                    VStack(spacing: 2) {
+                                        Label(game.displayName, systemImage: game.iconName)
+                                        if !available {
+                                            Text("Needs at least \(game.minPlayers) players")
+                                                .font(Theme.caption2)
+                                        }
                                     }
+                                    .frame(maxWidth: .infinity)
                                 }
-                                .frame(maxWidth: .infinity)
+                                .buttonStyle(PrimaryButtonStyle())
+                                .disabled(hasChosen || !available)
                             }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(hasChosen || !available)
+                            if hasChosen {
+                                Text("Starting…")
+                                    .font(Theme.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        if hasChosen {
-                            Text("Starting…")
-                                .font(Theme.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        .padding(.horizontal, 32)
+                    } else {
+                        Text("\(session.name(chooser)) is picking the game…")
+                            .font(Theme.headline)
                     }
-                    .padding(.horizontal, 32)
-                } else {
-                    Text("\(session.name(chooser)) is picking the game…")
-                        .font(Theme.headline)
                 }
-            }
-            .frame(minHeight: 120)
+                .frame(minHeight: 120)
             }
             .padding(.top, 24)
             .padding(.bottom, 24)
@@ -83,19 +77,121 @@ struct WheelPhaseView: View {
     }
 
     private func spin() {
-        let players = session.players
-        guard let index = players.firstIndex(where: { $0.slot == chooser }), players.count > 0 else {
+        guard let landing = WheelMath.landingRotation(
+            players: session.players,
+            target: chooser,
+            spinSeconds: spinSeconds
+        ) else {
             finished = true
             return
         }
-        let segment = 360.0 / Double(players.count)
-        let landing = 360.0 * 6 - (Double(index) + 0.5) * segment
-        withAnimation(.easeOut(duration: GameTiming.wheelSpinSeconds)) {
+        withAnimation(.timingCurve(0.12, 0.75, 0.25, 1.0, duration: spinSeconds)) {
             rotation = landing
         }
         Task {
-            try? await Task.sleep(for: .seconds(GameTiming.wheelSpinSeconds + 0.3))
+            try? await Task.sleep(for: .seconds(spinSeconds + 0.3))
             finished = true
+        }
+    }
+}
+
+enum WheelMath {
+    /// Whole turns plus the offset that parks the target segment under the
+    /// pointer. Longer spins get more turns but stay slow and cinematic.
+    static func landingRotation(players: [PlayerInfo], target: Int, spinSeconds: Double) -> Double? {
+        guard !players.isEmpty,
+              let index = players.firstIndex(where: { $0.slot == target }) else { return nil }
+        let segment = 360.0 / Double(players.count)
+        let turns = (2.0 + spinSeconds * 0.5).rounded()
+        return 360.0 * turns - (Double(index) + 0.5) * segment
+    }
+}
+
+/// The wheel with its pointer. Rotate via `rotation`.
+struct SpinningWheel: View {
+    let players: [PlayerInfo]
+    let rotation: Double
+    var pointerColor: Color = Theme.cyan
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            WheelFace(players: players)
+                .rotationEffect(.degrees(rotation))
+            Image(systemName: "arrowtriangle.down.fill")
+                .font(.title)
+                .foregroundStyle(pointerColor)
+                .shadow(color: pointerColor.opacity(0.7), radius: 8)
+                .offset(y: -10)
+        }
+    }
+}
+
+/// Player-colored segments split by hairlines, radial name pills reading
+/// from the middle out, and a dark hub wearing the logo.
+struct WheelFace: View {
+    let players: [PlayerInfo]
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = min(proxy.size.width, proxy.size.height)
+            let center = CGPoint(x: size / 2, y: size / 2)
+            let radius = size / 2
+            let segment = 360.0 / Double(max(players.count, 1))
+            ZStack {
+                ForEach(players.indices, id: \.self) { index in
+                    let player = players[index]
+                    let startDeg = Double(index) * segment - 90
+                    let midDeg = startDeg + segment / 2
+                    let midRad = midDeg * .pi / 180
+
+                    segmentPath(center: center, radius: radius, startDeg: startDeg, segment: segment)
+                        .fill(player.color.opacity(0.82))
+                    segmentPath(center: center, radius: radius, startDeg: startDeg, segment: segment)
+                        .stroke(Theme.background, lineWidth: 3)
+
+                    Text(player.name)
+                        .font(Font.custom(Theme.BrandFont.medium, size: 12))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .frame(maxWidth: radius * 0.5)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Theme.ink.opacity(0.65), in: Capsule())
+                        .rotationEffect(.degrees(midDeg))
+                        .position(
+                            x: center.x + cos(midRad) * radius * 0.6,
+                            y: center.y + sin(midRad) * radius * 0.6
+                        )
+                }
+                Circle()
+                    .fill(Theme.surface)
+                    .frame(width: radius * 0.46, height: radius * 0.46)
+                    .overlay(Circle().stroke(Theme.hairline, lineWidth: 1))
+                    .position(x: center.x, y: center.y)
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: radius * 0.34, height: radius * 0.34)
+                    .position(x: center.x, y: center.y)
+                Circle()
+                    .stroke(Theme.hairline, lineWidth: 2)
+                    .frame(width: size, height: size)
+                    .position(x: center.x, y: center.y)
+            }
+        }
+    }
+
+    private func segmentPath(center: CGPoint, radius: CGFloat, startDeg: Double, segment: Double) -> Path {
+        Path { path in
+            path.move(to: center)
+            path.addArc(
+                center: center,
+                radius: radius,
+                startAngle: .degrees(startDeg),
+                endAngle: .degrees(startDeg + segment),
+                clockwise: false
+            )
+            path.closeSubpath()
         }
     }
 }
@@ -106,6 +202,7 @@ struct TieBreakView: View {
     let session: GameSession
     let candidates: [Int]
     let winner: Int
+    let spinSeconds: Double
 
     @State private var rotation: Double = 0
     @State private var finished = false
@@ -129,16 +226,9 @@ struct TieBreakView: View {
                 .font(Theme.subheadline)
                 .foregroundStyle(.secondary)
 
-            ZStack(alignment: .top) {
-                WheelShapeView(players: candidatePlayers)
-                    .rotationEffect(.degrees(rotation))
-                Image(systemName: "arrowtriangle.down.fill")
-                    .font(.title)
-                    .foregroundStyle(Theme.magenta)
-                    .offset(y: -10)
-            }
-            .frame(width: 300, height: 300)
-            .padding(.top, 12)
+            SpinningWheel(players: candidatePlayers, rotation: rotation, pointerColor: Theme.magenta)
+                .frame(width: 310, height: 310)
+                .padding(.top, 8)
 
             Text(finished ? "🎉 \(session.name(winner)) takes the game!" : "Spinning…")
                 .font(Theme.headline)
@@ -149,65 +239,20 @@ struct TieBreakView: View {
     }
 
     private func spin() {
-        let players = candidatePlayers
-        guard let index = players.firstIndex(where: { $0.slot == winner }), !players.isEmpty else {
+        guard let landing = WheelMath.landingRotation(
+            players: candidatePlayers,
+            target: winner,
+            spinSeconds: spinSeconds
+        ) else {
             finished = true
             return
         }
-        let segment = 360.0 / Double(players.count)
-        let landing = 360.0 * 6 - (Double(index) + 0.5) * segment
-        withAnimation(.easeOut(duration: GameTiming.wheelSpinSeconds)) {
+        withAnimation(.timingCurve(0.12, 0.75, 0.25, 1.0, duration: spinSeconds)) {
             rotation = landing
         }
         Task {
-            try? await Task.sleep(for: .seconds(GameTiming.wheelSpinSeconds + 0.3))
+            try? await Task.sleep(for: .seconds(spinSeconds + 0.3))
             finished = true
-        }
-    }
-}
-
-struct WheelShapeView: View {
-    let players: [PlayerInfo]
-
-    var body: some View {
-        GeometryReader { proxy in
-            let size = min(proxy.size.width, proxy.size.height)
-            let center = CGPoint(x: size / 2, y: size / 2)
-            let radius = size / 2
-            let segment = 360.0 / Double(max(players.count, 1))
-            ZStack {
-                ForEach(players.indices, id: \.self) { index in
-                    let player = players[index]
-                    let start = Double(index) * segment - 90
-                    let middle = (start + segment / 2) * .pi / 180
-                    Path { path in
-                        path.move(to: center)
-                        path.addArc(
-                            center: center,
-                            radius: radius,
-                            startAngle: .degrees(start),
-                            endAngle: .degrees(start + segment),
-                            clockwise: false
-                        )
-                        path.closeSubpath()
-                    }
-                    .fill(player.color.opacity(0.85))
-
-                    Text(player.name)
-                        .font(.system(.footnote, design: .rounded).bold())
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .frame(width: radius * 0.8)
-                        .position(
-                            x: center.x + cos(middle) * radius * 0.6,
-                            y: center.y + sin(middle) * radius * 0.6
-                        )
-                }
-                Circle()
-                    .stroke(Theme.hairline, lineWidth: 2)
-                    .frame(width: size, height: size)
-                    .position(center)
-            }
         }
     }
 }

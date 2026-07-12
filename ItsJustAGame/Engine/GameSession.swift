@@ -4,7 +4,7 @@ import SwiftUI
 
 enum GamePhase: Hashable {
     case lobby(joined: Set<Int>)
-    case wheel(round: Int, chooser: Int)
+    case wheel(round: Int, chooser: Int, spinSeconds: Double)
     case roundIntro(round: Int, game: MiniGameType)
     // Sense of Direction
     case turn(TurnStart)
@@ -26,7 +26,7 @@ enum GamePhase: Hashable {
     case fingerTurn(FingerTurn)
     case fingerReveal(FingerReveal)
     case roundEnd(round: Int, winners: [Int])
-    case tieBreak(candidates: [Int], winner: Int)
+    case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
 }
 
@@ -266,7 +266,7 @@ final class GameSession {
     private func poll() async {
         while !Task.isCancelled {
             await fetchNextMessages()
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.75))
         }
     }
 
@@ -298,9 +298,9 @@ final class GameSession {
             if case .lobby = phase {
                 phase = .lobby(joined: Set(joined))
             }
-        case .wheel(let round, let chooser):
+        case .wheel(let round, let chooser, let spinSeconds):
             points = [:]
-            phase = .wheel(round: round, chooser: chooser)
+            phase = .wheel(round: round, chooser: chooser, spinSeconds: spinSeconds)
         case .roundStart(let round, let game):
             phase = .roundIntro(round: round, game: game)
         case .turnStart(let turnStart):
@@ -338,8 +338,8 @@ final class GameSession {
         case .fingerReveal(let reveal):
             points = reveal.points
             phase = .fingerReveal(reveal)
-        case .tieBreakSpin(let candidates, let winner):
-            phase = .tieBreak(candidates: candidates, winner: winner)
+        case .tieBreakSpin(let candidates, let winner, let spinSeconds):
+            phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):
             roundsWon = rounds
             phase = .roundEnd(round: round, winners: winners)

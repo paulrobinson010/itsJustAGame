@@ -8,7 +8,7 @@ import Foundation
 enum HostMessage: Codable {
     case gameCreated(config: GameConfig)
     case lobby(joined: [Int])
-    case wheel(round: Int, chooser: Int)
+    case wheel(round: Int, chooser: Int, spinSeconds: Double)
     case roundStart(round: Int, game: MiniGameType)
     // Sense of Direction
     case turnStart(TurnStart)
@@ -31,7 +31,7 @@ enum HostMessage: Codable {
     case fingerReveal(FingerReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
-    case tieBreakSpin(candidates: [Int], winner: Int)
+    case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
     case roundEnd(round: Int, winners: [Int], roundsWon: [Int: Int])
     case gameEnd(winner: Int, roundsWon: [Int: Int])
     /// A fresh game for the same crew, announced over this (old) game's

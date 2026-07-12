@@ -9,6 +9,7 @@ struct GameScreen: View {
     @State private var session: GameSession
     @State private var engine: HostEngine?
     @State private var showWelcome: Bool
+    @State private var showLeaveConfirm = false
 
     init(saved: SavedGame, model: AppModel) {
         self.saved = saved
@@ -34,8 +35,18 @@ struct GameScreen: View {
             .animation(.easeInOut(duration: 0.35), value: contentKey)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Leave") { close() }
+                    Button("Leave") { showLeaveConfirm = true }
                 }
+            }
+            .confirmationDialog("Leave this game?", isPresented: $showLeaveConfirm, titleVisibility: .visible) {
+                Button("Leave and remove from this device", role: .destructive) {
+                    leaveAndForget()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(saved.isHost
+                     ? "You're the host — the game can't continue without this device."
+                     : "This clears the game from your phone. You'd need your invite link to rejoin.")
             }
             .safeAreaInset(edge: .bottom) {
                 if let error = session.lastError ?? engine?.lastError {
@@ -77,7 +88,7 @@ struct GameScreen: View {
         guard !showWelcome else { return "welcome" }
         switch session.phase {
         case .lobby: return "lobby"
-        case .wheel(let round, _): return "wheel\(round)"
+        case .wheel(let round, _, _): return "wheel\(round)"
         case .roundIntro(let round, _): return "intro\(round)"
         case .turn(let turnStart): return "turn\(turnStart.round)-\(turnStart.turn)"
         case .reveal(let reveal): return "reveal\(reveal.round)-\(reveal.turn)"
@@ -103,8 +114,8 @@ struct GameScreen: View {
         switch session.phase {
         case .lobby(let joined):
             LobbyView(session: session, engine: engine, joined: joined)
-        case .wheel(let round, let chooser):
-            WheelPhaseView(session: session, round: round, chooser: chooser)
+        case .wheel(let round, let chooser, let spinSeconds):
+            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds)
         case .roundIntro(let round, let game):
             RoundIntroView(round: round, game: game)
         case .turn(let turnStart):
@@ -135,8 +146,8 @@ struct GameScreen: View {
             FingerRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
-        case .tieBreak(let candidates, let winner):
-            TieBreakView(session: session, candidates: candidates, winner: winner)
+        case .tieBreak(let candidates, let winner, let spinSeconds):
+            TieBreakView(session: session, candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .gameEnd(let winner):
             GameEndView(
                 session: session,
@@ -149,6 +160,15 @@ struct GameScreen: View {
     }
 
     private func close() {
+        model.activeGame = nil
+    }
+
+    /// Leave must absolutely clear any game state: stop the loops and
+    /// remove the saved game (and its key) from this device.
+    private func leaveAndForget() {
+        session.stop()
+        engine?.stop()
+        model.store.remove(saved)
         model.activeGame = nil
     }
 

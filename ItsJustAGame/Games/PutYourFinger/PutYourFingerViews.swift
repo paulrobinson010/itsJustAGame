@@ -66,7 +66,9 @@ struct FingerTurnView: View {
 
     private var mapView: some View {
         MapReader { proxy in
-            Map(initialPosition: .region(initialRegion), interactionModes: [.pan, .zoom]) {
+            // Frozen on purpose: swipes and double-taps must not move the
+            // map — a tap is your answer, and everyone sees the same view.
+            Map(initialPosition: .region(initialRegion), interactionModes: []) {
                 ForEach(pins) { pin in
                     Annotation("", coordinate: pin.coordinate) {
                         Image(systemName: "mappin.circle.fill")

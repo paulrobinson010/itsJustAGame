@@ -57,9 +57,14 @@ final class AppModel {
             return
         }
         if let existing = store.games.first(where: { $0.gameID == parsed.gameID }) {
-            joinError = nil
-            activeGame = existing
-            return
+            if existing.isHost || existing.mySlot == parsed.slot {
+                joinError = nil
+                activeGame = existing
+                return
+            }
+            // A different player's link for the same game: adopt the new
+            // identity instead of silently rejoining as the old one.
+            store.remove(existing)
         }
         let saved = SavedGame(
             gameID: parsed.gameID,

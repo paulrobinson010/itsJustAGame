@@ -139,10 +139,9 @@ struct SavedGame: Codable, Hashable, Identifiable {
 enum GameTiming {
     static let introSeconds: Double = 4
     static let aimSeconds: Double = 15
-    static let revealSeconds: Double = 12
-    static let betweenRoundsSeconds: Double = 10
-    static let answerGraceSeconds: Double = 8
-    static let wheelSpinSeconds: Double = 5
+    static let revealSeconds: Double = 9
+    static let betweenRoundsSeconds: Double = 7
+    static let answerGraceSeconds: Double = 6
     static let pointsToWinRound = 3
     static let maxTurnsPerRound = 10
 
@@ -168,5 +167,5 @@ enum GameTiming {
 
     // Put Your Finger On It
     static let fingerGuessSeconds: Double = 15
-    static let fingerRevealSeconds: Double = 10
+    static let fingerRevealSeconds: Double = 8
 }
