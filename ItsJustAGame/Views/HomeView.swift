@@ -4,6 +4,7 @@ import SwiftUI
 struct HomeView: View {
     @Bindable var model: AppModel
     @AppStorage("myName") private var myName = ""
+    @AppStorage(SoundPlayer.enabledKey) private var soundOn = true
     @State private var showCreate = false
     @State private var showJoin = false
     @State private var accountWarning: String?
@@ -36,6 +37,8 @@ struct HomeView: View {
                 Section {
                     TextField("Your name", text: $myName)
                         .textInputAutocapitalization(.words)
+                    Toggle("Sound effects", isOn: $soundOn)
+                        .tint(Theme.cyan)
                 } header: {
                     Text("You")
                 } footer: {

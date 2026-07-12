@@ -85,12 +85,20 @@ struct WheelPhaseView: View {
             finished = true
             return
         }
-        withAnimation(.timingCurve(0.12, 0.75, 0.25, 1.0, duration: spinSeconds)) {
+        // Rejoining mid-replay: snap to the result, no theatre.
+        guard session.caughtUp else {
             rotation = landing
+            finished = true
+            return
         }
         Task {
-            try? await Task.sleep(for: .seconds(spinSeconds + 0.3))
+            await WheelMath.animateSpin(
+                landing: landing,
+                duration: spinSeconds,
+                segments: session.players.count
+            ) { rotation = $0 }
             finished = true
+            SoundPlayer.shared.play(.point)
         }
     }
 }
@@ -104,6 +112,34 @@ enum WheelMath {
         let segment = 360.0 / Double(players.count)
         let turns = (2.0 + spinSeconds * 0.5).rounded()
         return 360.0 * turns - (Double(index) + 0.5) * segment
+    }
+
+    /// Drives the rotation frame by frame with a long deceleration, and
+    /// clicks whenever a segment boundary passes the pointer — so the
+    /// clicks slow down exactly as the wheel does.
+    static func animateSpin(
+        landing: Double,
+        duration: Double,
+        segments: Int,
+        update: @MainActor (Double) -> Void
+    ) async {
+        let segmentAngle = 360.0 / Double(max(segments, 1))
+        let start = Date()
+        var lastClick = 0
+        while !Task.isCancelled {
+            let x = min(1.0, Date().timeIntervalSince(start) / duration)
+            let eased = 1 - pow(1 - x, 3.0)
+            let rotation = landing * eased
+            await update(rotation)
+            let clickIndex = Int(rotation / segmentAngle)
+            if clickIndex > lastClick {
+                lastClick = clickIndex
+                SoundPlayer.shared.play(.tick)
+            }
+            if x >= 1 { break }
+            try? await Task.sleep(for: .seconds(1.0 / 60.0))
+        }
+        await update(landing)
     }
 }
 
@@ -247,12 +283,21 @@ struct TieBreakView: View {
             finished = true
             return
         }
-        withAnimation(.timingCurve(0.12, 0.75, 0.25, 1.0, duration: spinSeconds)) {
+        guard session.caughtUp else {
             rotation = landing
+            finished = true
+            return
         }
         Task {
-            try? await Task.sleep(for: .seconds(spinSeconds + 0.3))
+            SoundPlayer.shared.startDrumroll()
+            await WheelMath.animateSpin(
+                landing: landing,
+                duration: spinSeconds,
+                segments: candidatePlayers.count
+            ) { rotation = $0 }
+            SoundPlayer.shared.stopDrumroll()
             finished = true
+            SoundPlayer.shared.play(.fanfare)
         }
     }
 }

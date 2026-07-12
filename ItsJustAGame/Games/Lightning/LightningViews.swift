@@ -40,6 +40,18 @@ struct FlashTurnView: View {
             .contentShape(Rectangle())
             .onTapGesture { handleTap() }
         }
+        .task { await scheduleZap() }
+    }
+
+    /// One zap, exactly at the shared flash moment.
+    private func scheduleZap() async {
+        let wait = turn.flashAt.timeIntervalSinceNow
+        guard wait > -0.5 else { return }
+        if wait > 0 {
+            try? await Task.sleep(for: .seconds(wait))
+        }
+        guard !Task.isCancelled, result == nil else { return }
+        SoundPlayer.shared.play(.zap)
     }
 
     @ViewBuilder
@@ -101,10 +113,12 @@ struct FlashTurnView: View {
         let tapDate = Date()
         if tapDate < turn.flashAt {
             result = .falseStart
+            SoundPlayer.shared.play(.lose)
             session.submitReaction(elapsedMs: nil, falseStart: true, for: turn)
         } else if tapDate <= turn.deadline.addingTimeInterval(1) {
             let ms = Int(tapDate.timeIntervalSince(turn.flashAt) * 1000)
             result = .tapped(ms: ms)
+            SoundPlayer.shared.play(.lockin)
             session.submitReaction(elapsedMs: ms, falseStart: false, for: turn)
         }
     }

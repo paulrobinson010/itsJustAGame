@@ -77,7 +77,25 @@ struct SequenceTurnView: View {
         }
         .task {
             submitted = session.hasSubmittedSequence(for: turn)
+            async let ticks: Void = playWatchTicks()
             await autoSubmit()
+            _ = await ticks
+        }
+    }
+
+    /// Audible flashes, scheduled off the same shared timestamps as the
+    /// visuals. Skipped when the turn is stale (replay catch-up).
+    private func playWatchTicks() async {
+        let flash = GameTiming.sequenceFlashSeconds
+        for index in 0..<turn.sequence.count {
+            let at = turn.startAt.addingTimeInterval(1.0 + Double(index) * flash)
+            let wait = at.timeIntervalSinceNow
+            guard wait > -0.3 else { continue }
+            if wait > 0 {
+                try? await Task.sleep(for: .seconds(wait))
+            }
+            guard !Task.isCancelled else { return }
+            SoundPlayer.shared.play(.tick)
         }
     }
 
@@ -124,6 +142,7 @@ struct SequenceTurnView: View {
 
     private func tap(_ pad: Int) {
         taps.append(pad)
+        SoundPlayer.shared.play(.tick)
         tapFlash = pad
         Task {
             try? await Task.sleep(for: .seconds(0.15))
@@ -154,6 +173,7 @@ struct SequenceTurnView: View {
     private func submit() {
         guard !submitted else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
         session.submitSequence(taps: taps, for: turn)
     }
 

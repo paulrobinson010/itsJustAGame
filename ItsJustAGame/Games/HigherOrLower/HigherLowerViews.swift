@@ -198,6 +198,7 @@ struct CardGuessView: View {
     private func submit(_ guess: HigherLowerGuess) {
         guard !submitted else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
         session.submitGuess(guess, for: turn)
     }
 

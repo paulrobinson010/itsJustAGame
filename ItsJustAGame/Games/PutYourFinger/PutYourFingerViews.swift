@@ -103,6 +103,7 @@ struct FingerTurnView: View {
     private func submit() {
         guard !submitted, let guess else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
         session.submitFinger(coordinate: guess, for: turn)
     }
 

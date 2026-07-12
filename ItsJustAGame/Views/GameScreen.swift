@@ -34,6 +34,8 @@ struct GameScreen: View {
                 content
                     .id(contentKey)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                    // Comfortable column on iPad instead of edge-to-edge.
+                    .frame(maxWidth: 700)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.background)
@@ -74,6 +76,7 @@ struct GameScreen: View {
             engine?.stop()
         }
         .onChange(of: session.phase) { _, newPhase in
+            playSound(for: newPhase)
             if case .gameEnd(let winner) = newPhase, saved.summary == nil, let config = session.config {
                 model.store.recordSummary(
                     GameSummary(
@@ -191,6 +194,36 @@ struct GameScreen: View {
                 onClose: { close() },
                 onHostRematch: saved.isHost ? { hostRematch() } : nil
             )
+        }
+    }
+
+    /// One place decides what each phase sounds like. Muted while the
+    /// initial replay catches up and for reopened finished games.
+    private func playSound(for phase: GamePhase) {
+        guard session.caughtUp, saved.summary == nil else { return }
+        switch phase {
+        case .reveal(let reveal):
+            SoundPlayer.shared.play(reveal.winner != nil ? .point : .lose)
+        case .seekReveal(let reveal):
+            SoundPlayer.shared.play(reveal.revealed.isEmpty ? .lose : .point)
+        case .cardReveal(let reveal):
+            if reveal.isTie {
+                SoundPlayer.shared.play(.lockin)
+            } else {
+                SoundPlayer.shared.play(reveal.eliminated.isEmpty ? .point : .lose)
+            }
+        case .sequenceReveal(let reveal):
+            SoundPlayer.shared.play(reveal.eliminated.isEmpty ? .point : .lose)
+        case .flashReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .fingerReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .roundEnd:
+            SoundPlayer.shared.play(.roundwin)
+        case .gameEnd:
+            SoundPlayer.shared.play(.fanfare)
+        default:
+            break
         }
     }
 

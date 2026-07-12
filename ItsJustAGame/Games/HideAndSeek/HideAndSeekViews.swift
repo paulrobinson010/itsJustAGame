@@ -188,6 +188,7 @@ struct HideView: View {
     private func submit(cell: Int) {
         guard !submitted else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
         session.submitHide(cell: cell, for: hideStart)
     }
 
@@ -274,6 +275,7 @@ struct SeekTurnView: View {
     private func submit(cell: Int) {
         guard !submitted else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
         session.submitSeek(cell: cell, for: turnStart)
     }
 

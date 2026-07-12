@@ -133,6 +133,7 @@ struct DirectionTurnView: View {
     private func submit() {
         guard !submitted else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
         location.stopHeadingUpdates()
         session.submitAnswer(bearing: DirectionMath.normalize(bearingGuess), for: turnStart)
     }

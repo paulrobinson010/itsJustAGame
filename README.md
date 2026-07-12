@@ -218,6 +218,15 @@ from them:
   object on the table.
 - Phases cross-fade with a slight scale (see `GameScreen.contentKey`) —
   motion is soft and brief, never bouncy.
+- **Sound** (`Audio/SoundPlayer.swift`, toggle on the home screen): tiny
+  synthesized arcade WAVs in `ItsJustAGame/Sounds/`. The wheel clicks per
+  segment crossing so clicks slow with the wheel; the tie-breaker rolls a
+  drum under its spin; wins get fanfares, eliminations a downward blip,
+  Lightning a zap at the flash. One switch in `GameScreen.playSound(for:)`
+  maps phases to sounds — new games add a case there. Ambient session:
+  the silent switch mutes it and it mixes with the user's music.
+- **iPad**: native (all orientations), with game content capped at a 700pt
+  column; iPhone stays portrait.
 
 ## Getting started
 
