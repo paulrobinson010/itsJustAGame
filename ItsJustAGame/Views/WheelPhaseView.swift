@@ -117,11 +117,12 @@ enum WheelMath {
     /// Drives the rotation frame by frame with a long deceleration, and
     /// clicks whenever a segment boundary passes the pointer — so the
     /// clicks slow down exactly as the wheel does.
+    @MainActor
     static func animateSpin(
         landing: Double,
         duration: Double,
         segments: Int,
-        update: @MainActor (Double) -> Void
+        update: (Double) -> Void
     ) async {
         let segmentAngle = 360.0 / Double(max(segments, 1))
         let start = Date()
@@ -130,7 +131,7 @@ enum WheelMath {
             let x = min(1.0, Date().timeIntervalSince(start) / duration)
             let eased = 1 - pow(1 - x, 3.0)
             let rotation = landing * eased
-            await update(rotation)
+            update(rotation)
             let clickIndex = Int(rotation / segmentAngle)
             if clickIndex > lastClick {
                 lastClick = clickIndex
@@ -139,7 +140,7 @@ enum WheelMath {
             if x >= 1 { break }
             try? await Task.sleep(for: .seconds(1.0 / 60.0))
         }
-        await update(landing)
+        update(landing)
     }
 }
 
