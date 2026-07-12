@@ -17,6 +17,15 @@ struct GoldTurnView: View {
         return Set(ranked.prefix(3).map(\.offset))
     }
 
+    /// Simplify (levels 2–3): squares someone else has already picked,
+    /// appearing live as the host relays them. Locked at the top level.
+    private var takenCells: Set<Int> {
+        guard let level = session.myAssist, level >= .big else { return [] }
+        return Set(turn.assistTaken?[session.mySlot] ?? [])
+    }
+
+    private var takenLocked: Bool { session.myAssist == .cheating }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.2)) { context in
             let remaining = max(0, turn.deadline.timeIntervalSince(context.date))
@@ -35,10 +44,12 @@ struct GoldTurnView: View {
                     GoldCellState(
                         value: turn.coins[cell],
                         selected: selected == cell && !submitted,
-                        hinted: hintedCells.contains(cell) && !submitted
+                        hinted: hintedCells.contains(cell) && !submitted,
+                        taken: takenCells.contains(cell)
                     )
                 } onTap: { cell in
                     guard !submitted else { return }
+                    guard !(takenLocked && takenCells.contains(cell)) else { return }
                     selected = cell
                 }
                 if !submitted {
@@ -69,17 +80,23 @@ struct GoldTurnView: View {
             submitted = session.hasSubmittedGold(for: turn)
             await autoSubmit()
         }
+        .onChange(of: takenCells) { _, taken in
+            // A locked square can't stay selected if someone grabs it.
+            if takenLocked, let cell = selected, taken.contains(cell) {
+                selected = nil
+            }
+        }
     }
 
-    /// Simplify (levels 2–3): clashes cost the assisted player less.
+    /// Simplify (levels 2–3): others' picks show up as they land.
     private var clashCaption: String {
         switch session.myAssist {
         case nil, .little:
             return "clash with someone and nobody scores"
         case .big:
-            return "clash and you still keep half the coins"
+            return "squares others take get marked — avoid a clash!"
         case .cheating:
-            return "clashes can't hurt you — you keep the coins"
+            return "taken squares lock — you can't clash"
         }
     }
 
@@ -107,6 +124,8 @@ struct GoldCellState {
     var clashed = false
     /// Simplify: outlined as one of the richest squares.
     var hinted = false
+    /// Simplify (levels 2–3): someone else already picked this square.
+    var taken = false
     var pickedColors: [Color] = []
     var won = false
 }
@@ -146,10 +165,14 @@ struct GoldCellView: View {
                         .font(Font.custom(Theme.BrandFont.semiBold, size: 16))
                         .monospacedDigit()
                         .foregroundStyle(valueColor)
-                        .opacity(state.clashed ? 0.35 : 1)
+                        .opacity(state.clashed || state.taken ? 0.35 : 1)
                     if state.clashed {
                         Text("💥")
                             .font(.system(size: 12))
+                    } else if state.taken {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                     } else if !state.pickedColors.isEmpty {
                         HStack(spacing: 2) {
                             ForEach(state.pickedColors.indices, id: \.self) { index in

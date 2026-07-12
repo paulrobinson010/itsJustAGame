@@ -1280,20 +1280,10 @@ final class HostEngine {
             }
             let clashes = pickCounts.filter { $0.value > 1 }.map(\.key).sorted()
             var gains: [Int: Int] = [:]
-            for (slot, cell) in picks {
+            for (slot, cell) in picks where pickCounts[cell] == 1 {
                 let value = turnMessage.coins.indices.contains(cell) ? turnMessage.coins[cell] : 0
-                if pickCounts[cell] == 1 {
-                    gains[slot] = value
-                    totals[slot, default: 0] += value
-                } else if let level = assistLevel(slot), level >= .big {
-                    // Simplify clash protection: half coins at level 2,
-                    // full coins at level 3, even on a shared square.
-                    let kept = level == .cheating ? value : (value + 1) / 2
-                    if kept > 0 {
-                        gains[slot] = kept
-                        totals[slot, default: 0] += kept
-                    }
-                }
+                gains[slot] = value
+                totals[slot, default: 0] += value
             }
             let roundWinners = players.filter { totals[$0, default: 0] >= GameTiming.goldTarget }
 
@@ -1334,6 +1324,12 @@ final class HostEngine {
     private func collectGoldPicks(for turn: GoldTurn, players: [Int]) async -> [Int: Int] {
         let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
         var picks: [Int: Int] = [:]
+        // Simplify (levels 2–3): these players see others' picks land live.
+        let watchers = players.filter { slot in
+            guard let level = assistLevel(slot) else { return false }
+            return level >= .big
+        }
+        var announced = 0
         while !Task.isCancelled {
             let missing = players.filter { picks[$0] == nil }
             if missing.isEmpty { break }
@@ -1347,6 +1343,16 @@ final class HostEngine {
                           (0..<turn.cellCount).contains(cell) else { continue }
                     picks[slot] = cell
                 }
+            }
+            // Re-publish the turn with the taken squares whenever new picks
+            // arrive and an assisted player is still choosing.
+            if picks.count > announced, watchers.contains(where: { picks[$0] == nil }) {
+                announced = picks.count
+                var updated = turn
+                updated.assistTaken = Dictionary(uniqueKeysWithValues: watchers.map { slot in
+                    (slot, picks.filter { $0.key != slot }.map(\.value).sorted())
+                })
+                await send(.goldTurn(updated))
             }
             if Date() > deadline { break }
             try? await Task.sleep(for: .seconds(0.75))

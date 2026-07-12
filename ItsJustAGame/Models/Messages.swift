@@ -442,6 +442,11 @@ struct GoldTurn: Codable, Hashable {
     var totals: [Int: Int]
     var startAt: Date
     var pickSeconds: Double
+    /// Simplify (levels 2–3): cells other players have already picked this
+    /// turn, keyed by the assisted player they're for. The host re-publishes
+    /// the turn as picks land, so they appear live. Level 3 devices also
+    /// lock these cells. Only the assisted device shows its own.
+    var assistTaken: [Int: [Int]]?
 
     var deadline: Date { startAt.addingTimeInterval(pickSeconds) }
     var cellCount: Int { gridSize * gridSize }

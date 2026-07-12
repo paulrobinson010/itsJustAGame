@@ -305,17 +305,22 @@ Every game implements all three levels:
 | Put Your Finger On It | big hint circle on the map (off-centre from the capital) | smaller circle | tiny circle |
 | Ten Seconds | clock visible ~1.7× longer | ~2.5× longer + silent pulsing beat | clock never hides |
 | Push Your Luck | skull odds shown | plain-English bank/ride advice | host pre-rolls — you're told if the next die is a skull |
-| Gold Rush | top-3 squares outlined | + clashes pay you half | + clashes pay you in full |
+| Gold Rush | top-3 squares outlined | + others' picks appear live on your board | + taken squares lock, so you can't clash |
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 
 Mechanics that need host secrets (safe squares, the pre-drawn card, hint
-circles, the pre-rolled die) ride along in the turn messages keyed by slot
-(`assistSafe`, `assistCorrect`, `assistHints`, `assistPeek`) — every device
-receives them but only the assisted device renders its own. Scoring changes
-(gold clash protection, the circle bump) happen host-side in `HostEngine`.
-Audible cues never change with assist — the room would hear it.
+circles, the pre-rolled die, live Gold Rush picks) ride along in the turn
+messages keyed by slot (`assistSafe`, `assistCorrect`, `assistHints`,
+`assistPeek`, `assistTaken`) — every device receives them but only the
+assisted device renders its own. For Gold Rush the host re-publishes the
+turn message as picks land, which is safe because `contentKey` keeps the
+view's identity stable within a turn. Scoring itself never bends in ways
+the reveal would expose: the only tweaks are Lightning's ×0.6 (applied on
+the assisted device) and the Perfect Circle bump (host-side) — both
+invisible in the results. Audible cues never change with assist — the
+room would hear it.
 
 ## Getting started
 
