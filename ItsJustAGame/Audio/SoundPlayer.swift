@@ -2,12 +2,12 @@ import AVFoundation
 import Foundation
 
 /// Central sound effects. All effects are tiny bundled WAVs, synthesized
-/// in an arcade flavor to match the neon look. The audio session is
-/// ambient: it respects the silent switch and mixes with the user's music.
+/// in an arcade flavor to match the neon look. No in-app mute: the audio
+/// session is ambient, so the ring/silent switch and the volume buttons
+/// are the controls — and it mixes with the user's music.
 @MainActor
 final class SoundPlayer {
     static let shared = SoundPlayer()
-    static let enabledKey = "soundOn"
 
     enum Effect: String, CaseIterable {
         case tick        // wheel clicks, pad taps, sequence flashes
@@ -58,12 +58,7 @@ final class SoundPlayer {
         }
     }
 
-    private var enabled: Bool {
-        UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true
-    }
-
     func play(_ effect: Effect) {
-        guard enabled else { return }
         if effect == .tick {
             guard !tickPool.isEmpty else { return }
             let player = tickPool[tickIndex % tickPool.count]
@@ -78,7 +73,6 @@ final class SoundPlayer {
     }
 
     func startDrumroll() {
-        guard enabled else { return }
         players[.drumroll]?.currentTime = 0
         players[.drumroll]?.play()
     }
