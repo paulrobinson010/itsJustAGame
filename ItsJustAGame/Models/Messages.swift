@@ -29,6 +29,12 @@ enum HostMessage: Codable {
     // Put Your Finger On It
     case fingerTurn(FingerTurn)
     case fingerReveal(FingerReveal)
+    // Ten Seconds
+    case clockTurn(ClockTurn)
+    case clockReveal(ClockReveal)
+    // Push Your Luck
+    case diceStep(DiceStep)
+    case diceReveal(DiceReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -59,6 +65,8 @@ enum PlayerMessage: Codable {
     case sequenceAnswer(round: Int, match: Int, step: Int, slot: Int, taps: [Int])
     case reaction(round: Int, turn: Int, slot: Int, elapsedMs: Int?, falseStart: Bool)
     case fingerGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
+    case clockTap(round: Int, turn: Int, slot: Int, elapsedMs: Int)
+    case dice(round: Int, run: Int, step: Int, slot: Int, push: Bool)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -316,6 +324,77 @@ struct FingerReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Ten Seconds
+
+struct ClockTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Tap when you think this many seconds have passed since startAt.
+    var targetSeconds: Double
+    /// The clock is visible for this long, then hides.
+    var visibleSeconds: Double
+    /// Give up waiting after this long.
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct ClockResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    var elapsedMs: Int?
+    var errorMs: Int?
+    var id: Int { slot }
+}
+
+struct ClockReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var targetSeconds: Double
+    var results: [ClockResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Push Your Luck
+
+struct DiceStep: Codable, Hashable {
+    var round: Int
+    var run: Int
+    var step: Int
+    var pot: Int
+    /// Still riding this run; they must choose push or bank.
+    var riders: [Int]
+    /// Everyone's banked totals — the round score.
+    var banks: [Int: Int]
+    var startAt: Date
+    var chooseSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(chooseSeconds) }
+}
+
+struct DiceReveal: Codable, Hashable {
+    var round: Int
+    var run: Int
+    var step: Int
+    /// nil when nobody rode, so no die was drawn.
+    var die: Int?
+    var isSkull: Bool
+    var potBefore: Int
+    var potAfter: Int
+    /// slot -> pushed (true) or banked (false), for everyone who had to choose.
+    var choices: [Int: Bool]
+    var bankedNow: [Int]
+    var riders: [Int]
+    var banks: [Int: Int]
+    var runOver: Bool
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -357,5 +436,13 @@ enum RecordName {
 
     static func fingerGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-p\(turn)-pin\(slot)"
+    }
+
+    static func clockTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-k\(turn)-clk\(slot)"
+    }
+
+    static func dice(_ gameID: String, round: Int, run: Int, step: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-u\(run)-d\(step)-pl\(slot)"
     }
 }

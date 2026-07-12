@@ -25,6 +25,12 @@ enum GamePhase: Hashable {
     // Put Your Finger On It
     case fingerTurn(FingerTurn)
     case fingerReveal(FingerReveal)
+    // Ten Seconds
+    case clockTurn(ClockTurn)
+    case clockReveal(ClockReveal)
+    // Push Your Luck
+    case diceStep(DiceStep)
+    case diceReveal(DiceReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -247,6 +253,46 @@ final class GameSession {
         )
     }
 
+    // MARK: - Ten Seconds input
+
+    func submitClockTap(elapsedMs: Int, for turn: ClockTurn) {
+        let id = RecordName.clockTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.clockTap(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedClockTap(for turn: ClockTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.clockTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Push Your Luck input
+
+    func submitDice(push: Bool, for step: DiceStep) {
+        let id = RecordName.dice(saved.gameID, round: step.round, run: step.run, step: step.step, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.dice(round: step.round, run: step.run, step: step.step, slot: mySlot, push: push),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedDice(for step: DiceStep) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.dice(saved.gameID, round: step.round, run: step.run, step: step.step, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -342,6 +388,18 @@ final class GameSession {
         case .fingerReveal(let reveal):
             points = reveal.points
             phase = .fingerReveal(reveal)
+        case .clockTurn(let turn):
+            points = turn.points
+            phase = .clockTurn(turn)
+        case .clockReveal(let reveal):
+            points = reveal.points
+            phase = .clockReveal(reveal)
+        case .diceStep(let step):
+            points = step.banks
+            phase = .diceStep(step)
+        case .diceReveal(let reveal):
+            points = reveal.banks
+            phase = .diceReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

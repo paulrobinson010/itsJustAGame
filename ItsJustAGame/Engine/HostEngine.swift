@@ -159,6 +159,10 @@ final class HostEngine {
                 winners = await runLightningRound(round: round)
             case .putYourFingerOnIt:
                 winners = await runFingerRound(round: round)
+            case .tenSeconds:
+                winners = await runClockRound(round: round)
+            case .pushYourLuck:
+                winners = await runDiceRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -946,6 +950,209 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return guesses
+    }
+
+    // MARK: - Ten Seconds
+
+    /// Turns until someone reaches the target points. Everyone counts in
+    /// their head against a shared start timestamp and taps; the closest
+    /// to the (varying) target wins the turn, exact ties share.
+    private func runClockRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let target = Double(Int.random(in: 7...15))
+            let turnMessage = ClockTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                targetSeconds: target,
+                visibleSeconds: GameTiming.clockVisibleSeconds,
+                maxSeconds: target + 8
+            )
+            await send(.clockTurn(turnMessage))
+            let taps = await collectClockTaps(for: turnMessage, players: players)
+
+            var results: [ClockResult] = []
+            for slot in players {
+                let elapsed = taps[slot]
+                let error = elapsed.map { abs($0 - Int(target * 1000)) }
+                results.append(ClockResult(slot: slot, elapsedMs: elapsed, errorMs: error))
+            }
+            let best = results.compactMap(\.errorMs).min()
+            let winners = best.map { closest in
+                results.filter { $0.errorMs == closest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = ClockReveal(
+                round: round,
+                turn: turn,
+                targetSeconds: target,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.clockRevealSeconds + 2) : nil
+            )
+            await send(.clockReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.clockRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectClockTaps(for turn: ClockTurn, players: [Int]) async -> [Int: Int] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var taps: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { taps[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.clockTap(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .clockTap(_, _, let slot, let elapsedMs) = message else { continue }
+                    taps[slot] = elapsedMs
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return taps
+    }
+
+    // MARK: - Push Your Luck
+
+    /// Runs of dice until someone banks the target. The round finishes the
+    /// current run before crowning, so simultaneous crossers share it.
+    private func runDiceRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var banks: [Int: Int] = [:]
+        var run = 1
+        while !Task.isCancelled {
+            await runDiceRun(round: round, run: run, players: players, banks: &banks)
+            let champions = players.filter { banks[$0, default: 0] >= GameTiming.diceBankTarget }
+            if !champions.isEmpty {
+                return champions
+            }
+            if run >= GameTiming.diceMaxRuns {
+                let best = banks.values.max() ?? 0
+                let leaders = players.filter { banks[$0, default: 0] == best }
+                return leaders.isEmpty ? [players.first ?? 1] : leaders
+            }
+            run += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func runDiceRun(round: Int, run: Int, players: [Int], banks: inout [Int: Int]) async {
+        var riders = players
+        // The run opens with one free, never-skull die so the first choice
+        // is a real one.
+        var pot = Int.random(in: 2...6)
+        var step = 1
+        while !Task.isCancelled {
+            let stepMessage = DiceStep(
+                round: round,
+                run: run,
+                step: step,
+                pot: pot,
+                riders: riders,
+                banks: banks,
+                startAt: Date().addingTimeInterval(2),
+                chooseSeconds: GameTiming.diceChooseSeconds
+            )
+            await send(.diceStep(stepMessage))
+            let choices = await collectDiceChoices(for: stepMessage)
+
+            // Silence defaults to banking — a network blip shouldn't bust you.
+            let bankedNow = riders.filter { choices[$0] != true }
+            for slot in bankedNow {
+                banks[slot, default: 0] += pot
+            }
+            let stillRiding = riders.filter { choices[$0] == true }
+
+            var die: Int?
+            var isSkull = false
+            var potAfter = pot
+            var runOver = false
+            if stillRiding.isEmpty {
+                runOver = true
+            } else {
+                let drawn = Int.random(in: 1...6)
+                die = drawn
+                if drawn == 1 {
+                    isSkull = true
+                    potAfter = 0
+                    runOver = true
+                } else {
+                    potAfter = pot + drawn
+                }
+            }
+
+            let champions = players.filter { banks[$0, default: 0] >= GameTiming.diceBankTarget }
+            let roundWinners = runOver ? champions : []
+            let reveal = DiceReveal(
+                round: round,
+                run: run,
+                step: step,
+                die: die,
+                isSkull: isSkull,
+                potBefore: pot,
+                potAfter: potAfter,
+                choices: Dictionary(uniqueKeysWithValues: riders.map { ($0, choices[$0] == true) }),
+                bankedNow: bankedNow,
+                riders: stillRiding,
+                banks: banks,
+                runOver: runOver,
+                roundWinners: roundWinners,
+                nextAt: (runOver && !roundWinners.isEmpty) ? nil : Date().addingTimeInterval(GameTiming.diceRevealSeconds + 2)
+            )
+            await send(.diceReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.diceRevealSeconds))
+            if runOver {
+                return
+            }
+            pot = potAfter
+            riders = stillRiding
+            step += 1
+        }
+    }
+
+    private func collectDiceChoices(for step: DiceStep) async -> [Int: Bool] {
+        let deadline = step.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var choices: [Int: Bool] = [:]
+        while !Task.isCancelled {
+            let missing = step.riders.filter { choices[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.dice(config.gameID, round: step.round, run: step.run, step: step.step, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .dice(_, _, _, let slot, let push) = message else { continue }
+                    choices[slot] = push
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return choices
     }
 
     private func pointLeaders(points: [Int: Int], players: [Int]) -> [Int] {

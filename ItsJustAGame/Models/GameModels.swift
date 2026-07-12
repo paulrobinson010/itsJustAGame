@@ -52,6 +52,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case repeatAfterMe
     case lightning
     case putYourFingerOnIt
+    case tenSeconds
+    case pushYourLuck
 
     var displayName: String {
         switch self {
@@ -61,6 +63,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .repeatAfterMe: return "Repeat After Me"
         case .lightning: return "Lightning"
         case .putYourFingerOnIt: return "Put Your Finger On It"
+        case .tenSeconds: return "Ten Seconds"
+        case .pushYourLuck: return "Push Your Luck"
         }
     }
 
@@ -73,6 +77,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .repeatAfterMe: return 2
         case .lightning: return 2
         case .putYourFingerOnIt: return 2
+        case .tenSeconds: return 2
+        case .pushYourLuck: return 2
         }
     }
 
@@ -84,6 +90,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .repeatAfterMe: return "square.grid.2x2.fill"
         case .lightning: return "bolt.fill"
         case .putYourFingerOnIt: return "hand.point.up.left.fill"
+        case .tenSeconds: return "stopwatch.fill"
+        case .pushYourLuck: return "dice.fill"
         }
     }
 
@@ -101,6 +109,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Wait for the flash, then tap as fast as you can — jump early and you're out of the running. Fastest finger takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .putYourFingerOnIt:
             return "A bare map appears and you're asked where a place is. Tap to drop your pin — closest to its capital takes the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .tenSeconds:
+            return "The clock counts up, then hides. Keep counting in your head and tap at exactly the target. Closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .pushYourLuck:
+            return "The pot grows one die at a time. Push to ride it or bank your share — but a skull wipes out everyone still riding. First to bank \(GameTiming.diceBankTarget) wins the round."
         }
     }
 
@@ -190,4 +202,14 @@ enum GameTiming {
     // Put Your Finger On It
     static let fingerGuessSeconds: Double = 15
     static let fingerRevealSeconds: Double = 8
+
+    // Ten Seconds
+    static let clockVisibleSeconds: Double = 3
+    static let clockRevealSeconds: Double = 6
+
+    // Push Your Luck
+    static let diceChooseSeconds: Double = 8
+    static let diceRevealSeconds: Double = 5
+    static let diceBankTarget = 20
+    static let diceMaxRuns = 12
 }

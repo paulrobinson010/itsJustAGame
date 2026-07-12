@@ -142,6 +142,10 @@ struct GameScreen: View {
         case .flashReveal(let reveal): return "flashreveal\(reveal.round)-\(reveal.turn)"
         case .fingerTurn(let turn): return "finger\(turn.round)-\(turn.turn)"
         case .fingerReveal(let reveal): return "fingerreveal\(reveal.round)-\(reveal.turn)"
+        case .clockTurn(let turn): return "clock\(turn.round)-\(turn.turn)"
+        case .clockReveal(let reveal): return "clockreveal\(reveal.round)-\(reveal.turn)"
+        case .diceStep(let step): return "dice\(step.round)-\(step.run)-\(step.step)"
+        case .diceReveal(let reveal): return "dicereveal\(reveal.round)-\(reveal.run)-\(reveal.step)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -183,6 +187,14 @@ struct GameScreen: View {
             FingerTurnView(session: session, turn: turn)
         case .fingerReveal(let reveal):
             FingerRevealView(session: session, reveal: reveal)
+        case .clockTurn(let turn):
+            ClockTurnView(session: session, turn: turn)
+        case .clockReveal(let reveal):
+            ClockRevealView(session: session, reveal: reveal)
+        case .diceStep(let step):
+            DiceStepView(session: session, step: step)
+        case .diceReveal(let reveal):
+            DiceRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -218,6 +230,16 @@ struct GameScreen: View {
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .fingerReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .clockReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .diceReveal(let reveal):
+            if reveal.isSkull {
+                SoundPlayer.shared.play(.lose)
+            } else if reveal.runOver {
+                SoundPlayer.shared.play(.point)
+            } else {
+                SoundPlayer.shared.play(.tick)
+            }
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)
         case .gameEnd:

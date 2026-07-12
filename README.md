@@ -185,6 +185,26 @@ the continental map view. The capital's location stays on the host until
 the reveal, which shows the starred capital, everyone's pins, and
 distances in km.
 
+### Ten Seconds
+
+The clock counts up on screen, then hides at 3 seconds. Keep counting in
+your head and tap when you think it hits the target — which the host
+varies between 7 and 15 seconds each turn. Time is measured locally
+against the shared start timestamp (latency-immune, like Lightning), your
+own tap stays hidden until the reveal, and closest to the target takes
+the point; first to 3 points wins the round, exact ties share.
+
+### Push Your Luck
+
+Greedy-pig dice. Each run opens with one free (never-skull) die in the
+pot; before every subsequent die, everyone still riding secretly chooses
+**push** (ride on, cyan) or **bank** (copy the current pot into your
+total and sit out the run, magenta). A skull busts everyone still riding
+to nothing for that run. Silence defaults to banking, so a dropped
+connection can't bust you. The round finishes its current run, then
+everyone with 20+ banked wins it (shared if several cross together);
+after 12 runs the leaders take it.
+
 ## Design language
 
 Very simple, but it should look expensive. The rules live in
