@@ -431,6 +431,22 @@ final class GameSession {
         }
     }
 
+    /// Screenshot-tour support: force state directly, bypassing the
+    /// message stream. Only ever driven by the simulator-only demo tour.
+    func applyDemoState(
+        config: GameConfig,
+        points: [Int: Int],
+        roundsWon: [Int: Int],
+        joined: Set<Int>,
+        phase: GamePhase
+    ) {
+        self.config = config
+        self.points = points
+        self.roundsWon = roundsWon
+        self.joinedSlots = joined
+        self.phase = phase
+    }
+
     private func apply(_ message: HostMessage) {
         switch message {
         case .gameCreated(let config):

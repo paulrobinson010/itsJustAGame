@@ -7,6 +7,9 @@ struct HomeView: View {
     @State private var showCreate = false
     @State private var showJoin = false
     @State private var accountWarning: String?
+    #if targetEnvironment(simulator)
+    @State private var showDemoTour = false
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -91,6 +94,20 @@ struct HomeView: View {
                             .foregroundStyle(.orange)
                     }
                 }
+
+                #if targetEnvironment(simulator)
+                Section {
+                    Button {
+                        showDemoTour = true
+                    } label: {
+                        Label("Screenshot tour", systemImage: "camera.viewfinder")
+                    }
+                } header: {
+                    Text("Simulator only")
+                } footer: {
+                    Text("Steps through every game with demo data, ~2s per screen. Tap to pause, swipe for next/previous, long-press to exit.")
+                }
+                #endif
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
@@ -108,6 +125,11 @@ struct HomeView: View {
                 GameScreen(saved: game, model: model)
                     .id(game.gameID)
             }
+            #if targetEnvironment(simulator)
+            .fullScreenCover(isPresented: $showDemoTour) {
+                DemoTourView()
+            }
+            #endif
             .task {
                 LocationService.shared.requestPermission()
                 let status = await CloudKitTransport.accountStatus()

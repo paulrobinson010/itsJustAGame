@@ -46,6 +46,11 @@ final class HostEngine {
         gameTask = nil
     }
 
+    /// Screenshot-tour support (simulator-only demo).
+    func applyDemoJoined(_ slots: Set<Int>) {
+        joined = slots
+    }
+
     var canBeginGame: Bool {
         !gameRunning && !resumeBlocked && joined.count >= MiniGameType.smallestMinimum
     }

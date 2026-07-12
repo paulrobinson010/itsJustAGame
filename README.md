@@ -305,6 +305,17 @@ record type is created. If you later deploy to TestFlight/App Store, promote
 the CloudKit schema from Development to Production in the CloudKit Console
 first.
 
+### App Store screenshots
+
+In the **simulator only**, the home screen shows a **Screenshot tour**
+button. It steps through every screen — lobby, wheel, all twelve games
+mid-play, reveals, round end, tie-break, game end — with demo players
+(Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
+screen for about two seconds so you can grab shots with **⌘S**. Tap to
+pause/resume, swipe left/right for next/previous, long-press to exit. It
+runs entirely offline (no CloudKit), and the button is compiled out of
+device builds entirely. Works on iPhone and iPad simulators alike.
+
 ## Current limitations (v1 prototype)
 
 - The **host device must stay in the app** for the whole game — it drives
