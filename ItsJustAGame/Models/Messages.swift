@@ -38,6 +38,15 @@ enum HostMessage: Codable {
     // Gold Rush
     case goldTurn(GoldTurn)
     case goldReveal(GoldReveal)
+    // Eyeball It
+    case eyeballTurn(EyeballTurn)
+    case eyeballReveal(EyeballReveal)
+    // Perfect Circle
+    case circleTurn(CircleTurn)
+    case circleReveal(CircleReveal)
+    // Sort Circuit
+    case sortTurn(SortTurn)
+    case sortReveal(SortReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -71,6 +80,9 @@ enum PlayerMessage: Codable {
     case clockTap(round: Int, turn: Int, slot: Int, elapsedMs: Int)
     case dice(round: Int, run: Int, step: Int, slot: Int, push: Bool)
     case goldPick(round: Int, turn: Int, slot: Int, cell: Int)
+    case eyeball(round: Int, turn: Int, slot: Int, guess: Int)
+    case circleDraw(round: Int, turn: Int, slot: Int, path: [Double])
+    case sortTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -432,6 +444,107 @@ struct GoldReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Eyeball It
+
+struct EyeballTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// True dot count — hidden by the UI until the reveal.
+    var count: Int
+    /// Every device regenerates the identical scatter from this seed.
+    var seed: UInt64
+    var visibleSeconds: Double
+    var guessSeconds: Double
+
+    var dotsEndAt: Date { startAt.addingTimeInterval(visibleSeconds) }
+    var deadline: Date { startAt.addingTimeInterval(visibleSeconds + guessSeconds) }
+}
+
+struct EyeballResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    var guess: Int?
+    var error: Int?
+    var id: Int { slot }
+}
+
+struct EyeballReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var count: Int
+    var results: [EyeballResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Perfect Circle
+
+struct CircleTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var drawSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(drawSeconds) }
+}
+
+struct CircleResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// 0–100, scored by the host from the submitted stroke.
+    var score: Double?
+    /// The stroke itself (x0,y0,x1,y1… in unit square) so the reveal can
+    /// show everyone's actual drawing.
+    var path: [Double]?
+    var id: Int { slot }
+}
+
+struct CircleReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [CircleResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Sort Circuit
+
+struct SortTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device regenerates the identical tile layout from this seed.
+    var seed: UInt64
+    var tileCount: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct SortResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Includes mistake penalties; nil = never finished.
+    var elapsedMs: Int?
+    var mistakes: Int
+    var id: Int { slot }
+}
+
+struct SortReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [SortResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -485,5 +598,17 @@ enum RecordName {
 
     static func goldPick(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-au\(turn)-gld\(slot)"
+    }
+
+    static func eyeball(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-eb\(turn)-eye\(slot)"
+    }
+
+    static func circleDraw(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-pc\(turn)-cir\(slot)"
+    }
+
+    static func sortTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sc\(turn)-srt\(slot)"
     }
 }

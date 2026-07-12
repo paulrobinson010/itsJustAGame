@@ -55,6 +55,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case tenSeconds
     case pushYourLuck
     case goldRush
+    case eyeballIt
+    case perfectCircle
+    case sortCircuit
 
     var displayName: String {
         switch self {
@@ -67,6 +70,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tenSeconds: return "Ten Seconds"
         case .pushYourLuck: return "Push Your Luck"
         case .goldRush: return "Gold Rush"
+        case .eyeballIt: return "Eyeball It"
+        case .perfectCircle: return "Perfect Circle"
+        case .sortCircuit: return "Sort Circuit"
         }
     }
 
@@ -82,6 +88,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tenSeconds: return 2
         case .pushYourLuck: return 2
         case .goldRush: return 2
+        case .eyeballIt: return 2
+        case .perfectCircle: return 2
+        case .sortCircuit: return 2
         }
     }
 
@@ -96,6 +105,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tenSeconds: return "stopwatch.fill"
         case .pushYourLuck: return "dice.fill"
         case .goldRush: return "sparkles"
+        case .eyeballIt: return "aqi.medium"
+        case .perfectCircle: return "circle.dashed"
+        case .sortCircuit: return "123.rectangle.fill"
         }
     }
 
@@ -119,6 +131,12 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "The pot grows one die at a time. Push to ride it or bank your share — but a skull wipes out everyone still riding. First to bank \(GameTiming.diceBankTarget) wins the round."
         case .goldRush:
             return "Same board, one secret pick each. Alone on a square? Pocket its coins. Share it? Nobody scores. First to \(GameTiming.goldTarget) coins wins the round."
+        case .eyeballIt:
+            return "A cloud of dots flashes up, then vanishes. How many were there? Closest guess wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .perfectCircle:
+            return "Draw the roundest circle you can — one finger, one stroke. Highest score wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .sortCircuit:
+            return "Nine numbers scattered on screen. Tap 1 to 9 as fast as you can — mistakes cost a second. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -224,4 +242,18 @@ enum GameTiming {
     static let goldRevealSeconds: Double = 6
     static let goldTarget = 30
     static let goldMaxTurns = 15
+
+    // Eyeball It
+    static let eyeballVisibleSeconds: Double = 2
+    static let eyeballGuessSeconds: Double = 12
+    static let eyeballRevealSeconds: Double = 6
+
+    // Perfect Circle
+    static let circleDrawSeconds: Double = 10
+    static let circleRevealSeconds: Double = 8
+
+    // Sort Circuit
+    static let sortMaxSeconds: Double = 30
+    static let sortPenaltyMs = 1000
+    static let sortRevealSeconds: Double = 6
 }

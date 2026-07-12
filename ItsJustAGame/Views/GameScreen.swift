@@ -148,6 +148,12 @@ struct GameScreen: View {
         case .diceReveal(let reveal): return "dicereveal\(reveal.round)-\(reveal.run)-\(reveal.step)"
         case .goldTurn(let turn): return "gold\(turn.round)-\(turn.turn)"
         case .goldReveal(let reveal): return "goldreveal\(reveal.round)-\(reveal.turn)"
+        case .eyeballTurn(let turn): return "eyeball\(turn.round)-\(turn.turn)"
+        case .eyeballReveal(let reveal): return "eyeballreveal\(reveal.round)-\(reveal.turn)"
+        case .circleTurn(let turn): return "circle\(turn.round)-\(turn.turn)"
+        case .circleReveal(let reveal): return "circlereveal\(reveal.round)-\(reveal.turn)"
+        case .sortTurn(let turn): return "sort\(turn.round)-\(turn.turn)"
+        case .sortReveal(let reveal): return "sortreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -201,6 +207,18 @@ struct GameScreen: View {
             GoldTurnView(session: session, turn: turn)
         case .goldReveal(let reveal):
             GoldRevealView(session: session, reveal: reveal)
+        case .eyeballTurn(let turn):
+            EyeballTurnView(session: session, turn: turn)
+        case .eyeballReveal(let reveal):
+            EyeballRevealView(session: session, reveal: reveal)
+        case .circleTurn(let turn):
+            CircleTurnView(session: session, turn: turn)
+        case .circleReveal(let reveal):
+            CircleRevealView(session: session, reveal: reveal)
+        case .sortTurn(let turn):
+            SortTurnView(session: session, turn: turn)
+        case .sortReveal(let reveal):
+            SortRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -254,6 +272,12 @@ struct GameScreen: View {
             } else {
                 SoundPlayer.shared.play(.tick)
             }
+        case .eyeballReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .circleReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .sortReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)
         case .gameEnd:

@@ -165,6 +165,12 @@ final class HostEngine {
                 winners = await runDiceRound(round: round)
             case .goldRush:
                 winners = await runGoldRound(round: round)
+            case .eyeballIt:
+                winners = await runEyeballRound(round: round)
+            case .perfectCircle:
+                winners = await runCircleRound(round: round)
+            case .sortCircuit:
+                winners = await runSortRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -1247,6 +1253,249 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return picks
+    }
+
+    // MARK: - Eyeball It
+
+    private func runEyeballRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = EyeballTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                count: Int.random(in: 40...150),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                visibleSeconds: GameTiming.eyeballVisibleSeconds,
+                guessSeconds: GameTiming.eyeballGuessSeconds
+            )
+            await send(.eyeballTurn(turnMessage))
+            let guesses = await collectEyeballGuesses(for: turnMessage, players: players)
+
+            var results: [EyeballResult] = []
+            for slot in players {
+                let guess = guesses[slot]
+                results.append(EyeballResult(
+                    slot: slot,
+                    guess: guess,
+                    error: guess.map { abs($0 - turnMessage.count) }
+                ))
+            }
+            let best = results.compactMap(\.error).min()
+            let winners = best.map { closest in
+                results.filter { $0.error == closest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = EyeballReveal(
+                round: round,
+                turn: turn,
+                count: turnMessage.count,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.eyeballRevealSeconds + 2) : nil
+            )
+            await send(.eyeballReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.eyeballRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectEyeballGuesses(for turn: EyeballTurn, players: [Int]) async -> [Int: Int] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var guesses: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { guesses[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.eyeball(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .eyeball(_, _, let slot, let guess) = message else { continue }
+                    guesses[slot] = guess
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return guesses
+    }
+
+    // MARK: - Perfect Circle
+
+    /// Players submit their stroke; the host scores it authoritatively.
+    private func runCircleRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = CircleTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                drawSeconds: GameTiming.circleDrawSeconds
+            )
+            await send(.circleTurn(turnMessage))
+            let paths = await collectCirclePaths(for: turnMessage, players: players)
+
+            var results: [CircleResult] = []
+            for slot in players {
+                let path = paths[slot]
+                results.append(CircleResult(
+                    slot: slot,
+                    score: path.flatMap { CircleScore.evaluate(flat: $0) },
+                    path: path
+                ))
+            }
+            let best = results.compactMap(\.score).max()
+            let winners = best.map { top in
+                results.filter { $0.score == top }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = CircleReveal(
+                round: round,
+                turn: turn,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.circleRevealSeconds + 2) : nil
+            )
+            await send(.circleReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.circleRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectCirclePaths(for turn: CircleTurn, players: [Int]) async -> [Int: [Double]] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var paths: [Int: [Double]] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { paths[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.circleDraw(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .circleDraw(_, _, let slot, let path) = message else { continue }
+                    paths[slot] = path
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return paths
+    }
+
+    // MARK: - Sort Circuit
+
+    private func runSortRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = SortTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                tileCount: 9,
+                maxSeconds: GameTiming.sortMaxSeconds
+            )
+            await send(.sortTurn(turnMessage))
+            let times = await collectSortTimes(for: turnMessage, players: players)
+
+            var results: [SortResult] = []
+            for slot in players {
+                if let (elapsedMs, mistakes) = times[slot] {
+                    results.append(SortResult(slot: slot, elapsedMs: elapsedMs, mistakes: mistakes))
+                } else {
+                    results.append(SortResult(slot: slot, elapsedMs: nil, mistakes: 0))
+                }
+            }
+            let best = results.compactMap(\.elapsedMs).min()
+            let winners = best.map { fastest in
+                results.filter { $0.elapsedMs == fastest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = SortReveal(
+                round: round,
+                turn: turn,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.sortRevealSeconds + 2) : nil
+            )
+            await send(.sortReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.sortRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectSortTimes(for turn: SortTurn, players: [Int]) async -> [Int: (Int, Int)] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var times: [Int: (Int, Int)] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { times[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.sortTime(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .sortTime(_, _, let slot, let elapsedMs, let mistakes) = message else { continue }
+                    times[slot] = (elapsedMs, mistakes)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return times
     }
 
     private func pointLeaders(points: [Int: Int], players: [Int]) -> [Int] {

@@ -34,6 +34,15 @@ enum GamePhase: Hashable {
     // Gold Rush
     case goldTurn(GoldTurn)
     case goldReveal(GoldReveal)
+    // Eyeball It
+    case eyeballTurn(EyeballTurn)
+    case eyeballReveal(EyeballReveal)
+    // Perfect Circle
+    case circleTurn(CircleTurn)
+    case circleReveal(CircleReveal)
+    // Sort Circuit
+    case sortTurn(SortTurn)
+    case sortReveal(SortReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -316,6 +325,66 @@ final class GameSession {
         )
     }
 
+    // MARK: - Eyeball It input
+
+    func submitEyeball(guess: Int, for turn: EyeballTurn) {
+        let id = RecordName.eyeball(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.eyeball(round: turn.round, turn: turn.turn, slot: mySlot, guess: guess),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedEyeball(for turn: EyeballTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.eyeball(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Perfect Circle input
+
+    func submitCircle(path: [Double], for turn: CircleTurn) {
+        let id = RecordName.circleDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.circleDraw(round: turn.round, turn: turn.turn, slot: mySlot, path: path),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedCircle(for turn: CircleTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.circleDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Sort Circuit input
+
+    func submitSort(elapsedMs: Int, mistakes: Int, for turn: SortTurn) {
+        let id = RecordName.sortTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.sortTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs, mistakes: mistakes),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedSort(for turn: SortTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.sortTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -429,6 +498,24 @@ final class GameSession {
         case .goldReveal(let reveal):
             points = reveal.totals
             phase = .goldReveal(reveal)
+        case .eyeballTurn(let turn):
+            points = turn.points
+            phase = .eyeballTurn(turn)
+        case .eyeballReveal(let reveal):
+            points = reveal.points
+            phase = .eyeballReveal(reveal)
+        case .circleTurn(let turn):
+            points = turn.points
+            phase = .circleTurn(turn)
+        case .circleReveal(let reveal):
+            points = reveal.points
+            phase = .circleReveal(reveal)
+        case .sortTurn(let turn):
+            points = turn.points
+            phase = .sortTurn(turn)
+        case .sortReveal(let reveal):
+            points = reveal.points
+            phase = .sortReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

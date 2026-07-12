@@ -215,6 +215,32 @@ on the same square and nobody scores it. A tapped-but-unconfirmed square
 auto-stakes at the deadline; no pick sits the turn out. First to 30 coins
 wins the round (shared if several cross together); leaders after 15 turns.
 
+### Eyeball It
+
+Perception. A cloud of 40–150 dots flashes for two seconds — identical on
+every device, regenerated from a seed in the encrypted turn message —
+then vanishes. Dial in your guess within 12 seconds (slider plus
+nudge buttons). Closest to the true count takes the point; first to 3
+points wins the round.
+
+### Perfect Circle
+
+Draw the roundest circle you can: one finger, one stroke, ten seconds.
+Lifting your finger locks it in (tiny accidental strokes clear and let
+you retry). Players submit their raw stroke and the **host scores it**
+(radius wobble, full-loop coverage, end-gap closure — see `CircleScore`),
+so scores are never client-claimed. The reveal shows everyone's actual
+drawings side by side. Highest score takes the point; first to 3 wins
+the round.
+
+### Sort Circuit
+
+Nine numbered tiles scattered identically on every device (seeded
+layout). Tap 1→9 as fast as you can — a wrong tap flashes and adds a
+one-second penalty. Timing runs locally against the shared start
+timestamp, so latency never matters. Fastest penalty-inclusive time
+takes the point; first to 3 wins the round.
+
 ## Design language
 
 Very simple, but it should look expensive. The rules live in
