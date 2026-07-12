@@ -176,6 +176,12 @@ final class HostEngine {
                 winners = await runCircleRound(round: round)
             case .sortCircuit:
                 winners = await runSortRound(round: round)
+            case .steadyHand:
+                winners = await runSteadyRound(round: round)
+            case .showdown:
+                winners = await runShowdownRound(round: round)
+            case .tapFrenzy:
+                winners = await runFrenzyRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -1607,6 +1613,263 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return times
+    }
+
+    // MARK: - Steady Hand
+
+    /// Turns until someone reaches the target points. The ring's drift is
+    /// seeded so every device shows the identical path; survival time is
+    /// measured locally against the shared start, longest hold wins.
+    private func runSteadyRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = SteadyTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                maxSeconds: GameTiming.steadyMaxSeconds
+            )
+            await send(.steadyTurn(turnMessage))
+            let times = await collectSteadyTimes(for: turnMessage, players: players)
+
+            var results: [SteadyResult] = []
+            for slot in players {
+                results.append(SteadyResult(slot: slot, survivedMs: times[slot]))
+            }
+            let best = results.compactMap(\.survivedMs).max()
+            let winners = best.map { longest in
+                results.filter { $0.survivedMs == longest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = SteadyReveal(
+                round: round,
+                turn: turn,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.steadyRevealSeconds + 2) : nil
+            )
+            await send(.steadyReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.steadyRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    /// Everyone's run ends at their own moment, so the collection window
+    /// spans the whole turn — but once everyone has reported, it moves on.
+    private func collectSteadyTimes(for turn: SteadyTurn, players: [Int]) async -> [Int: Int] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var times: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { times[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.steadyTime(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .steadyTime(_, _, let slot, let survivedMs) = message else { continue }
+                    times[slot] = max(0, min(survivedMs, Int(turn.maxSeconds * 1000)))
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return times
+    }
+
+    // MARK: - Showdown
+
+    /// Rock-paper-scissors against the whole table: each turn everyone
+    /// throws in secret and you score a win per player you beat. First to
+    /// the target total takes the round (shared if several cross together).
+    private func runShowdownRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var totals: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = ShowdownTurn(
+                round: round,
+                turn: turn,
+                totals: totals,
+                startAt: Date().addingTimeInterval(2),
+                throwSeconds: GameTiming.showdownThrowSeconds
+            )
+            await send(.showdownTurn(turnMessage))
+            let thrown = await collectShowdownThrows(for: turnMessage, players: players)
+
+            var gains: [Int: Int] = [:]
+            for slot in players {
+                let beaten = players.filter { other in
+                    guard other != slot else { return false }
+                    guard let mine = thrown[slot] else { return false }
+                    guard let theirs = thrown[other] else { return true }
+                    return mine.beats(theirs)
+                }.count
+                gains[slot] = beaten
+                totals[slot, default: 0] += beaten
+            }
+            let best = gains.values.max() ?? 0
+            let winners = best > 0 ? players.filter { gains[$0] == best } : []
+            let roundWinners = players.filter { totals[$0, default: 0] >= GameTiming.showdownTarget }
+
+            let reveal = ShowdownReveal(
+                round: round,
+                turn: turn,
+                thrown: thrown,
+                gains: gains,
+                totals: totals,
+                winners: winners,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.showdownRevealSeconds + 2) : nil
+            )
+            await send(.showdownReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.showdownRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.showdownMaxTurns {
+                let top = totals.values.max() ?? 0
+                let leaders = players.filter { totals[$0, default: 0] == top }
+                return leaders.isEmpty ? [players.first ?? 1] : leaders
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectShowdownThrows(for turn: ShowdownTurn, players: [Int]) async -> [Int: RPSThrow] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var thrown: [Int: RPSThrow] = [:]
+        // Simplify (levels 2–3): these players see others' throws live.
+        let watchers = players.filter { slot in
+            guard let level = assistLevel(slot) else { return false }
+            return level >= .big
+        }
+        var announced = 0
+        while !Task.isCancelled {
+            let missing = players.filter { thrown[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.showdownThrow(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .showdownThrow(_, _, let slot, let throwing) = message else { continue }
+                    thrown[slot] = throwing
+                }
+            }
+            // Re-publish the turn with what's been thrown whenever new
+            // throws arrive and an assisted player is still choosing.
+            if thrown.count > announced, watchers.contains(where: { thrown[$0] == nil }) {
+                announced = thrown.count
+                var updated = turn
+                updated.assistThrown = Dictionary(uniqueKeysWithValues: watchers.map { slot in
+                    (slot, thrown.filter { $0.key != slot })
+                })
+                await send(.showdownTurn(updated))
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return thrown
+    }
+
+    // MARK: - Tap Frenzy
+
+    /// Turns until someone reaches the target points: a fixed window, most
+    /// taps wins. Counts are measured locally against the shared start.
+    private func runFrenzyRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = FrenzyTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                tapSeconds: GameTiming.frenzyTapSeconds
+            )
+            await send(.frenzyTurn(turnMessage))
+            let counts = await collectFrenzyTaps(for: turnMessage, players: players)
+
+            var results: [FrenzyResult] = []
+            for slot in players {
+                results.append(FrenzyResult(slot: slot, taps: counts[slot]))
+            }
+            let best = results.compactMap(\.taps).max()
+            let winners = best.map { most in
+                results.filter { $0.taps == most }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = FrenzyReveal(
+                round: round,
+                turn: turn,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.frenzyRevealSeconds + 2) : nil
+            )
+            await send(.frenzyReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.frenzyRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectFrenzyTaps(for turn: FrenzyTurn, players: [Int]) async -> [Int: Int] {
+        // Simplify can stretch a player's window, so wait for the longest.
+        let deadline = turn.deadline.addingTimeInterval(
+            GameTiming.frenzyMaxAssistExtraSeconds + GameTiming.answerGraceSeconds
+        )
+        var counts: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { counts[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.frenzyTaps(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .frenzyTaps(_, _, let slot, let taps) = message else { continue }
+                    counts[slot] = max(0, taps)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return counts
     }
 
     private func pointLeaders(points: [Int: Int], players: [Int]) -> [Int] {

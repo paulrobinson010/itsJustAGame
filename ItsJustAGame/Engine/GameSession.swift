@@ -43,6 +43,15 @@ enum GamePhase: Hashable {
     // Sort Circuit
     case sortTurn(SortTurn)
     case sortReveal(SortReveal)
+    // Steady Hand
+    case steadyTurn(SteadyTurn)
+    case steadyReveal(SteadyReveal)
+    // Showdown
+    case showdownTurn(ShowdownTurn)
+    case showdownReveal(ShowdownReveal)
+    // Tap Frenzy
+    case frenzyTurn(FrenzyTurn)
+    case frenzyReveal(FrenzyReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -389,6 +398,66 @@ final class GameSession {
         )
     }
 
+    // MARK: - Steady Hand input
+
+    func submitSteady(survivedMs: Int, for turn: SteadyTurn) {
+        let id = RecordName.steadyTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.steadyTime(round: turn.round, turn: turn.turn, slot: mySlot, survivedMs: survivedMs),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedSteady(for turn: SteadyTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.steadyTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Showdown input
+
+    func submitShowdown(throwing: RPSThrow, for turn: ShowdownTurn) {
+        let id = RecordName.showdownThrow(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.showdownThrow(round: turn.round, turn: turn.turn, slot: mySlot, throwing: throwing),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedShowdown(for turn: ShowdownTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.showdownThrow(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Tap Frenzy input
+
+    func submitFrenzy(taps: Int, for turn: FrenzyTurn) {
+        let id = RecordName.frenzyTaps(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.frenzyTaps(round: turn.round, turn: turn.turn, slot: mySlot, taps: taps),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedFrenzy(for turn: FrenzyTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.frenzyTaps(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -536,6 +605,24 @@ final class GameSession {
         case .sortReveal(let reveal):
             points = reveal.points
             phase = .sortReveal(reveal)
+        case .steadyTurn(let turn):
+            points = turn.points
+            phase = .steadyTurn(turn)
+        case .steadyReveal(let reveal):
+            points = reveal.points
+            phase = .steadyReveal(reveal)
+        case .showdownTurn(let turn):
+            points = turn.totals
+            phase = .showdownTurn(turn)
+        case .showdownReveal(let reveal):
+            points = reveal.totals
+            phase = .showdownReveal(reveal)
+        case .frenzyTurn(let turn):
+            points = turn.points
+            phase = .frenzyTurn(turn)
+        case .frenzyReveal(let reveal):
+            points = reveal.points
+            phase = .frenzyReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

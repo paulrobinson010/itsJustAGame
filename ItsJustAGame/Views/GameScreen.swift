@@ -154,6 +154,12 @@ struct GameScreen: View {
         case .circleReveal(let reveal): return "circlereveal\(reveal.round)-\(reveal.turn)"
         case .sortTurn(let turn): return "sort\(turn.round)-\(turn.turn)"
         case .sortReveal(let reveal): return "sortreveal\(reveal.round)-\(reveal.turn)"
+        case .steadyTurn(let turn): return "steady\(turn.round)-\(turn.turn)"
+        case .steadyReveal(let reveal): return "steadyreveal\(reveal.round)-\(reveal.turn)"
+        case .showdownTurn(let turn): return "showdown\(turn.round)-\(turn.turn)"
+        case .showdownReveal(let reveal): return "showdownreveal\(reveal.round)-\(reveal.turn)"
+        case .frenzyTurn(let turn): return "frenzy\(turn.round)-\(turn.turn)"
+        case .frenzyReveal(let reveal): return "frenzyreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -219,6 +225,18 @@ struct GameScreen: View {
             SortTurnView(session: session, turn: turn)
         case .sortReveal(let reveal):
             SortRevealView(session: session, reveal: reveal)
+        case .steadyTurn(let turn):
+            SteadyTurnView(session: session, turn: turn)
+        case .steadyReveal(let reveal):
+            SteadyRevealView(session: session, reveal: reveal)
+        case .showdownTurn(let turn):
+            ShowdownTurnView(session: session, turn: turn)
+        case .showdownReveal(let reveal):
+            ShowdownRevealView(session: session, reveal: reveal)
+        case .frenzyTurn(let turn):
+            FrenzyTurnView(session: session, turn: turn)
+        case .frenzyReveal(let reveal):
+            FrenzyRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -277,6 +295,18 @@ struct GameScreen: View {
         case .circleReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .sortReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .steadyReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .showdownReveal(let reveal):
+            if (reveal.gains[session.mySlot] ?? 0) > 0 {
+                SoundPlayer.shared.play(.point)
+            } else if reveal.thrown[session.mySlot] != nil {
+                SoundPlayer.shared.play(.lose)
+            } else {
+                SoundPlayer.shared.play(.tick)
+            }
+        case .frenzyReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)

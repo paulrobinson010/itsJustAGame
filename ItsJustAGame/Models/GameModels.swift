@@ -61,6 +61,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case eyeballIt
     case perfectCircle
     case sortCircuit
+    case steadyHand
+    case showdown
+    case tapFrenzy
 
     var displayName: String {
         switch self {
@@ -76,6 +79,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .eyeballIt: return "Eyeball It"
         case .perfectCircle: return "Perfect Circle"
         case .sortCircuit: return "Sort Circuit"
+        case .steadyHand: return "Steady Hand"
+        case .showdown: return "Showdown"
+        case .tapFrenzy: return "Tap Frenzy"
         }
     }
 
@@ -94,6 +100,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .eyeballIt: return 2
         case .perfectCircle: return 2
         case .sortCircuit: return 2
+        case .steadyHand: return 2
+        case .showdown: return 2
+        case .tapFrenzy: return 2
         }
     }
 
@@ -111,6 +120,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .eyeballIt: return "aqi.medium"
         case .perfectCircle: return "circle.dashed"
         case .sortCircuit: return "123.rectangle.fill"
+        case .steadyHand: return "hand.raised.fill"
+        case .showdown: return "scissors"
+        case .tapFrenzy: return "hand.tap.fill"
         }
     }
 
@@ -140,6 +152,12 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Draw the roundest circle you can — one finger, one stroke. Highest score wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .sortCircuit:
             return "Nine numbers scattered on screen. Tap 1 to 9 as fast as you can — mistakes cost a second. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .steadyHand:
+            return "Keep your finger inside the drifting, shrinking ring — slip out and you're done. Longest hold wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .showdown:
+            return "Rock, paper, scissors — against the whole table at once. You score a win for every player you beat. First to \(GameTiming.showdownTarget) wins takes the round."
+        case .tapFrenzy:
+            return "\(Int(GameTiming.frenzyTapSeconds)) seconds. Tap as many times as you can. That's it. Most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -259,4 +277,20 @@ enum GameTiming {
     static let sortMaxSeconds: Double = 30
     static let sortPenaltyMs = 1000
     static let sortRevealSeconds: Double = 6
+
+    // Steady Hand
+    static let steadyMaxSeconds: Double = 40
+    static let steadyRevealSeconds: Double = 6
+
+    // Showdown
+    static let showdownThrowSeconds: Double = 8
+    static let showdownRevealSeconds: Double = 7
+    static let showdownTarget = 5
+    static let showdownMaxTurns = 12
+
+    // Tap Frenzy
+    static let frenzyTapSeconds: Double = 5
+    static let frenzyRevealSeconds: Double = 6
+    /// The biggest extra window Simplify can add, so the host waits for it.
+    static let frenzyMaxAssistExtraSeconds: Double = 5
 }

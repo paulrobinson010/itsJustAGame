@@ -47,6 +47,15 @@ enum HostMessage: Codable {
     // Sort Circuit
     case sortTurn(SortTurn)
     case sortReveal(SortReveal)
+    // Steady Hand
+    case steadyTurn(SteadyTurn)
+    case steadyReveal(SteadyReveal)
+    // Showdown
+    case showdownTurn(ShowdownTurn)
+    case showdownReveal(ShowdownReveal)
+    // Tap Frenzy
+    case frenzyTurn(FrenzyTurn)
+    case frenzyReveal(FrenzyReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -83,6 +92,9 @@ enum PlayerMessage: Codable {
     case eyeball(round: Int, turn: Int, slot: Int, guess: Int)
     case circleDraw(round: Int, turn: Int, slot: Int, path: [Double])
     case sortTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
+    case steadyTime(round: Int, turn: Int, slot: Int, survivedMs: Int)
+    case showdownThrow(round: Int, turn: Int, slot: Int, throwing: RPSThrow)
+    case frenzyTaps(round: Int, turn: Int, slot: Int, taps: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -569,6 +581,130 @@ struct SortReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Steady Hand
+
+struct SteadyTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device regenerates the identical ring drift from this seed.
+    var seed: UInt64
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct SteadyResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// How long they stayed inside the ring; nil = never played.
+    var survivedMs: Int?
+    var id: Int { slot }
+}
+
+struct SteadyReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [SteadyResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Showdown
+
+enum RPSThrow: String, Codable, CaseIterable, Hashable {
+    case rock, paper, scissors
+
+    var emoji: String {
+        switch self {
+        case .rock: return "🪨"
+        case .paper: return "📄"
+        case .scissors: return "✂️"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .rock: return "Rock"
+        case .paper: return "Paper"
+        case .scissors: return "Scissors"
+        }
+    }
+
+    /// The throw this one loses to.
+    var beatenBy: RPSThrow {
+        switch self {
+        case .rock: return .paper
+        case .paper: return .scissors
+        case .scissors: return .rock
+        }
+    }
+
+    func beats(_ other: RPSThrow) -> Bool {
+        other.beatenBy == self
+    }
+}
+
+struct ShowdownTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    /// Everyone's accumulated wins — the round score.
+    var totals: [Int: Int]
+    var startAt: Date
+    var throwSeconds: Double
+    /// Simplify (levels 2–3): what other players have thrown so far, keyed
+    /// by the assisted player it's for. The host re-publishes the turn as
+    /// throws land. Only the assisted device shows its own.
+    var assistThrown: [Int: [Int: RPSThrow]]?
+
+    var deadline: Date { startAt.addingTimeInterval(throwSeconds) }
+}
+
+struct ShowdownReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    /// slot -> throw, for everyone who threw.
+    var thrown: [Int: RPSThrow]
+    /// slot -> players beaten this turn.
+    var gains: [Int: Int]
+    var totals: [Int: Int]
+    /// Top scorers of the turn (when anyone beat anyone).
+    var winners: [Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Tap Frenzy
+
+struct FrenzyTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var tapSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(tapSeconds) }
+}
+
+struct FrenzyResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil = never tapped at all.
+    var taps: Int?
+    var id: Int { slot }
+}
+
+struct FrenzyReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [FrenzyResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -634,5 +770,17 @@ enum RecordName {
 
     static func sortTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-sc\(turn)-srt\(slot)"
+    }
+
+    static func steadyTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sh\(turn)-std\(slot)"
+    }
+
+    static func showdownThrow(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sd\(turn)-rps\(slot)"
+    }
+
+    static func frenzyTaps(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-tf\(turn)-frz\(slot)"
     }
 }

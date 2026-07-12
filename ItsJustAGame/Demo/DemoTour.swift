@@ -338,6 +338,63 @@ enum Demo {
             ))
         },
 
+        // Steady Hand — mid-run, ring drifting
+        Step(points: [1: 1, 2: 1], duration: 2.6) {
+            .steadyTurn(SteadyTurn(
+                round: 2, turn: 2, points: [1: 1, 2: 1],
+                startAt: now(-9), seed: 909_909, maxSeconds: 40
+            ))
+        },
+        Step(points: [1: 1, 2: 1]) {
+            .steadyReveal(SteadyReveal(
+                round: 2, turn: 2,
+                results: [
+                    SteadyResult(slot: 1, survivedMs: 21_340),
+                    SteadyResult(slot: 2, survivedMs: 26_910),
+                    SteadyResult(slot: 3, survivedMs: 14_270),
+                    SteadyResult(slot: 4, survivedMs: 8_450),
+                ],
+                winners: [2], points: [1: 1, 2: 2], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Showdown
+        Step {
+            .showdownTurn(ShowdownTurn(
+                round: 2, turn: 3, totals: [2: 3, 1: 2, 4: 1],
+                startAt: now(-2), throwSeconds: 8
+            ))
+        },
+        Step {
+            .showdownReveal(ShowdownReveal(
+                round: 2, turn: 3,
+                thrown: [1: .rock, 2: .paper, 3: .scissors, 4: .rock],
+                gains: [1: 1, 2: 2, 3: 1, 4: 1],
+                totals: [1: 3, 2: 5, 3: 1, 4: 2],
+                winners: [2], roundWinners: [2], nextAt: nil
+            ))
+        },
+
+        // Tap Frenzy — mid-mash
+        Step(points: [4: 2, 3: 1]) {
+            .frenzyTurn(FrenzyTurn(
+                round: 2, turn: 3, points: [4: 2, 3: 1],
+                startAt: now(-2), tapSeconds: 5
+            ))
+        },
+        Step(points: [4: 2, 3: 1]) {
+            .frenzyReveal(FrenzyReveal(
+                round: 2, turn: 3,
+                results: [
+                    FrenzyResult(slot: 1, taps: 31),
+                    FrenzyResult(slot: 2, taps: 27),
+                    FrenzyResult(slot: 3, taps: 38),
+                    FrenzyResult(slot: 4, taps: 43),
+                ],
+                winners: [4], points: [3: 1, 4: 3], roundWinners: [4], nextAt: nil
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -441,6 +498,18 @@ struct DemoTourView: View {
             SortTurnView(session: session, turn: turn)
         case .sortReveal(let reveal):
             SortRevealView(session: session, reveal: reveal)
+        case .steadyTurn(let turn):
+            SteadyTurnView(session: session, turn: turn)
+        case .steadyReveal(let reveal):
+            SteadyRevealView(session: session, reveal: reveal)
+        case .showdownTurn(let turn):
+            ShowdownTurnView(session: session, turn: turn)
+        case .showdownReveal(let reveal):
+            ShowdownRevealView(session: session, reveal: reveal)
+        case .frenzyTurn(let turn):
+            FrenzyTurnView(session: session, turn: turn)
+        case .frenzyReveal(let reveal):
+            FrenzyRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

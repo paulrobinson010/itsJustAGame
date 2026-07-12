@@ -241,6 +241,31 @@ one-second penalty. Timing runs locally against the shared start
 timestamp, so latency never matters. Fastest penalty-inclusive time
 takes the point; first to 3 wins the round.
 
+### Steady Hand
+
+Endurance. A glowing ring drifts around the board and slowly shrinks —
+the drift is two summed sinusoids per axis, regenerated identically on
+every device from a seed, gently accelerating so the endgame bites. Keep
+your finger inside it; the moment you slip out (or lift), your time locks
+in, measured locally against the shared start. Making it to 40 seconds is
+a full ride. Longest hold takes the point; first to 3 wins the round.
+
+### Showdown
+
+Rock, paper, scissors — against the whole table at once. Everyone throws
+in secret within 8 seconds (silence gets a random throw, and never
+throwing at all loses to everyone who threw). You score a win for every
+player you beat, so a lone paper against two rocks sweeps. First to 5
+accumulated wins takes the round (shared if several cross together);
+after 12 turns the leaders take it.
+
+### Tap Frenzy
+
+Five seconds. Tap as many times as you can. That's it. Counts are
+measured locally against the shared start, most taps takes the point
+(exact ties share), first to 3 points wins the round. Scientifically
+proven to be the loudest thirty seconds of any family gathering.
+
 ## Design language
 
 Very simple, but it should look expensive. The rules live in
@@ -309,12 +334,16 @@ Every game implements all three levels:
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
+| Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
+| Showdown | what-beats-what reminder | others' throws appear live | + told which throw beats the most right now |
+| Tap Frenzy | your window quietly runs 1.5s longer | 3s longer | 5s longer |
 
 Mechanics that need host secrets (safe squares, the pre-drawn card, hint
-circles, the pre-rolled die, live Gold Rush picks) ride along in the turn
-messages keyed by slot (`assistSafe`, `assistCorrect`, `assistHints`,
-`assistPeek`, `assistTaken`) — every device receives them but only the
-assisted device renders its own. For Gold Rush the host re-publishes the
+circles, the pre-rolled die, live Gold Rush picks, live Showdown throws)
+ride along in the turn messages keyed by slot (`assistSafe`,
+`assistCorrect`, `assistHints`, `assistPeek`, `assistTaken`,
+`assistThrown`) — every device receives them but only the assisted device
+renders its own. For Gold Rush and Showdown the host re-publishes the
 turn message as picks land, which is safe because `contentKey` keeps the
 view's identity stable within a turn. Scoring itself never bends in ways
 the reveal would expose: the only tweaks are Lightning's ×0.6 (applied on
@@ -345,7 +374,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all twelve games
+button. It steps through every screen — lobby, wheel, all fifteen games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to
