@@ -219,7 +219,7 @@ final class HostEngine {
     func announceRematch() async -> SavedGame? {
         guard !gameRunning, !rematchAnnounced else { return nil }
         rematchAnnounced = true
-        let crypto = GameCrypto()
+        let newCrypto = GameCrypto()
         let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
         let players = config.players.enumerated().map { index, player in
             PlayerInfo(
@@ -237,13 +237,24 @@ final class HostEngine {
         )
         let invite = RematchInvite(
             newGameID: newConfig.gameID,
-            newKeyBase64URL: crypto.base64URL,
+            newKeyBase64URL: newCrypto.base64URL,
             config: newConfig
         )
-        await send(.rematch(invite))
+        guard await send(.rematch(invite)) else {
+            // Never published — let "Play again" try afresh.
+            rematchAnnounced = false
+            return nil
+        }
+        // Also park the invite at a well-known ID (sealed with the OLD
+        // game's key) so players who aren't sitting in the old game can
+        // discover it from the home screen with one fetch.
+        if let body = try? crypto.seal(invite) {
+            try? await transport.put(id: RecordName.rematch(config.gameID), body: body)
+        }
+        existingRematch = invite
         return SavedGame(
             gameID: newConfig.gameID,
-            keyBase64URL: crypto.base64URL,
+            keyBase64URL: newCrypto.base64URL,
             mySlot: 1,
             isHost: true,
             hostConfig: newConfig,
@@ -1878,7 +1889,8 @@ final class HostEngine {
         return leaders.isEmpty ? [players.first ?? 1] : leaders
     }
 
-    private func send(_ message: HostMessage) async {
+    @discardableResult
+    private func send(_ message: HostMessage) async -> Bool {
         for attempt in 0..<3 {
 
             do {
@@ -1886,7 +1898,7 @@ final class HostEngine {
                 try await transport.put(id: RecordName.host(config.gameID, seq: seq), body: body)
                 seq += 1
                 lastError = nil
-                return
+                return true
             } catch {
                 lastError = "Couldn't publish: \(error.localizedDescription)"
                 if attempt < 2 {
@@ -1894,5 +1906,6 @@ final class HostEngine {
                 }
             }
         }
+        return false
     }
 }

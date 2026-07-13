@@ -3,6 +3,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Bindable var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("myName") private var myName = ""
     @State private var showCreate = false
     @State private var showJoin = false
@@ -135,6 +136,14 @@ struct HomeView: View {
                 let status = await CloudKitTransport.accountStatus()
                 if status != .available {
                     accountWarning = "Sign in to iCloud in Settings to play — the game passes its encrypted messages through iCloud."
+                }
+                await model.discoverRematches()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // Someone may have tapped "Play again" while this phone was
+                // in a pocket — look for rematches on every return.
+                if phase == .active {
+                    Task { await model.discoverRematches() }
                 }
             }
         }

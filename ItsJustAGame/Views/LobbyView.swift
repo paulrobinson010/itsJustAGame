@@ -97,7 +97,9 @@ struct LobbyView: View {
                             .disabled(!engine.canBeginGame)
                         }
                     } footer: {
-                        if joined.count < MiniGameType.smallestMinimum {
+                        if session.saved.autoStart == true {
+                            Text("It's a rematch — no new links needed. The others join automatically as soon as they open the app, and the game starts by itself when everyone's in.")
+                        } else if joined.count < MiniGameType.smallestMinimum {
                             Text("At least \(MiniGameType.smallestMinimum) players must join before the game can start. Send each player their own link — the links carry the game's secret key, so share them privately.")
                         } else {
                             Text("Send each player their own link. The links carry the game's secret key, so everything stays end-to-end encrypted — share them privately.")

@@ -334,7 +334,7 @@ struct GameScreen: View {
         guard let engine else { return }
         if let invite = engine.existingRematch {
             // This game already has a rematch — reopen it, never mint another.
-            openRematch(invite, asHost: true)
+            model.adoptRematch(invite, from: saved, open: true)
             return
         }
         Task {
@@ -346,28 +346,7 @@ struct GameScreen: View {
     }
 
     private func joinRematch(_ invite: RematchInvite) {
-        openRematch(invite, asHost: false)
-    }
-
-    private func openRematch(_ invite: RematchInvite, asHost: Bool) {
-        if let existing = model.store.games.first(where: { $0.gameID == invite.newGameID }) {
-            model.activeGame = existing
-            return
-        }
-        let newSaved = SavedGame(
-            gameID: invite.newGameID,
-            keyBase64URL: invite.newKeyBase64URL,
-            mySlot: asHost ? 1 : session.mySlot,
-            isHost: asHost,
-            hostConfig: asHost ? invite.config : nil,
-            title: "\(invite.config.name(1))'s game · \(invite.config.players.count) players",
-            createdAt: Date(),
-            needsWelcome: false,
-            inviteeAddresses: asHost ? saved.inviteeAddresses : nil,
-            autoStart: true
-        )
-        model.store.add(newSaved)
-        model.activeGame = newSaved
+        model.adoptRematch(invite, from: saved, open: true)
     }
 }
 
@@ -402,6 +381,12 @@ struct FinishedGameView: View {
                     Button {
                         playAgainTapped = true
                         onPlayAgain()
+                        Task {
+                            // If announcing failed (offline blip), come back
+                            // to life so it can be tried again.
+                            try? await Task.sleep(for: .seconds(6))
+                            playAgainTapped = false
+                        }
                     } label: {
                         Label("Play again — same crew", systemImage: "arrow.counterclockwise")
                             .frame(maxWidth: 240)
@@ -596,6 +581,12 @@ struct GameEndView: View {
                     Button {
                         rematchStarted = true
                         onHostRematch()
+                        Task {
+                            // If announcing failed (offline blip), come back
+                            // to life so it can be tried again.
+                            try? await Task.sleep(for: .seconds(6))
+                            rematchStarted = false
+                        }
                     } label: {
                         Label("Rematch — same crew", systemImage: "arrow.counterclockwise")
                             .frame(maxWidth: 240)

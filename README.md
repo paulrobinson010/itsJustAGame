@@ -45,7 +45,11 @@ Everything the game sends between devices is **end-to-end encrypted**.
    encrypted stream, every other player **joins automatically**, and the
    new game **starts on its own** once everyone is in (or after ~25s with
    whoever came). No links, no lobby taps. Keys still rotate every game;
-   colors are re-dealt. Finished games store their result: reopening one
+   colors are re-dealt. The invite is also parked at a well-known record
+   (`g<oldID>-rematch`, sealed with the old game's key) so a player who
+   already closed the app still lands in the new lobby the moment they
+   reopen it — the home screen checks recent games for rematches on every
+   launch and foreground. Finished games store their result: reopening one
    shows the winner and standings instantly (no replay) with "Play again —
    same crew" for the host. The create screen also remembers your last
    rounds-to-win, can refill "same players as last game", and the contact

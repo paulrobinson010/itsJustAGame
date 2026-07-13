@@ -716,6 +716,13 @@ enum RecordName {
         "g\(gameID)-join\(slot)"
     }
 
+    /// A rematch invite parked at a well-known ID (besides riding the old
+    /// stream), so devices that weren't in the game when "Play again" was
+    /// tapped can discover it with a single fetch from the home screen.
+    static func rematch(_ gameID: String) -> String {
+        "g\(gameID)-rematch"
+    }
+
     static func choice(_ gameID: String, round: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-choice\(slot)"
     }
