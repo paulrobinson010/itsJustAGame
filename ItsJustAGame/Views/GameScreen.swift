@@ -77,20 +77,25 @@ struct GameScreen: View {
         .task {
             session.start()
             engine?.start()
-            // Practice failsafe: solo games must never sit in a lobby.
-            // If anything interrupts the auto-begin (a presentation
-            // hiccup, a stopped task), keep nudging until the round runs —
-            // and after a few tries, tear the engine down and rebuild.
-            if saved.practiceGame != nil {
-                var nudges = 0
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(1))
-                    guard case .lobby = session.phase else { break }
+            // Keepalive: SwiftUI can fire a spurious disappear during
+            // presentation handoffs, stopping the session and engine with
+            // no matching re-appear to restart them — a live engine with a
+            // dead reader looks like a frozen screen. start() is a guarded
+            // no-op while they're healthy, so keep them alive; the loop
+            // dies with the screen (task cancellation).
+            var nudges = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                session.start()
+                engine?.start()
+                // Practice must never sit in a lobby — keep kicking it
+                // off, with a full engine rebuild every third try.
+                if saved.practiceGame != nil, case .lobby = session.phase {
                     nudges += 1
                     if nudges.isMultiple(of: 3) {
                         engine?.stop()
+                        engine?.start()
                     }
-                    engine?.start()
                     engine?.beginGame()
                 }
             }
