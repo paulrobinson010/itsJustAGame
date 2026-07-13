@@ -1460,14 +1460,17 @@ final class HostEngine {
     private func runEyeballRound(round: Int) async -> [Int] {
         let players = joined.sorted()
         var points: [Int: Int] = [:]
+        var lastCount: Int?
         var turn = 1
         while !Task.isCancelled {
+            let count = Self.nextEyeballCount(after: lastCount)
+            lastCount = count
             let turnMessage = EyeballTurn(
                 round: round,
                 turn: turn,
                 points: points,
                 startAt: Date().addingTimeInterval(2),
-                count: Int.random(in: 40...150),
+                count: count,
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 visibleSeconds: GameTiming.eyeballVisibleSeconds,
                 guessSeconds: GameTiming.eyeballGuessSeconds
@@ -1514,6 +1517,20 @@ final class HostEngine {
             turn += 1
         }
         return [players.first ?? 1]
+    }
+
+    /// A fresh cloud size that's clearly different from the last one, so
+    /// turns never feel samey.
+    private static func nextEyeballCount(after last: Int?) -> Int {
+        let range = GameTiming.eyeballMinCount...GameTiming.eyeballMaxCount
+        guard let last else { return Int.random(in: range) }
+        for _ in 0..<10 {
+            let candidate = Int.random(in: range)
+            if abs(candidate - last) >= GameTiming.eyeballMinStep {
+                return candidate
+            }
+        }
+        return Int.random(in: range)
     }
 
     private func collectEyeballGuesses(for turn: EyeballTurn, players: [Int]) async -> [Int: Int] {

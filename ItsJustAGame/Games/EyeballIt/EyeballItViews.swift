@@ -25,16 +25,17 @@ struct EyeballTurnView: View {
         self.dots = SharedLayout.dots(seed: turn.seed, count: turn.count)
         let assist = session.myAssist
         self.assist = assist
+        let ceiling = Double(GameTiming.eyeballSliderMax)
         if let assist, assist >= .big {
             var generator = SeededGenerator(seed: turn.seed &+ UInt64(max(0, session.mySlot)))
             let jitter = Double(Int.random(in: -6...6, using: &generator))
             let halfWidth: Double = assist == .cheating ? 12 : 30
             let center = Double(turn.count) + jitter
-            let lower = max(10, min(center - halfWidth, 200 - halfWidth * 2))
-            let upper = min(200, lower + halfWidth * 2)
+            let lower = max(10, min(center - halfWidth, ceiling - halfWidth * 2))
+            let upper = min(ceiling, lower + halfWidth * 2)
             self.sliderRange = lower...upper
         } else {
-            self.sliderRange = 10...200
+            self.sliderRange = 10...ceiling
         }
         _guess = State(initialValue: (sliderRange.lowerBound + sliderRange.upperBound) / 2)
     }

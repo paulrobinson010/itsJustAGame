@@ -232,9 +232,10 @@ wins the round (shared if several cross together); leaders after 15 turns.
 
 ### Eyeball It
 
-Perception. A cloud of 40–150 dots flashes for two seconds — identical on
+Perception. A cloud of 15–250 dots flashes for two seconds — identical on
 every device, regenerated from a seed in the encrypted turn message —
-then vanishes. The visible window counts from the moment each device
+then vanishes. Consecutive clouds always differ by at least 40 dots, so
+turns never feel samey. The visible window counts from the moment each device
 actually renders the dots (not the shared start), so polling latency
 never shortens your look; a device arriving long after the window skips
 straight to guessing. Dial in your guess within 12 seconds (slider plus

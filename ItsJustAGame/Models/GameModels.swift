@@ -276,6 +276,14 @@ enum GameTiming {
     static let eyeballVisibleSeconds: Double = 2
     static let eyeballGuessSeconds: Double = 12
     static let eyeballRevealSeconds: Double = 6
+    static let eyeballMinCount = 15
+    static let eyeballMaxCount = 250
+    /// Consecutive clouds must differ by at least this many dots — uniform
+    /// draws can land eerily close two turns running.
+    static let eyeballMinStep = 40
+    /// Slider headroom past the biggest possible cloud, so the true count
+    /// is never sitting at the end stop.
+    static let eyeballSliderMax = 275
 
     // Perfect Circle
     static let circleDrawSeconds: Double = 10
