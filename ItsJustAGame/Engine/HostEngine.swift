@@ -83,8 +83,17 @@ final class HostEngine {
             await send(.gameCreated(config: config))
             await send(.lobby(joined: joined.sorted()))
         }
-        if let coordinate = await LocationService.shared.currentCoordinate() {
-            playerCoordinates[1] = coordinate
+        if practiceGame != nil {
+            // Practice needs nobody else — straight in.
+            beginGame()
+            return
+        }
+        // Grab the host's coordinate without holding up the lobby — a GPS
+        // fix that never comes must not wedge the auto-start loop.
+        Task {
+            if let coordinate = await LocationService.shared.currentCoordinate() {
+                playerCoordinates[1] = coordinate
+            }
         }
         let lobbyOpenedAt = Date()
         while !Task.isCancelled && !gameRunning {

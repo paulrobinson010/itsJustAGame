@@ -25,7 +25,10 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     /// One-shot coordinate. Returns the last known fix if permission is
-    /// denied or no fresh fix arrives.
+    /// denied or no fresh fix arrives. Never waits more than a few
+    /// seconds: Core Location can silently keep retrying an unknown
+    /// location (the simulator with no simulated location does exactly
+    /// this), and a fix that never comes must not wedge a game flow.
     func currentCoordinate() async -> Coordinate? {
         if authorization == .denied || authorization == .restricted {
             return lastCoordinate
@@ -34,6 +37,10 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             requestPermission()
         }
         manager.requestLocation()
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            resumeWaiters(with: lastCoordinate)
+        }
         return await withCheckedContinuation { continuation in
             waiters.append(continuation)
         }
