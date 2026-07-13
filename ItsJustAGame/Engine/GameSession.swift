@@ -101,10 +101,6 @@ final class GameSession {
     /// hints; the host handles the parts that need its secrets.
     var myAssist: AssistLevel? { config?.player(mySlot)?.assist }
 
-    /// How far into the host stream this device has read — surfaced by
-    /// the practice lobby's diagnostic line.
-    var debugRead: Int { nextSeq }
-
     func name(_ slot: Int) -> String {
         config?.name(slot) ?? "Player \(slot)"
     }

@@ -48,7 +48,15 @@ struct GameScreen: View {
             .animation(session.caughtUp ? .easeInOut(duration: 0.35) : nil, value: contentKey)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Leave") { showLeaveConfirm = true }
+                    Button(saved.practiceGame != nil ? "End" : "Leave") {
+                        if saved.practiceGame != nil {
+                            // Practice just ends — nothing to warn about,
+                            // nothing was ever saved.
+                            leaveAndForget()
+                        } else {
+                            showLeaveConfirm = true
+                        }
+                    }
                 }
             }
             .confirmationDialog("Leave this game?", isPresented: $showLeaveConfirm, titleVisibility: .visible) {
@@ -57,11 +65,9 @@ struct GameScreen: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(saved.practiceGame != nil
-                     ? "Done practising? Nothing is saved."
-                     : (saved.isHost
-                        ? "You're the host — the game can't continue without this device."
-                        : "This clears the game from your phone. You'd need your invite link to rejoin."))
+                Text(saved.isHost
+                     ? "You're the host — the game can't continue without this device."
+                     : "This clears the game from your phone. You'd need your invite link to rejoin.")
             }
             .safeAreaInset(edge: .bottom) {
                 if let error = session.lastError ?? engine?.lastError {

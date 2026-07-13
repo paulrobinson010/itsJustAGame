@@ -14,6 +14,9 @@ final class GameStore {
     }
 
     func add(_ game: SavedGame) {
+        // Practice never persists — no code path should store one, but
+        // guarantee it here regardless.
+        guard game.practiceGame == nil else { return }
         games.removeAll { $0.gameID == game.gameID }
         games.insert(game, at: 0)
         save()

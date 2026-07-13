@@ -72,12 +72,6 @@ final class HostEngine {
         return !gameRunning && !resumeBlocked && joined.count >= needed
     }
 
-    /// One line of live internals for the practice lobby, so a stuck
-    /// start can say exactly which link is dead.
-    var debugState: String {
-        "sent \(seq) · running \(gameRunning ? "y" : "n") · can \(canBeginGame ? "y" : "n") · practice \(practiceGame != nil ? "y" : "n")"
-    }
-
     func beginGame() {
         guard canBeginGame else { return }
         gameRunning = true
