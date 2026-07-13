@@ -1,36 +1,55 @@
 import SwiftUI
 
-/// Full-screen container for an active game. Owns the session (every
-/// device) and the host engine (host device only) and renders whichever
-/// phase the game is in, cross-fading between phases.
-struct GameScreen: View {
-    let saved: SavedGame
-    let model: AppModel
-    @State private var session: GameSession
-    @State private var engine: HostEngine?
-    @State private var showWelcome: Bool
-    @State private var showLeaveConfirm = false
+/// The session and (for hosts) the engine, built together over ONE shared
+/// transport. Held in a single @State slot so no SwiftUI state-storage
+/// quirk can ever pair a session with an engine from a different
+/// generation — with an in-memory transport, a split pair means the
+/// engine plays into a mailbox the session never reads.
+struct GameStack {
+    let session: GameSession
+    let engine: HostEngine?
 
-    init(saved: SavedGame, model: AppModel) {
-        self.saved = saved
-        self.model = model
+    @MainActor
+    init(saved: SavedGame) {
         let crypto = GameCrypto(base64URL: saved.keyBase64URL) ?? GameCrypto()
         // Practice plays entirely on-device: the host loop and session
         // talk through an in-memory mailbox instead of CloudKit.
         let transport: any GameTransport = saved.practiceGame != nil
             ? LoopbackTransport()
             : CloudKitTransport()
-        _session = State(initialValue: GameSession(saved: saved, transport: transport, crypto: crypto))
-        _showWelcome = State(initialValue: saved.needsWelcome == true)
+        session = GameSession(saved: saved, transport: transport, crypto: crypto)
         if saved.isHost, let config = saved.hostConfig {
-            _engine = State(initialValue: HostEngine(
+            engine = HostEngine(
                 config: config,
                 transport: transport,
                 crypto: crypto,
                 autoStart: saved.autoStart == true,
                 practiceGame: saved.practiceGame
-            ))
+            )
+        } else {
+            engine = nil
         }
+    }
+}
+
+/// Full-screen container for an active game. Owns the session (every
+/// device) and the host engine (host device only) and renders whichever
+/// phase the game is in, cross-fading between phases.
+struct GameScreen: View {
+    let saved: SavedGame
+    let model: AppModel
+    @State private var stack: GameStack
+    @State private var showWelcome: Bool
+    @State private var showLeaveConfirm = false
+
+    private var session: GameSession { stack.session }
+    private var engine: HostEngine? { stack.engine }
+
+    init(saved: SavedGame, model: AppModel) {
+        self.saved = saved
+        self.model = model
+        _stack = State(initialValue: GameStack(saved: saved))
+        _showWelcome = State(initialValue: saved.needsWelcome == true)
     }
 
     var body: some View {

@@ -10,6 +10,7 @@ import Foundation
 /// boundary.
 final class CloudKitTransport: GameTransport, @unchecked Sendable {
     static let recordType = "GameMessage"
+    let tag = "ck"
 
     private let database: CKDatabase
 
