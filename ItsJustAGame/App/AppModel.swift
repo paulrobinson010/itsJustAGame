@@ -1,12 +1,77 @@
 import Foundation
 import Observation
 
+/// The session and (for hosts) the engine, built together over ONE shared
+/// transport. Owned by AppModel — never by a view — so presentation
+/// lifecycle (spurious disappears, cover handoffs, state resets) can
+/// neither kill the game loops nor split the pair.
+struct GameStack {
+    let saved: SavedGame
+    let session: GameSession
+    let engine: HostEngine?
+
+    @MainActor
+    init(saved: SavedGame) {
+        self.saved = saved
+        let crypto = GameCrypto(base64URL: saved.keyBase64URL) ?? GameCrypto()
+        // Practice plays entirely on-device: the host loop and session
+        // talk through an in-memory mailbox instead of CloudKit.
+        let transport: any GameTransport = saved.practiceGame != nil
+            ? LoopbackTransport()
+            : CloudKitTransport()
+        session = GameSession(saved: saved, transport: transport, crypto: crypto)
+        if saved.isHost, let config = saved.hostConfig {
+            engine = HostEngine(
+                config: config,
+                transport: transport,
+                crypto: crypto,
+                autoStart: saved.autoStart == true,
+                practiceGame: saved.practiceGame
+            )
+        } else {
+            engine = nil
+        }
+    }
+
+    @MainActor
+    func start() {
+        session.start()
+        engine?.start()
+    }
+
+    @MainActor
+    func stop() {
+        session.stop()
+        engine?.stop()
+    }
+}
+
 @MainActor
 @Observable
 final class AppModel {
     let store = GameStore()
-    var activeGame: SavedGame?
+    var activeGame: SavedGame? {
+        didSet { syncStack() }
+    }
+    /// The live loops for the open game — created when a game opens,
+    /// stopped and released when it closes or another game replaces it.
+    private(set) var activeStack: GameStack?
     var joinError: String?
+
+    /// The single place game loops are born and die. Keyed by gameID, so
+    /// re-setting the same game (rerenders, bindings) is a no-op.
+    private func syncStack() {
+        if let game = activeGame {
+            if activeStack?.saved.gameID != game.gameID {
+                activeStack?.stop()
+                activeStack = GameStack(saved: game)
+                activeStack?.start()
+            }
+        } else {
+            activeStack?.stop()
+            activeStack = nil
+        }
+    }
 
     @discardableResult
     func createGame(

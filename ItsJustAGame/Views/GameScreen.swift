@@ -1,54 +1,22 @@
 import SwiftUI
 
-/// The session and (for hosts) the engine, built together over ONE shared
-/// transport. Held in a single @State slot so no SwiftUI state-storage
-/// quirk can ever pair a session with an engine from a different
-/// generation — with an in-memory transport, a split pair means the
-/// engine plays into a mailbox the session never reads.
-struct GameStack {
-    let session: GameSession
-    let engine: HostEngine?
-
-    @MainActor
-    init(saved: SavedGame) {
-        let crypto = GameCrypto(base64URL: saved.keyBase64URL) ?? GameCrypto()
-        // Practice plays entirely on-device: the host loop and session
-        // talk through an in-memory mailbox instead of CloudKit.
-        let transport: any GameTransport = saved.practiceGame != nil
-            ? LoopbackTransport()
-            : CloudKitTransport()
-        session = GameSession(saved: saved, transport: transport, crypto: crypto)
-        if saved.isHost, let config = saved.hostConfig {
-            engine = HostEngine(
-                config: config,
-                transport: transport,
-                crypto: crypto,
-                autoStart: saved.autoStart == true,
-                practiceGame: saved.practiceGame
-            )
-        } else {
-            engine = nil
-        }
-    }
-}
-
-/// Full-screen container for an active game. Owns the session (every
-/// device) and the host engine (host device only) and renders whichever
-/// phase the game is in, cross-fading between phases.
+/// Full-screen container for an active game. The session and engine live
+/// in AppModel's GameStack — this view only renders whichever phase the
+/// game is in, cross-fading between phases.
 struct GameScreen: View {
     let saved: SavedGame
     let model: AppModel
-    @State private var stack: GameStack
+    let stack: GameStack
     @State private var showWelcome: Bool
     @State private var showLeaveConfirm = false
 
     private var session: GameSession { stack.session }
     private var engine: HostEngine? { stack.engine }
 
-    init(saved: SavedGame, model: AppModel) {
+    init(saved: SavedGame, model: AppModel, stack: GameStack) {
         self.saved = saved
         self.model = model
-        _stack = State(initialValue: GameStack(saved: saved))
+        self.stack = stack
         _showWelcome = State(initialValue: saved.needsWelcome == true)
     }
 
@@ -125,10 +93,10 @@ struct GameScreen: View {
                 }
             }
         }
-        .onDisappear {
-            session.stop()
-            engine?.stop()
-        }
+        // Deliberately NO onDisappear teardown: SwiftUI fires spurious
+        // disappears during presentation handoffs, and killing the live
+        // loops from a view was exactly how games froze. The stack's
+        // lifecycle belongs to AppModel.syncStack alone.
         .onChange(of: session.phase) { _, newPhase in
             playSound(for: newPhase)
             if case .gameEnd(let winner) = newPhase, saved.summary == nil, let config = session.config {
@@ -376,11 +344,10 @@ struct GameScreen: View {
         model.activeGame = nil
     }
 
-    /// Leave must absolutely clear any game state: stop the loops and
-    /// remove the saved game (and its key) from this device.
+    /// Leave must absolutely clear any game state: remove the saved game
+    /// (and its key) from this device. Clearing activeGame stops the
+    /// loops via AppModel.syncStack.
     private func leaveAndForget() {
-        session.stop()
-        engine?.stop()
         model.store.remove(saved)
         model.activeGame = nil
     }

@@ -165,10 +165,13 @@ struct HomeView: View {
                 }
             }
             .fullScreenCover(item: $model.activeGame) { game in
-                // id forces a fresh screen (and fresh session) per game so
-                // switching games mid-cover — e.g. into a rematch — works.
-                GameScreen(saved: game, model: model)
-                    .id(game.gameID)
+                // id forces a fresh screen per game so switching games
+                // mid-cover — e.g. into a rematch — works. The live loops
+                // come from AppModel's stack, never from the view.
+                if let stack = model.activeStack, stack.saved.gameID == game.gameID {
+                    GameScreen(saved: game, model: model, stack: stack)
+                        .id(game.gameID)
+                }
             }
             #if targetEnvironment(simulator)
             .fullScreenCover(isPresented: $showDemoTour) {
