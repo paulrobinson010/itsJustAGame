@@ -13,7 +13,12 @@ enum GridCells {
 struct CellAppearance {
     var searched = false
     var selected = false
+    /// Your hiding spot, revealed boldly — only while you hold the peek
+    /// button, so a glance at your screen never gives it away.
     var isMine = false
+    /// A faint reminder that a square is your own hiding spot, e.g. when a
+    /// seeker taps it. Quiet enough not to broadcast it across the room.
+    var mineSubtle = false
     /// Simplify: ruled out for the assisted seeker — nobody is hiding here.
     var assistSafe = false
     /// The local player's dealt color, used to mark their hiding spot.
@@ -72,6 +77,10 @@ struct GridCellView: View {
                     Image(systemName: "person.fill")
                         .font(Theme.caption)
                         .foregroundStyle(.white)
+                } else if appearance.mineSubtle {
+                    Circle()
+                        .fill(appearance.mineColor.opacity(0.6))
+                        .frame(width: 7, height: 7)
                 } else {
                     Text(GridCells.label(cell, gridSize: gridSize))
                         .font(Theme.caption2)
@@ -91,6 +100,32 @@ struct GridCellView: View {
         if appearance.isMine { return appearance.mineColor.opacity(0.85) }
         if appearance.searched || appearance.assistSafe { return Color.primary.opacity(0.02) }
         return Color.primary.opacity(0.05)
+    }
+}
+
+/// Press-and-hold to reveal your own hiding spot on the grid; releasing
+/// hides it again — so you can jog your memory without leaving it on
+/// screen for a neighbour to see.
+struct HoldToRevealButton: View {
+    @Binding var peeking: Bool
+
+    var body: some View {
+        Label(
+            peeking ? "Showing your spot" : "Hold to check your spot",
+            systemImage: peeking ? "eye.fill" : "eye"
+        )
+        .font(Theme.subheadline)
+        .foregroundStyle(peeking ? Theme.cyan : .secondary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Theme.quietFill, in: Capsule())
+        .overlay(Capsule().stroke(peeking ? Theme.cyan : Theme.hairline, lineWidth: 1))
+        .contentShape(Capsule())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if !peeking { peeking = true } }
+                .onEnded { _ in peeking = false }
+        )
     }
 }
 
@@ -146,6 +181,7 @@ struct HideView: View {
 
     @State private var selected: Int?
     @State private var submitted = false
+    @State private var peeking = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.2)) { context in
@@ -161,26 +197,32 @@ struct HideView: View {
                     .foregroundStyle(.secondary)
                 HideSeekGrid(gridSize: hideStart.gridSize) { cell in
                     CellAppearance(
+                        // Before locking in, your own tapped square shows —
+                        // that's your active choice. After, only on a peek.
                         selected: selected == cell && !submitted,
-                        isMine: submitted && session.myHideCells[hideStart.round] == cell,
+                        isMine: peeking && session.myHideCells[hideStart.round] == cell,
                         mineColor: session.color(session.mySlot)
                     )
                 } onTap: { cell in
                     guard !submitted else { return }
                     selected = cell
                 }
-                Button {
-                    if let selected {
-                        submit(cell: selected)
+                if submitted {
+                    HoldToRevealButton(peeking: $peeking)
+                } else {
+                    Button {
+                        if let selected {
+                            submit(cell: selected)
+                        }
+                    } label: {
+                        Label(
+                            selected.map { "Hide at \(GridCells.label($0, gridSize: hideStart.gridSize))" } ?? "Tap a square",
+                            systemImage: "eye.slash.fill"
+                        )
                     }
-                } label: {
-                    Label(
-                        selected.map { "Hide at \(GridCells.label($0, gridSize: hideStart.gridSize))" } ?? "Tap a square",
-                        systemImage: "eye.slash.fill"
-                    )
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(selected == nil)
                 }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(selected == nil || submitted)
                 Spacer()
             }
             .padding(.top, 8)
@@ -216,9 +258,17 @@ struct SeekTurnView: View {
 
     @State private var selected: Int?
     @State private var submitted = false
+    @State private var peeking = false
 
     private var isMyTurn: Bool { turnStart.seeker == session.mySlot }
     private var iAmFound: Bool { turnStart.found[session.mySlot] != nil }
+
+    /// My own still-hidden square this round, if any.
+    private var myHiddenCell: Int? {
+        guard let cell = session.myHideCells[turnStart.round],
+              !turnStart.searched.contains(cell) else { return nil }
+        return cell
+    }
 
     /// Simplify: squares the host has ruled out for me — nobody's there.
     private var safeCells: Set<Int> {
@@ -252,7 +302,10 @@ struct SeekTurnView: View {
                     CellAppearance(
                         searched: turnStart.searched.contains(cell),
                         selected: selected == cell && isMyTurn && !submitted,
-                        isMine: session.myHideCells[turnStart.round] == cell && !turnStart.searched.contains(cell),
+                        // Bold only while peeking; a faint dot if you tap
+                        // your own square as the seeker.
+                        isMine: peeking && myHiddenCell == cell,
+                        mineSubtle: !peeking && selected == cell && myHiddenCell == cell,
                         assistSafe: safeCells.contains(cell) && !turnStart.searched.contains(cell),
                         mineColor: session.color(session.mySlot),
                         revealedColors: turnStart.found.filter { $0.value == cell }.map(\.key).sorted().map { session.color($0) }
@@ -274,6 +327,9 @@ struct SeekTurnView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(selected == nil || submitted)
+                }
+                if myHiddenCell != nil {
+                    HoldToRevealButton(peeking: $peeking)
                 }
                 Spacer()
             }
@@ -310,6 +366,15 @@ struct SeekRevealView: View {
     let session: GameSession
     let reveal: SeekReveal
 
+    @State private var peeking = false
+
+    /// My own still-hidden square this round, if any.
+    private var myHiddenCell: Int? {
+        guard let cell = session.myHideCells[reveal.round],
+              !reveal.searched.contains(cell) else { return nil }
+        return cell
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             HideSeekStatusBar(session: session, found: reveal.found)
@@ -321,10 +386,13 @@ struct SeekRevealView: View {
                 CellAppearance(
                     searched: reveal.searched.contains(cell),
                     selected: cell == reveal.cell,
-                    isMine: session.myHideCells[reveal.round] == cell && !reveal.searched.contains(cell),
+                    isMine: peeking && myHiddenCell == cell,
                     mineColor: session.color(session.mySlot),
                     revealedColors: reveal.found.filter { $0.value == cell }.map(\.key).sorted().map { session.color($0) }
                 )
+            }
+            if myHiddenCell != nil {
+                HoldToRevealButton(peeking: $peeking)
             }
             footer
             Spacer()

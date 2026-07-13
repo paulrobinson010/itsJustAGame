@@ -96,6 +96,13 @@ square searched for them, so the game always moves and always terminates.
 If the final search reveals the last several hiders at once they were all
 "found last" and share the round.
 
+Your own hiding spot is **never left marked on screen** — a co-located
+opponent could otherwise just glance at your phone. After you hide, a
+**hold-to-reveal** button ("Hold to check your spot") shows it only while
+pressed and hides it again on release; a seeker who taps their own square
+gets a faint dot as a reminder. The spot itself is only ever stored
+locally (`myHideCells`); the host has the authoritative copy.
+
 ### Higher or Lower
 
 A playing card is revealed (drawn in-app; ace is low). Everyone still
