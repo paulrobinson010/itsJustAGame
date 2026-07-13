@@ -200,6 +200,9 @@ struct SavedGame: Codable, Hashable, Identifiable {
     var summary: GameSummary?
     /// Rematch games begin automatically once everyone (re)joins.
     var autoStart: Bool?
+    /// A rematch found on the home screen that hasn't been accepted yet —
+    /// shown as a request until the player taps to join.
+    var rematchPending: Bool?
 
     var id: String { gameID }
 }

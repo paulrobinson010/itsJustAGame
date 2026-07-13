@@ -40,16 +40,17 @@ Everything the game sends between devices is **end-to-end encrypted**.
    game). Each round is one mini game. Within Sense of Direction, each
    *turn* is one target place; the turn winner gets a point, and the first
    player to 3 points takes the round.
-6. **Rematch without links** — when a game ends, the host taps "Rematch":
-   a fresh game (new ID, fresh key) is announced over the old game's
-   encrypted stream, every other player **joins automatically**, and the
-   new game **starts on its own** once everyone is in (or after ~25s with
-   whoever came). No links, no lobby taps. Keys still rotate every game;
-   colors are re-dealt. The invite is also parked at a well-known record
-   (`g<oldID>-rematch`, sealed with the old game's key) so a player who
-   already closed the app still lands in the new lobby the moment they
-   reopen it — the home screen checks recent games for rematches on every
-   launch and foreground. Finished games store their result: reopening one
+6. **Rematch without links** — only the host can start one. When a game
+   ends the host taps "Rematch": a fresh game (new ID, fresh key) is
+   announced over the old game's encrypted stream, and every other player
+   gets a **join request** — on the game-over screen, on a reopened
+   finished game, or as a "Rematch waiting" card on the home screen (the
+   invite is also parked at a well-known record, `g<oldID>-rematch`,
+   sealed with the old game's key, and the home screen checks recent
+   games on every launch and foreground). Tapping the request joins them;
+   the new game **starts on its own** once everyone is in (or after ~25s
+   with whoever came). No links; keys still rotate every game and colors
+   are re-dealt. Finished games store their result: reopening one
    shows the winner and standings instantly (no replay) with "Play again —
    same crew" for the host. The create screen also remembers your last
    rounds-to-win, can refill "same players as last game", and the contact

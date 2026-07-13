@@ -59,9 +59,36 @@ struct HomeView: View {
                     }
                 }
 
-                if !model.store.games.isEmpty {
+                let pendingRematches = model.store.games.filter { $0.rematchPending == true }
+                if !pendingRematches.isEmpty {
+                    Section {
+                        ForEach(pendingRematches) { game in
+                            Button {
+                                model.acceptRematch(game)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundStyle(Theme.magenta)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Rematch — \(game.title)")
+                                            .foregroundStyle(.primary)
+                                        Text("Tap to join")
+                                            .font(.caption)
+                                            .foregroundStyle(Theme.magenta)
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Rematch waiting")
+                    }
+                }
+
+                let regularGames = model.store.games.filter { $0.rematchPending != true }
+                if !regularGames.isEmpty {
                     Section("Your games") {
-                        ForEach(model.store.games) { game in
+                        ForEach(regularGames) { game in
                             Button {
                                 model.activeGame = game
                             } label: {
@@ -81,7 +108,7 @@ struct HomeView: View {
                             }
                         }
                         .onDelete { indexSet in
-                            let doomed = indexSet.map { model.store.games[$0] }
+                            let doomed = indexSet.map { regularGames[$0] }
                             for game in doomed {
                                 model.store.remove(game)
                             }

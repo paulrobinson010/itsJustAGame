@@ -30,6 +30,12 @@ final class GameStore {
         save()
     }
 
+    func clearRematchPending(_ game: SavedGame) {
+        guard let index = games.firstIndex(where: { $0.gameID == game.gameID }) else { return }
+        games[index].rematchPending = nil
+        save()
+    }
+
     func recordSummary(_ summary: GameSummary, for game: SavedGame) {
         guard let index = games.firstIndex(where: { $0.gameID == game.gameID }),
               games[index].summary == nil else { return }

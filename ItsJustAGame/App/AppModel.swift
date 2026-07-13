@@ -50,9 +50,13 @@ final class AppModel {
 
     /// Take up a rematch invite: create (or reopen) the local SavedGame for
     /// the new game, keeping this device's slot and role from the old one.
+    /// With `open` the game opens immediately (the player accepted, or the
+    /// host started it); otherwise it waits as a request on the home screen.
     func adoptRematch(_ invite: RematchInvite, from old: SavedGame, open: Bool) {
         if let existing = store.games.first(where: { $0.gameID == invite.newGameID }) {
-            if open { activeGame = existing }
+            if open {
+                acceptRematch(existing)
+            }
             return
         }
         let saved = SavedGame(
@@ -65,16 +69,25 @@ final class AppModel {
             createdAt: Date(),
             needsWelcome: false,
             inviteeAddresses: old.isHost ? old.inviteeAddresses : nil,
-            autoStart: true
+            autoStart: true,
+            rematchPending: open ? nil : true
         )
         store.add(saved)
         if open { activeGame = saved }
     }
 
+    /// The player tapped a rematch request — joining happens by opening
+    /// the game (the session announces them to the host automatically).
+    func acceptRematch(_ game: SavedGame) {
+        store.clearRematchPending(game)
+        activeGame = store.games.first { $0.gameID == game.gameID } ?? game
+    }
+
     /// Rematch invites are parked at a well-known record ID on the old
     /// game, so a player who wasn't in the app when "Play again" was
-    /// tapped still finds the new game the moment they open it. Jumps
-    /// straight into the freshest one found.
+    /// tapped still gets the request the moment they open it. Found ones
+    /// appear as a "Rematch waiting" request on the home screen — never
+    /// auto-joined.
     func discoverRematches() async {
         guard activeGame == nil else { return }
         let transport = CloudKitTransport()
@@ -88,7 +101,7 @@ final class AppModel {
                   let body = found[id],
                   let invite = try? crypto.open(RematchInvite.self, from: body),
                   !store.games.contains(where: { $0.gameID == invite.newGameID }) else { continue }
-            adoptRematch(invite, from: old, open: activeGame == nil)
+            adoptRematch(invite, from: old, open: false)
         }
     }
 

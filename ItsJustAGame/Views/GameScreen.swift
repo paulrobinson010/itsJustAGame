@@ -89,14 +89,8 @@ struct GameScreen: View {
                 )
             }
         }
-        .onChange(of: session.pendingRematch) { _, invite in
-            // Rematches start straight away — no join button, no new link.
-            guard let invite, !saved.isHost else { return }
-            Task {
-                try? await Task.sleep(for: .seconds(1.5))
-                joinRematch(invite)
-            }
-        }
+        // The host's rematch shows up as a request on the end screens —
+        // players join by tapping accept, never automatically.
     }
 
     @ViewBuilder
@@ -107,7 +101,8 @@ struct GameScreen: View {
                 session: session,
                 summary: summary,
                 onClose: { close() },
-                onPlayAgain: saved.isHost ? { hostRematch() } : nil
+                onPlayAgain: saved.isHost ? { hostRematch() } : nil,
+                onJoinRematch: saved.isHost ? nil : { joinRematch($0) }
             )
         } else if showWelcome {
             WelcomeView(session: session) {
@@ -246,7 +241,8 @@ struct GameScreen: View {
                 session: session,
                 winner: winner,
                 onClose: { close() },
-                onHostRematch: saved.isHost ? { hostRematch() } : nil
+                onHostRematch: saved.isHost ? { hostRematch() } : nil,
+                onJoinRematch: saved.isHost ? nil : { joinRematch($0) }
             )
         }
     }
@@ -359,6 +355,7 @@ struct FinishedGameView: View {
     let summary: GameSummary
     var onClose: () -> Void
     var onPlayAgain: (() -> Void)?
+    var onJoinRematch: ((RematchInvite) -> Void)?
 
     @State private var playAgainTapped = false
 
@@ -373,10 +370,17 @@ struct FinishedGameView: View {
                 .padding(.horizontal, 24)
             standings
             VStack(spacing: 12) {
-                if session.pendingRematch != nil, onPlayAgain == nil {
-                    Text("Next game found — joining…")
+                if let invite = session.pendingRematch, onPlayAgain == nil {
+                    Text("🔁 \(session.name(1)) wants a rematch!")
                         .font(Theme.headline)
                         .foregroundStyle(Theme.magenta)
+                    Button {
+                        onJoinRematch?(invite)
+                    } label: {
+                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: 240)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
                 } else if let onPlayAgain {
                     Button {
                         playAgainTapped = true
@@ -563,6 +567,7 @@ struct GameEndView: View {
     let winner: Int
     var onClose: () -> Void
     var onHostRematch: (() -> Void)?
+    var onJoinRematch: ((RematchInvite) -> Void)?
 
     @State private var rematchStarted = false
 
@@ -593,12 +598,19 @@ struct GameEndView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(rematchStarted)
-                } else if session.pendingRematch != nil {
-                    Text("Rematch starting — joining…")
+                } else if let invite = session.pendingRematch {
+                    Text("🔁 \(session.name(1)) wants a rematch!")
                         .font(Theme.headline)
                         .foregroundStyle(Theme.magenta)
+                    Button {
+                        onJoinRematch?(invite)
+                    } label: {
+                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: 240)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
                 } else {
-                    Text("If \(session.name(1)) starts a rematch, it begins here automatically — no new link needed.")
+                    Text("If \(session.name(1)) starts a rematch, you'll get a join request right here — no new link needed.")
                         .font(Theme.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
