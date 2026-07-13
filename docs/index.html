@@ -73,6 +73,29 @@
   }
   .game p { color: rgba(255,255,255,0.65); font-size: 0.92rem; }
   .step p a { color: #33d9ff; }
+  .shots {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding: 4px 4px 16px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .shots img {
+    flex: 0 0 auto;
+    width: 214px;
+    height: auto;
+    border-radius: 26px;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 12px 34px rgba(0,0,0,0.45);
+    scroll-snap-align: center;
+  }
+  .shots-hint {
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+    font-size: 0.82rem;
+    margin-top: 2px;
+  }
   footer {
     margin-top: 80px;
     padding: 28px 0 8px;
@@ -104,6 +127,17 @@
       <div class="step"><b>3</b><p>Win rounds to take the crown. Then "Rematch" — everyone gets a
         tap-to-join request and the next game starts by itself once they're in.</p></div>
     </div>
+
+    <h2>A peek at game night</h2>
+    <div class="shots">
+      <img src="/shots/shot-01.jpg" alt="Spinning the wheel to pick who chooses the game" loading="lazy" width="214">
+      <img src="/shots/shot-05.jpg" alt="Put Your Finger On It — everyone's pins and distances to the capital" loading="lazy" width="214">
+      <img src="/shots/shot-11.jpg" alt="Perfect Circle — everyone's hand-drawn circles scored side by side" loading="lazy" width="214">
+      <img src="/shots/shot-08.jpg" alt="Gold Rush — the shared coin board with a clash" loading="lazy" width="214">
+      <img src="/shots/shot-09.jpg" alt="Eyeball It — a cloud of dots to count" loading="lazy" width="214">
+      <img src="/shots/shot-04.jpg" alt="Higher or Lower — calling the next card" loading="lazy" width="214">
+    </div>
+    <p class="shots-hint">Swipe to flick through &middot; made-up players, real screens</p>
 
     <h2>The games</h2>
     <div class="games">
