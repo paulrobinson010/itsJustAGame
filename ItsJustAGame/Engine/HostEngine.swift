@@ -54,6 +54,12 @@ final class HostEngine {
         gameTask?.cancel()
         lobbyTask = nil
         gameTask = nil
+        // The loops are dead, so the game is no longer running — leaving
+        // this true would brick every restart: canBeginGame stays false
+        // and beginGame's guard can never pass again. (SwiftUI can fire a
+        // spurious disappear/reappear during presentation handoffs, which
+        // is a stop/start cycle right after auto-begin.)
+        gameRunning = false
     }
 
     /// Screenshot-tour support (simulator-only demo).
