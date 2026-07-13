@@ -101,11 +101,6 @@ final class GameSession {
     /// hints; the host handles the parts that need its secrets.
     var myAssist: AssistLevel? { config?.player(mySlot)?.assist }
 
-    /// Diagnostics for the practice lobby: which mailbox this session
-    /// reads, and how far it has read.
-    var debugTag: String { transport.tag }
-    var debugRead: Int { nextSeq }
-
     func name(_ slot: Int) -> String {
         config?.name(slot) ?? "Player \(slot)"
     }

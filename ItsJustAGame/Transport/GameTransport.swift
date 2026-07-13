@@ -11,8 +11,4 @@ protocol GameTransport: Sendable {
     /// Fetch whichever of the given IDs exist. Missing IDs are simply absent
     /// from the result.
     func get(ids: [String]) async throws -> [String: Data]
-
-    /// Short identity beacon so diagnostics can prove two components hold
-    /// the SAME transport instance (vital for in-memory transports).
-    var tag: String { get }
 }

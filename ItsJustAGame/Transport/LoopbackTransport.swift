@@ -4,7 +4,6 @@ import Foundation
 /// this one device talk through a dictionary — no network, no iCloud,
 /// nothing leaves the phone. Vanishes when the game screen closes.
 final class LoopbackTransport: GameTransport, @unchecked Sendable {
-    let tag = String(UUID().uuidString.prefix(4)).lowercased()
     private var records: [String: Data] = [:]
     private let lock = NSLock()
 

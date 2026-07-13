@@ -98,7 +98,7 @@ struct LobbyView: View {
                         }
                     } footer: {
                         if session.saved.practiceGame != nil {
-                            Text("Practice — starting… [engine \(engine.debugTag)/\(engine.debugSeq) · session \(session.debugTag)/\(session.debugRead)]")
+                            Text("Practice — starting…")
                         } else if session.saved.autoStart == true {
                             Text("It's a rematch — no new links needed. The others get a join request in their app, and the game starts by itself when everyone's in.")
                         } else if joined.count < MiniGameType.smallestMinimum {

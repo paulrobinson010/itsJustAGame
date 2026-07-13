@@ -72,11 +72,6 @@ final class HostEngine {
         return !gameRunning && !resumeBlocked && joined.count >= needed
     }
 
-    /// Diagnostics for the practice lobby: which mailbox this engine
-    /// writes, and how much it has written.
-    var debugTag: String { transport.tag }
-    var debugSeq: Int { seq }
-
     func beginGame() {
         guard canBeginGame else { return }
         gameRunning = true

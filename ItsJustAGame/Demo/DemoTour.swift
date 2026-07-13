@@ -3,7 +3,6 @@ import SwiftUI
 /// A transport that goes nowhere — the screenshot tour plays entirely
 /// offline.
 struct NullTransport: GameTransport {
-    let tag = "null"
     func put(id: String, body: Data) async throws {}
     func get(ids: [String]) async throws -> [String: Data] { [:] }
 }
