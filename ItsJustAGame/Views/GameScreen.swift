@@ -79,11 +79,17 @@ struct GameScreen: View {
             engine?.start()
             // Practice failsafe: solo games must never sit in a lobby.
             // If anything interrupts the auto-begin (a presentation
-            // hiccup, a stopped task), keep nudging until the round runs.
+            // hiccup, a stopped task), keep nudging until the round runs —
+            // and after a few tries, tear the engine down and rebuild.
             if saved.practiceGame != nil {
+                var nudges = 0
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
                     guard case .lobby = session.phase else { break }
+                    nudges += 1
+                    if nudges.isMultiple(of: 3) {
+                        engine?.stop()
+                    }
                     engine?.start()
                     engine?.beginGame()
                 }
