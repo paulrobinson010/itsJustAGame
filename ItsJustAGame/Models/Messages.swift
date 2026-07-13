@@ -405,6 +405,13 @@ struct ClockReveal: Codable, Hashable {
 
 // MARK: - Push Your Luck
 
+/// The pot wheel: five values and two busts, spread apart. The host spins
+/// (picks an index); every device animates the same landing.
+enum DiceWheel {
+    /// Segment values clockwise from the pointer; nil is a 💀 bust.
+    static let segments: [Int?] = [1, 4, nil, 2, 5, nil, 3]
+}
+
 struct DiceStep: Codable, Hashable {
     var round: Int
     var run: Int
@@ -416,9 +423,12 @@ struct DiceStep: Codable, Hashable {
     var banks: [Int: Int]
     var startAt: Date
     var chooseSeconds: Double
-    /// Simplify (top level): whether the pre-rolled next die is a skull,
-    /// keyed by the assisted rider it's for. Only that device shows it.
+    /// Simplify (top level): whether the pre-spun next wheel result is a
+    /// bust, keyed by the assisted rider it's for. Only that device shows it.
     var assistPeek: [Int: Bool]?
+    /// Riders the pot carried to the target this step — banked by the host
+    /// automatically, since riding past a guaranteed win is pointless.
+    var autoBanked: [Int]?
 
     var deadline: Date { startAt.addingTimeInterval(chooseSeconds) }
 }
@@ -427,9 +437,14 @@ struct DiceReveal: Codable, Hashable {
     var round: Int
     var run: Int
     var step: Int
-    /// nil when nobody rode, so no die was drawn.
+    /// The value the wheel added; nil when nobody rode or it was a bust.
     var die: Int?
     var isSkull: Bool
+    /// Where the wheel landed (into DiceWheel.segments) and how long the
+    /// spin plays — every device animates the identical landing. Nil when
+    /// nobody rode, so no spin happened.
+    var wheelIndex: Int?
+    var spinSeconds: Double?
     var potBefore: Int
     var potAfter: Int
     /// slot -> pushed (true) or banked (false), for everyone who had to choose.

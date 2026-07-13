@@ -97,7 +97,9 @@ struct LobbyView: View {
                             .disabled(!engine.canBeginGame)
                         }
                     } footer: {
-                        if session.saved.autoStart == true {
+                        if session.saved.practiceGame != nil {
+                            Text("Practice — starting…")
+                        } else if session.saved.autoStart == true {
                             Text("It's a rematch — no new links needed. The others get a join request in their app, and the game starts by itself when everyone's in.")
                         } else if joined.count < MiniGameType.smallestMinimum {
                             Text("At least \(MiniGameType.smallestMinimum) players must join before the game can start. Send each player their own link — the links carry the game's secret key, so share them privately.")

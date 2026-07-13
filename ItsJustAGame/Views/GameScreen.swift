@@ -15,7 +15,11 @@ struct GameScreen: View {
         self.saved = saved
         self.model = model
         let crypto = GameCrypto(base64URL: saved.keyBase64URL) ?? GameCrypto()
-        let transport = CloudKitTransport()
+        // Practice plays entirely on-device: the host loop and session
+        // talk through an in-memory mailbox instead of CloudKit.
+        let transport: any GameTransport = saved.practiceGame != nil
+            ? LoopbackTransport()
+            : CloudKitTransport()
         _session = State(initialValue: GameSession(saved: saved, transport: transport, crypto: crypto))
         _showWelcome = State(initialValue: saved.needsWelcome == true)
         if saved.isHost, let config = saved.hostConfig {
@@ -23,7 +27,8 @@ struct GameScreen: View {
                 config: config,
                 transport: transport,
                 crypto: crypto,
-                autoStart: saved.autoStart == true
+                autoStart: saved.autoStart == true,
+                practiceGame: saved.practiceGame
             ))
         }
     }
@@ -52,9 +57,11 @@ struct GameScreen: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(saved.isHost
-                     ? "You're the host — the game can't continue without this device."
-                     : "This clears the game from your phone. You'd need your invite link to rejoin.")
+                Text(saved.practiceGame != nil
+                     ? "Done practising? Nothing is saved."
+                     : (saved.isHost
+                        ? "You're the host — the game can't continue without this device."
+                        : "This clears the game from your phone. You'd need your invite link to rejoin."))
             }
             .safeAreaInset(edge: .bottom) {
                 if let error = session.lastError ?? engine?.lastError {
@@ -271,6 +278,11 @@ struct GameScreen: View {
         case .clockReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .diceReveal(let reveal):
+            if reveal.wheelIndex != nil {
+                // The reveal spins its own wheel — clicks and the outcome
+                // sound come from it, after the landing.
+                break
+            }
             if reveal.isSkull {
                 SoundPlayer.shared.play(.lose)
             } else if reveal.runOver {

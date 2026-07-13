@@ -56,7 +56,12 @@ Everything the game sends between devices is **end-to-end encrypted**.
    rounds-to-win, can refill "same players as last game", and the contact
    picker multi-selects — while the lobby's "Invite all by iMessage" walks
    the pre-addressed composers back-to-back.
-7. **Ties share** — when several players win a point or a round together,
+7. **Practice mode** — "Practice on your own" on the home screen plays
+   any single game round after round, solo. It's the full stack — a
+   one-player hosted game whose engine and session talk over an
+   in-memory `LoopbackTransport` — so nothing touches CloudKit and
+   nothing is saved. The wheel is skipped; leaving is the only way out.
+8. **Ties share** — when several players win a point or a round together,
    they all score. If several players reach the winning round count at the
    same moment, a tie-breaker wheel of just those players spins and the
    overall winner is decided totally at random (rolled on the host device,
@@ -201,14 +206,19 @@ the point; first to 3 points wins the round, exact ties share.
 
 ### Push Your Luck
 
-Greedy-pig dice. Each run opens with one free (never-skull) die in the
-pot; before every subsequent die, everyone still riding secretly chooses
-**push** (ride on, cyan) or **bank** (copy the current pot into your
-total and sit out the run, magenta). A skull busts everyone still riding
-to nothing for that run. Silence defaults to banking, so a dropped
-connection can't bust you. The round finishes its current run, then
-everyone with 20+ banked wins it (shared if several cross together);
-after 12 runs the leaders take it.
+Greedy-pig on a wheel. The pot wheel has seven segments — the values
+1–5 plus two 💀 busts (`DiceWheel.segments`, busts spread apart), so the
+bust odds are a real 2-in-7. Each run opens with one free (never-bust)
+value in the pot; before every spin, everyone still riding secretly
+chooses **ride** (cyan) or **bank** (copy the current pot into your
+total and sit out the run, magenta). The reveal then spins the wheel —
+same host-decides / every-device-animates mechanic as the game-select
+wheel, slowing clicks and all — and a 💀 busts everyone still riding to
+nothing for that run. Anyone the pot would carry to the target is
+**auto-banked** (riding past a guaranteed win is pointless). Silence
+defaults to banking, so a dropped connection can't bust you. The round
+finishes its current run, then everyone with 20+ banked wins it (shared
+if several cross together); after 12 runs the leaders take it.
 
 ### Gold Rush
 
@@ -224,7 +234,10 @@ wins the round (shared if several cross together); leaders after 15 turns.
 
 Perception. A cloud of 40–150 dots flashes for two seconds — identical on
 every device, regenerated from a seed in the encrypted turn message —
-then vanishes. Dial in your guess within 12 seconds (slider plus
+then vanishes. The visible window counts from the moment each device
+actually renders the dots (not the shared start), so polling latency
+never shortens your look; a device arriving long after the window skips
+straight to guessing. Dial in your guess within 12 seconds (slider plus
 nudge buttons). Closest to the true count takes the point; first to 3
 points wins the round.
 
@@ -334,7 +347,7 @@ Every game implements all three levels:
 | Lightning | dot turns cyan just before the flash | visible 3-2-1 countdown | countdown + your time counts ×0.6 |
 | Put Your Finger On It | big hint circle on the map (off-centre from the capital) | smaller circle | tiny circle |
 | Ten Seconds | clock visible ~1.7× longer | ~2.5× longer + silent pulsing beat | clock never hides |
-| Push Your Luck | skull odds shown | plain-English bank/ride advice | host pre-rolls — you're told if the next die is a skull |
+| Push Your Luck | bust odds shown | plain-English bank/ride advice | host pre-spins — you're told if the next spin busts |
 | Gold Rush | top-3 squares outlined | + others' picks appear live on your board | + taken squares lock, so you can't clash |
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |

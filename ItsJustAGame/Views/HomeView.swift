@@ -7,6 +7,7 @@ struct HomeView: View {
     @AppStorage("myName") private var myName = ""
     @State private var showCreate = false
     @State private var showJoin = false
+    @State private var showPractice = false
     @State private var accountWarning: String?
     #if targetEnvironment(simulator)
     @State private var showDemoTour = false
@@ -56,6 +57,11 @@ struct HomeView: View {
                         showJoin = true
                     } label: {
                         Label("Join with a link", systemImage: "link")
+                    }
+                    Button {
+                        showPractice = true
+                    } label: {
+                        Label("Practice on your own", systemImage: "target")
                     }
                 }
 
@@ -147,6 +153,17 @@ struct HomeView: View {
             .sheet(isPresented: $showJoin) {
                 JoinGameView(model: model)
             }
+            .sheet(isPresented: $showPractice) {
+                PracticePickerView { game in
+                    showPractice = false
+                    // Let the sheet finish dismissing before the game's
+                    // full-screen cover presents.
+                    Task {
+                        try? await Task.sleep(for: .seconds(0.4))
+                        model.startPractice(game, myName: myName)
+                    }
+                }
+            }
             .fullScreenCover(item: $model.activeGame) { game in
                 // id forces a fresh screen (and fresh session) per game so
                 // switching games mid-cover — e.g. into a rematch — works.
@@ -171,6 +188,47 @@ struct HomeView: View {
                 // in a pocket — look for rematches on every return.
                 if phase == .active {
                     Task { await model.discoverRematches() }
+                }
+            }
+        }
+    }
+}
+
+/// Solo practice: pick any game and play it round after round, entirely
+/// on this device. Great for learning a game before family night.
+struct PracticePickerView: View {
+    var onPick: (MiniGameType) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(MiniGameType.menu, id: \.self) { game in
+                Button {
+                    onPick(game)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: game.iconName)
+                            .font(.system(size: 20))
+                            .foregroundStyle(Theme.cyan)
+                            .frame(width: 32)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(game.displayName)
+                                .foregroundStyle(.primary)
+                            Text(game.introText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
+            .navigationTitle("Practice")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
                 }
             }
         }

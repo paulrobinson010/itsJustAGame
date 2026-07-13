@@ -115,7 +115,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .lightning: return "bolt.fill"
         case .putYourFingerOnIt: return "hand.point.up.left.fill"
         case .tenSeconds: return "stopwatch.fill"
-        case .pushYourLuck: return "dice.fill"
+        case .pushYourLuck: return "dial.medium.fill"
         case .goldRush: return "sparkles"
         case .eyeballIt: return "aqi.medium"
         case .perfectCircle: return "circle.dashed"
@@ -143,7 +143,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tenSeconds:
             return "The clock counts up, then hides. Keep counting in your head and tap at exactly the target. Closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .pushYourLuck:
-            return "The pot grows one die at a time. Push to ride it or bank your share — but a skull wipes out everyone still riding. First to bank \(GameTiming.diceBankTarget) wins the round."
+            return "The wheel grows the pot — five numbers, two 💀 busts. Ride the next spin or bank your share; a bust burns the pot, and reaching \(GameTiming.diceBankTarget) banks you automatically. First to bank \(GameTiming.diceBankTarget) wins the round."
         case .goldRush:
             return "Same board, one secret pick each. Alone on a square? Pocket its coins. Share it? Nobody scores. First to \(GameTiming.goldTarget) coins wins the round."
         case .eyeballIt:
@@ -203,6 +203,9 @@ struct SavedGame: Codable, Hashable, Identifiable {
     /// A rematch found on the home screen that hasn't been accepted yet —
     /// shown as a request until the player taps to join.
     var rematchPending: Bool?
+    /// Set for solo practice: the one game to play on repeat, over an
+    /// in-memory transport. Practice games are never stored.
+    var practiceGame: MiniGameType?
 
     var id: String { gameID }
 }
@@ -260,6 +263,8 @@ enum GameTiming {
     static let diceRevealSeconds: Double = 5
     static let diceBankTarget = 20
     static let diceMaxRuns = 12
+    static let diceSpinMinSeconds: Double = 2.5
+    static let diceSpinMaxSeconds: Double = 5
 
     // Gold Rush
     static let goldPickSeconds: Double = 12

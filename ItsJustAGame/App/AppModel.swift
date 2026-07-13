@@ -48,6 +48,35 @@ final class AppModel {
         return saved
     }
 
+    /// Solo practice: a one-player game over an in-memory transport that
+    /// plays the chosen game round after round. Deliberately never stored —
+    /// it leaves no trace in "Your games".
+    func startPractice(_ game: MiniGameType, myName: String) {
+        let name = myName.trimmingCharacters(in: .whitespaces)
+        let config = GameConfig(
+            gameID: "practice-" + UUID().uuidString.lowercased(),
+            roundsToWin: 999,
+            players: [PlayerInfo(
+                slot: 1,
+                name: name.isEmpty ? "You" : name,
+                colorIndex: Int.random(in: 0..<PlayerStyle.palette.count)
+            )],
+            createdAt: Date()
+        )
+        let crypto = GameCrypto()
+        activeGame = SavedGame(
+            gameID: config.gameID,
+            keyBase64URL: crypto.base64URL,
+            mySlot: 1,
+            isHost: true,
+            hostConfig: config,
+            title: "Practice — \(game.displayName)",
+            createdAt: Date(),
+            autoStart: true,
+            practiceGame: game
+        )
+    }
+
     /// Take up a rematch invite: create (or reopen) the local SavedGame for
     /// the new game, keeping this device's slot and role from the old one.
     /// With `open` the game opens immediately (the player accepted, or the

@@ -109,7 +109,14 @@ enum WheelMath {
     static func landingRotation(players: [PlayerInfo], target: Int, spinSeconds: Double) -> Double? {
         guard !players.isEmpty,
               let index = players.firstIndex(where: { $0.slot == target }) else { return nil }
-        let segment = 360.0 / Double(players.count)
+        return landingRotation(segmentCount: players.count, index: index, spinSeconds: spinSeconds)
+    }
+
+    /// Same parking maths for any wheel: whole turns plus the offset that
+    /// puts segment `index` under the pointer.
+    static func landingRotation(segmentCount: Int, index: Int, spinSeconds: Double) -> Double {
+        guard segmentCount > 0 else { return 0 }
+        let segment = 360.0 / Double(segmentCount)
         let turns = (2.0 + spinSeconds * 0.5).rounded()
         return 360.0 * turns - (Double(index) + 0.5) * segment
     }

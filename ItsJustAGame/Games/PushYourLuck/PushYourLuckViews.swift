@@ -73,9 +73,17 @@ struct DiceStepView: View {
                         .monospacedDigit()
                         .foregroundStyle(Theme.cyan)
                         .shadow(color: Theme.cyan.opacity(0.4), radius: 18)
+                    Text("bank it and it's yours — a 💀 burns it")
+                        .font(Theme.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if !amRiding {
+                if step.autoBanked?.contains(session.mySlot) == true {
+                    Text("🎉 The pot carried you to \(GameTiming.diceBankTarget) — banked automatically!")
+                        .font(Theme.headline)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                } else if !amRiding {
                     Text("You're safe with \(step.banks[session.mySlot, default: 0]) banked — watching the brave…")
                         .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
@@ -85,7 +93,7 @@ struct DiceStepView: View {
                     Text("Locked in — waiting for the others…")
                         .font(Theme.headline)
                 } else {
-                    Text("Ride it or take it? \(Int(remaining.rounded(.up)))s")
+                    Text("Ride the next spin or take the pot? \(Int(remaining.rounded(.up)))s")
                         .font(Theme.caption)
                         .foregroundStyle(.secondary)
                     if let hint = assistHint {
@@ -99,7 +107,7 @@ struct DiceStepView: View {
                         Button {
                             submit(push: true)
                         } label: {
-                            Label("Push", systemImage: "dice.fill")
+                            Label("Ride", systemImage: "arrow.triangle.2.circlepath")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle(tint: Theme.cyan))
@@ -128,20 +136,16 @@ struct DiceStepView: View {
         guard let level = session.myAssist, amRiding else { return nil }
         switch level {
         case .little:
-            return ("1 die in 6 is a skull", false)
+            return ("2 spins in 7 land on a 💀", false)
         case .big:
-            let mine = step.banks[session.mySlot, default: 0]
-            if mine + step.pot >= GameTiming.diceBankTarget {
-                return ("Bank it — that wins you the round!", false)
-            }
-            return step.pot >= 10
+            return step.pot >= 9
                 ? ("That's a big pot — banking looks smart", false)
                 : ("The pot's still small — riding looks fine", false)
         case .cheating:
-            guard let skull = step.assistPeek?[session.mySlot] else { return nil }
-            return skull
-                ? ("😈 The next die is a SKULL — bank, now!", true)
-                : ("😈 The next die is safe — ride it", false)
+            guard let bust = step.assistPeek?[session.mySlot] else { return nil }
+            return bust
+                ? ("😈 The next spin is a BUST — bank, now!", true)
+                : ("😈 The next spin is safe — ride it", false)
         }
     }
 
@@ -153,10 +157,13 @@ struct DiceStepView: View {
     }
 }
 
-/// The die lands: a fat number for the riders, a skull for the greedy.
+/// The pot wheel spins and lands: a number grows the pot, a 💀 burns it.
 struct DiceRevealView: View {
     let session: GameSession
     let reveal: DiceReveal
+
+    @State private var rotation: Double = 0
+    @State private var finished = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -167,13 +174,50 @@ struct DiceRevealView: View {
                 .textCase(.uppercase)
                 .kerning(1.5)
             Spacer()
-            centerpiece
-            bankedList
+            if reveal.wheelIndex != nil && !finished {
+                VStack(spacing: 14) {
+                    DiceWheelView(rotation: rotation)
+                        .frame(width: 250, height: 250)
+                    Text("Round it goes…")
+                        .font(Theme.headline)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                centerpiece
+                bankedList
+            }
             Spacer()
             footer
             Spacer(minLength: 16)
         }
         .padding(.top, 8)
+        .task { await spin() }
+    }
+
+    private func spin() async {
+        guard let wheelIndex = reveal.wheelIndex else {
+            finished = true
+            return
+        }
+        let spinSeconds = reveal.spinSeconds ?? 3
+        let landing = WheelMath.landingRotation(
+            segmentCount: DiceWheel.segments.count,
+            index: wheelIndex,
+            spinSeconds: spinSeconds
+        )
+        // Rejoining mid-replay: snap to the result, no theatre.
+        guard session.caughtUp else {
+            rotation = landing
+            finished = true
+            return
+        }
+        await WheelMath.animateSpin(
+            landing: landing,
+            duration: spinSeconds,
+            segments: DiceWheel.segments.count
+        ) { rotation = $0 }
+        finished = true
+        SoundPlayer.shared.play(reveal.isSkull ? .lose : (reveal.runOver ? .point : .tick))
     }
 
     @ViewBuilder
@@ -195,11 +239,11 @@ struct DiceRevealView: View {
             }
         } else if let die = reveal.die {
             VStack(spacing: 12) {
-                Text("\(die)")
-                    .font(Theme.display(56))
+                Text("+\(die)")
+                    .font(Theme.display(52))
                     .monospacedDigit()
                     .foregroundStyle(Theme.ink)
-                    .frame(width: 96, height: 96)
+                    .frame(width: 108, height: 96)
                     .background(Theme.cyan, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .shadow(color: Theme.cyan.opacity(0.45), radius: 18)
                 Text("Pot is now \(reveal.potAfter)")
@@ -237,13 +281,91 @@ struct DiceRevealView: View {
                         .padding(.horizontal)
                 } else if let next = reveal.nextAt {
                     let remaining = Int(max(0, next.timeIntervalSince(context.date)).rounded(.up))
-                    Text(reveal.runOver ? "Next run in \(remaining)s" : "Next die in \(remaining)s")
+                    Text(reveal.runOver ? "Next run in \(remaining)s" : "Next spin in \(remaining)s")
                         .font(Theme.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(" ")
                 }
             }
+        }
+    }
+}
+
+/// The pot wheel: five value segments in cyan, two 💀 busts in magenta,
+/// spread apart. Rotates via `rotation`; pointer fixed at the top.
+struct DiceWheelView: View {
+    let rotation: Double
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            face
+                .rotationEffect(.degrees(rotation))
+            Image(systemName: "arrowtriangle.down.fill")
+                .font(.title2)
+                .foregroundStyle(Theme.cyan)
+                .shadow(color: Theme.cyan.opacity(0.7), radius: 8)
+                .offset(y: -8)
+        }
+    }
+
+    private var face: some View {
+        GeometryReader { proxy in
+            let size = min(proxy.size.width, proxy.size.height)
+            let center = CGPoint(x: size / 2, y: size / 2)
+            let radius = size / 2
+            let count = DiceWheel.segments.count
+            let segment = 360.0 / Double(count)
+            ZStack {
+                ForEach(0..<count, id: \.self) { index in
+                    let value = DiceWheel.segments[index]
+                    let startDeg = Double(index) * segment - 90
+                    let midDeg = startDeg + segment / 2
+                    let midRad = midDeg * .pi / 180
+
+                    slice(center: center, radius: radius, startDeg: startDeg, segment: segment)
+                        .fill(value == nil ? Theme.magenta.opacity(0.8) : Theme.cyan.opacity(0.22))
+                    slice(center: center, radius: radius, startDeg: startDeg, segment: segment)
+                        .stroke(Theme.background, lineWidth: 3)
+
+                    Text(value.map { "\($0)" } ?? "💀")
+                        .font(Font.custom(Theme.BrandFont.bold, size: 22))
+                        .foregroundStyle(.white)
+                        .rotationEffect(.degrees(midDeg + 90))
+                        .position(
+                            x: center.x + cos(midRad) * radius * 0.66,
+                            y: center.y + sin(midRad) * radius * 0.66
+                        )
+                }
+                Circle()
+                    .fill(Theme.surface)
+                    .frame(width: radius * 0.44, height: radius * 0.44)
+                    .overlay(Circle().stroke(Theme.hairline, lineWidth: 1))
+                    .position(x: center.x, y: center.y)
+                Image("Logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: radius * 0.32, height: radius * 0.32)
+                    .position(x: center.x, y: center.y)
+                Circle()
+                    .stroke(Theme.hairline, lineWidth: 2)
+                    .frame(width: size, height: size)
+                    .position(x: center.x, y: center.y)
+            }
+        }
+    }
+
+    private func slice(center: CGPoint, radius: CGFloat, startDeg: Double, segment: Double) -> Path {
+        Path { path in
+            path.move(to: center)
+            path.addArc(
+                center: center,
+                radius: radius,
+                startAngle: .degrees(startDeg),
+                endAngle: .degrees(startDeg + segment),
+                clockwise: false
+            )
+            path.closeSubpath()
         }
     }
 }

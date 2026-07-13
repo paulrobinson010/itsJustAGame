@@ -21,17 +21,27 @@ final class HostEngine {
     private let crypto: GameCrypto
     /// Rematch games begin on their own once everyone has rejoined.
     private let autoStart: Bool
+    /// Solo practice: play this one game round after round — no wheel, no
+    /// game end, one player is enough.
+    private let practiceGame: MiniGameType?
     private var seq = 0
     private var lobbyTask: Task<Void, Never>?
     private var gameTask: Task<Void, Never>?
     private var playerCoordinates: [Int: Coordinate] = [:]
     private var lastChooser: Int?
 
-    init(config: GameConfig, transport: any GameTransport, crypto: GameCrypto, autoStart: Bool = false) {
+    init(
+        config: GameConfig,
+        transport: any GameTransport,
+        crypto: GameCrypto,
+        autoStart: Bool = false,
+        practiceGame: MiniGameType? = nil
+    ) {
         self.config = config
         self.transport = transport
         self.crypto = crypto
         self.autoStart = autoStart
+        self.practiceGame = practiceGame
     }
 
     func start() {
@@ -52,7 +62,8 @@ final class HostEngine {
     }
 
     var canBeginGame: Bool {
-        !gameRunning && !resumeBlocked && joined.count >= MiniGameType.smallestMinimum
+        let needed = practiceGame != nil ? 1 : MiniGameType.smallestMinimum
+        return !gameRunning && !resumeBlocked && joined.count >= needed
     }
 
     func beginGame() {
@@ -143,11 +154,17 @@ final class HostEngine {
         var roundsWon: [Int: Int] = [:]
         var round = 1
         while !Task.isCancelled {
-            let chooser = pickChooser()
-            lastChooser = chooser
-            let spinSeconds = Double.random(in: 3...10)
-            await send(.wheel(round: round, chooser: chooser, spinSeconds: spinSeconds))
-            let game = await waitForChoice(round: round, chooser: chooser, spinSeconds: spinSeconds)
+            let game: MiniGameType
+            if let practiceGame {
+                // Practice: straight into the chosen game, no wheel.
+                game = practiceGame
+            } else {
+                let chooser = pickChooser()
+                lastChooser = chooser
+                let spinSeconds = Double.random(in: 3...10)
+                await send(.wheel(round: round, chooser: chooser, spinSeconds: spinSeconds))
+                game = await waitForChoice(round: round, chooser: chooser, spinSeconds: spinSeconds)
+            }
             await send(.roundStart(round: round, game: game))
             try? await Task.sleep(for: .seconds(3))
             let winners: [Int]
@@ -1167,17 +1184,51 @@ final class HostEngine {
 
     private func runDiceRun(round: Int, run: Int, players: [Int], banks: inout [Int: Int]) async {
         var riders = players
-        // The run opens with one free, never-skull die so the first choice
+        // The run opens with one free, never-bust spin so the first choice
         // is a real one.
-        var pot = Int.random(in: 2...6)
+        var pot = Int.random(in: 1...5)
         var step = 1
         while !Task.isCancelled {
-            // Pre-rolled so top-level Simplify can peek at what's coming.
-            let prerolled = Int.random(in: 1...6)
+            // Anyone the pot already carries to the target is banked for
+            // them — riding past a guaranteed win is pointless.
+            var autoBanked: [Int] = []
+            for slot in riders where banks[slot, default: 0] + pot >= GameTiming.diceBankTarget {
+                banks[slot, default: 0] += pot
+                autoBanked.append(slot)
+            }
+            riders.removeAll { autoBanked.contains($0) }
+
+            if riders.isEmpty {
+                let champions = players.filter { banks[$0, default: 0] >= GameTiming.diceBankTarget }
+                let reveal = DiceReveal(
+                    round: round,
+                    run: run,
+                    step: step,
+                    die: nil,
+                    isSkull: false,
+                    wheelIndex: nil,
+                    spinSeconds: nil,
+                    potBefore: pot,
+                    potAfter: pot,
+                    choices: [:],
+                    bankedNow: autoBanked,
+                    riders: [],
+                    banks: banks,
+                    runOver: true,
+                    roundWinners: champions,
+                    nextAt: champions.isEmpty ? Date().addingTimeInterval(GameTiming.diceRevealSeconds + 2) : nil
+                )
+                await send(.diceReveal(reveal))
+                try? await Task.sleep(for: .seconds(GameTiming.diceRevealSeconds))
+                return
+            }
+
+            // Pre-spun so top-level Simplify can peek at what's coming.
+            let prespun = Int.random(in: 0..<DiceWheel.segments.count)
             var assistPeek: [Int: Bool]?
             let peekers = riders.filter { assistLevel($0) == .cheating }
             if !peekers.isEmpty {
-                assistPeek = Dictionary(uniqueKeysWithValues: peekers.map { ($0, prerolled == 1) })
+                assistPeek = Dictionary(uniqueKeysWithValues: peekers.map { ($0, DiceWheel.segments[prespun] == nil) })
             }
             let stepMessage = DiceStep(
                 round: round,
@@ -1188,7 +1239,8 @@ final class HostEngine {
                 banks: banks,
                 startAt: Date().addingTimeInterval(2),
                 chooseSeconds: GameTiming.diceChooseSeconds,
-                assistPeek: assistPeek
+                assistPeek: assistPeek,
+                autoBanked: autoBanked.isEmpty ? nil : autoBanked
             )
             await send(.diceStep(stepMessage))
             let choices = await collectDiceChoices(for: stepMessage)
@@ -1201,31 +1253,37 @@ final class HostEngine {
             let stillRiding = riders.filter { choices[$0] == true }
 
             var die: Int?
+            var wheelIndex: Int?
+            var spinSeconds: Double?
             var isSkull = false
             var potAfter = pot
             var runOver = false
             if stillRiding.isEmpty {
                 runOver = true
             } else {
-                let drawn = prerolled
-                die = drawn
-                if drawn == 1 {
+                wheelIndex = prespun
+                spinSeconds = Double.random(in: GameTiming.diceSpinMinSeconds...GameTiming.diceSpinMaxSeconds)
+                if let value = DiceWheel.segments[prespun] {
+                    die = value
+                    potAfter = pot + value
+                } else {
                     isSkull = true
                     potAfter = 0
                     runOver = true
-                } else {
-                    potAfter = pot + drawn
                 }
             }
 
             let champions = players.filter { banks[$0, default: 0] >= GameTiming.diceBankTarget }
             let roundWinners = runOver ? champions : []
+            let spinDelay = spinSeconds ?? 0
             let reveal = DiceReveal(
                 round: round,
                 run: run,
                 step: step,
                 die: die,
                 isSkull: isSkull,
+                wheelIndex: wheelIndex,
+                spinSeconds: spinSeconds,
                 potBefore: pot,
                 potAfter: potAfter,
                 choices: Dictionary(uniqueKeysWithValues: riders.map { ($0, choices[$0] == true) }),
@@ -1234,10 +1292,10 @@ final class HostEngine {
                 banks: banks,
                 runOver: runOver,
                 roundWinners: roundWinners,
-                nextAt: (runOver && !roundWinners.isEmpty) ? nil : Date().addingTimeInterval(GameTiming.diceRevealSeconds + 2)
+                nextAt: (runOver && !roundWinners.isEmpty) ? nil : Date().addingTimeInterval(spinDelay + GameTiming.diceRevealSeconds + 2)
             )
             await send(.diceReveal(reveal))
-            try? await Task.sleep(for: .seconds(GameTiming.diceRevealSeconds))
+            try? await Task.sleep(for: .seconds(spinDelay + GameTiming.diceRevealSeconds))
             if runOver {
                 return
             }

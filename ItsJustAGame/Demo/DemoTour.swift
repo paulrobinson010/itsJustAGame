@@ -243,7 +243,8 @@ enum Demo {
         Step {
             .diceReveal(DiceReveal(
                 round: 2, run: 2, step: 3,
-                die: 1, isSkull: true, potBefore: 14, potAfter: 0,
+                die: nil, isSkull: true, wheelIndex: 2, spinSeconds: 3,
+                potBefore: 14, potAfter: 0,
                 choices: [1: true, 3: true], bankedNow: [], riders: [],
                 banks: [2: 9, 4: 6], runOver: true, roundWinners: [], nextAt: now(7)
             ))
@@ -279,7 +280,7 @@ enum Demo {
         Step(points: [1: 1, 4: 1]) {
             .eyeballTurn(EyeballTurn(
                 round: 2, turn: 2, points: [1: 1, 4: 1],
-                startAt: now(-4), count: 96, seed: 424_242,
+                startAt: now(-6), count: 96, seed: 424_242,
                 visibleSeconds: 2, guessSeconds: 12
             ))
         },

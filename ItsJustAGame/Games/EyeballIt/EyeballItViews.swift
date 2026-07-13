@@ -9,6 +9,9 @@ struct EyeballTurnView: View {
 
     @State private var guess: Double
     @State private var submitted = false
+    /// When this device actually drew the dots — the visible window runs
+    /// from here, so polling latency can't eat into it.
+    @State private var dotsShownAt: Date?
 
     private let dots: [SharedLayout.Dot]
     /// Simplify (levels 2–3): the slider narrows around the true count,
@@ -37,12 +40,25 @@ struct EyeballTurnView: View {
     }
 
     /// Simplify: the dots hang around longer before vanishing.
-    private var dotsEndAt: Date {
+    private var localVisibleSeconds: Double {
         switch assist {
-        case nil: return turn.dotsEndAt
-        case .little: return turn.startAt.addingTimeInterval(turn.visibleSeconds * 1.6)
-        case .big, .cheating: return turn.startAt.addingTimeInterval(turn.visibleSeconds * 2.2)
+        case nil: return turn.visibleSeconds
+        case .little: return turn.visibleSeconds * 1.6
+        case .big, .cheating: return turn.visibleSeconds * 2.2
         }
+    }
+
+    /// The full visible window counts from the moment THIS device rendered
+    /// the dots, not from the shared start — a message that arrives a
+    /// second late must not cost a second of looking time. A device
+    /// arriving long after the window (a mid-turn rejoin) skips the dots
+    /// and goes straight to guessing.
+    private func showingDots(now: Date) -> Bool {
+        guard !submitted, now <= turn.deadline else { return false }
+        if let dotsShownAt {
+            return now < dotsShownAt.addingTimeInterval(localVisibleSeconds)
+        }
+        return now < turn.startAt.addingTimeInterval(localVisibleSeconds + 3)
     }
 
     var body: some View {
@@ -59,10 +75,15 @@ struct EyeballTurnView: View {
                     Text("Get ready…")
                         .font(Theme.display(26))
                     Spacer()
-                } else if now < dotsEndAt {
+                } else if showingDots(now: now) {
                     Text("How many dots?")
                         .font(Theme.display(26))
                     dotField
+                        .onAppear {
+                            if dotsShownAt == nil {
+                                dotsShownAt = Date()
+                            }
+                        }
                     Spacer()
                 } else if submitted {
                     Text("Locked in!")
