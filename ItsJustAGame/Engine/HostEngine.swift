@@ -252,6 +252,8 @@ final class HostEngine {
                 winners = await runSafeRound(round: round)
             case .feelTheBeat:
                 winners = await runBeatRound(round: round)
+            case .sizeItUp:
+                winners = await runSizeRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -2442,6 +2444,61 @@ final class HostEngine {
             )
             await send(.beatReveal(reveal))
             try? await Task.sleep(for: .seconds(GameTiming.beatRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Size It Up
+
+    /// A shape flashes at a random size, then vanishes; everyone redraws it
+    /// from memory. The drawn size is measured on each device (as a fraction
+    /// of the canvas), so closest to the original wins — latency-free.
+    private func runSizeRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let shape = ShapeKind.allCases.randomElement() ?? .square
+            let target = Double.random(in: GameTiming.sizeMinFraction...GameTiming.sizeMaxFraction)
+            let targetPerMille = Int((target * 1000).rounded())
+            let turnMessage = SizeTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                shape: shape,
+                targetSize: target,
+                showSeconds: GameTiming.sizeShowSeconds,
+                drawSeconds: GameTiming.sizeDrawSeconds
+            )
+            await send(.sizeTurn(turnMessage))
+            let sizes = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.sizeDraw(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .sizeDraw(_, _, let slot, let size) = $0 { return (slot, max(0, size)) }; return nil }
+            )
+            var results: [SizeResult] = []
+            for slot in players { results.append(SizeResult(slot: slot, sizePerMille: sizes[slot])) }
+            // Closest drawn size to the target wins.
+            let errors = results.compactMap { r in r.sizePerMille.map { abs($0 - targetPerMille) } }
+            let best = errors.min()
+            let winners = best.map { top in
+                results.filter { $0.sizePerMille.map { abs($0 - targetPerMille) } == top }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = SizeReveal(
+                round: round, turn: turn, shape: shape, targetSize: target, results: results,
+                winners: winners, points: points, roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.sizeRevealSeconds + 2) : nil
+            )
+            await send(.sizeReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.sizeRevealSeconds))
             if !roundWinners.isEmpty { return roundWinners }
             if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
             turn += 1

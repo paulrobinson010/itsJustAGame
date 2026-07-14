@@ -82,6 +82,9 @@ enum GamePhase: Hashable {
     // Feel the Beat
     case beatTurn(BeatTurn)
     case beatReveal(BeatReveal)
+    // Size It Up
+    case sizeTurn(SizeTurn)
+    case sizeReveal(SizeReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -663,6 +666,21 @@ final class GameSession {
         submittedAnswerIDs.contains(RecordName.beatError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
     }
 
+    // MARK: - Size It Up input
+
+    func submitSize(sizePerMille: Int, for turn: SizeTurn) {
+        let id = RecordName.sizeDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.sizeDraw(round: turn.round, turn: turn.turn, slot: mySlot, sizePerMille: sizePerMille), id: id)
+        }
+    }
+
+    func hasSubmittedSize(for turn: SizeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.sizeDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -898,6 +916,12 @@ final class GameSession {
         case .beatReveal(let reveal):
             points = reveal.points
             phase = .beatReveal(reveal)
+        case .sizeTurn(let turn):
+            points = turn.points
+            phase = .sizeTurn(turn)
+        case .sizeReveal(let reveal):
+            points = reveal.points
+            phase = .sizeReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

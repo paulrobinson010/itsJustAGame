@@ -297,6 +297,18 @@ so scores are never client-claimed. The reveal shows everyone's actual
 drawings side by side. Highest score takes the point; first to 3 wins
 the round.
 
+### Size It Up
+
+A shape (square, circle, triangle or diamond) flashes on a square canvas
+at a random size, then vanishes — you get two seconds to burn it in. Then
+draw it back at the same size from memory, one stroke, ten seconds. The
+device measures your drawing's size (the larger side of its bounding box,
+as a fraction of the canvas) and submits just that number; the **host
+scores** it against the target, closest wins. Everything is measured
+locally, so latency never matters. First to 3 wins the round. Simplify
+leaves a faint trace of the target up while you draw — barely-there
+(level 1), clearer (level 2), or a near-solid outline to trace (level 3).
+
 ### Sort Circuit
 
 Nine numbered tiles scattered identically on every device (seeded
@@ -491,6 +503,7 @@ Every game implements all three levels:
 | Gold Rush | top-3 squares outlined | + others' picks appear live on your board | + taken squares lock, so you can't clash |
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
+| Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
@@ -541,7 +554,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all twenty-five games
+button. It steps through every screen — lobby, wheel, all twenty-six games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

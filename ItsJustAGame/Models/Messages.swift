@@ -89,6 +89,9 @@ enum HostMessage: Codable {
     // Feel the Beat
     case beatTurn(BeatTurn)
     case beatReveal(BeatReveal)
+    // Size It Up
+    case sizeTurn(SizeTurn)
+    case sizeReveal(SizeReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -138,6 +141,7 @@ enum PlayerMessage: Codable {
     case humPitch(round: Int, turn: Int, slot: Int, errorCents: Int)
     case safeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
     case beatError(round: Int, turn: Int, slot: Int, errorMs: Int)
+    case sizeDraw(round: Int, turn: Int, slot: Int, sizePerMille: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -1030,6 +1034,57 @@ struct BeatReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Size It Up
+
+/// The shape a Size It Up turn asks you to redraw.
+enum ShapeKind: String, Codable, CaseIterable, Hashable {
+    case square, circle, triangle, diamond
+
+    var name: String {
+        switch self {
+        case .square: return "square"
+        case .circle: return "circle"
+        case .triangle: return "triangle"
+        case .diamond: return "diamond"
+        }
+    }
+}
+
+struct SizeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var shape: ShapeKind
+    /// Target size as a fraction (0–1) of the square canvas's side.
+    var targetSize: Double
+    var showSeconds: Double
+    var drawSeconds: Double
+
+    /// Drawing begins once the shape has flashed and vanished.
+    var drawStart: Date { startAt.addingTimeInterval(showSeconds) }
+    var deadline: Date { drawStart.addingTimeInterval(drawSeconds) }
+}
+
+struct SizeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// The drawn size in thousandths of the canvas side; nil = never drew.
+    var sizePerMille: Int?
+    var id: Int { slot }
+}
+
+struct SizeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var shape: ShapeKind
+    var targetSize: Double
+    var results: [SizeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -1220,5 +1275,9 @@ enum RecordName {
 
     static func beatError(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-bt\(turn)-bet\(slot)"
+    }
+
+    static func sizeDraw(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sz\(turn)-siz\(slot)"
     }
 }

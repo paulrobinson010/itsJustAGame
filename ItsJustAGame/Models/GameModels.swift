@@ -93,6 +93,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case humIt
     case crackTheSafe
     case feelTheBeat
+    case sizeItUp
 
     var displayName: String {
         switch self {
@@ -121,6 +122,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .humIt: return "Hum It"
         case .crackTheSafe: return "Crack the Safe"
         case .feelTheBeat: return "Feel the Beat"
+        case .sizeItUp: return "Size It Up"
         }
     }
 
@@ -152,6 +154,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .humIt: return 2
         case .crackTheSafe: return 2
         case .feelTheBeat: return 2
+        case .sizeItUp: return 2
         }
     }
 
@@ -182,6 +185,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .humIt: return "music.note"
         case .crackTheSafe: return "lock.rotation"
         case .feelTheBeat: return "waveform.path"
+        case .sizeItUp: return "square.dashed"
         }
     }
 
@@ -237,6 +241,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Twist your phone like a safe dial to spin in the \(GameTiming.safeDigits)-digit combo. Fastest to crack it wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .feelTheBeat:
             return "Feel the rhythm buzz through your phone, then tap it straight back. Closest to the beat wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .sizeItUp:
+            return "A shape flashes up, then vanishes. Draw it back at the same size from memory. Closest to the original size wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -256,7 +262,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     var minProtocolVersion: Int {
         switch self {
         case .globetrotter, .colourClash, .spiritLevel, .pourIt, .marbleMaze,
-             .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat:
+             .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat,
+             .sizeItUp:
             return 1
         default:
             return 0
@@ -470,4 +477,12 @@ enum GameTiming {
     static let beatListenLeadSeconds: Double = 1.5
     static let beatTapSeconds: Double = 8
     static let beatRevealSeconds: Double = 7
+
+    // Size It Up
+    static let sizeShowSeconds: Double = 2      // how long the shape flashes
+    static let sizeDrawSeconds: Double = 10     // time to draw it back
+    static let sizeRevealSeconds: Double = 7
+    /// Target size range, as a fraction of the square canvas's side.
+    static let sizeMinFraction: Double = 0.2
+    static let sizeMaxFraction: Double = 0.85
 }

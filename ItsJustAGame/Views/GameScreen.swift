@@ -178,6 +178,8 @@ struct GameScreen: View {
         case .safeReveal(let reveal): return "safereveal\(reveal.round)-\(reveal.turn)"
         case .beatTurn(let turn): return "beat\(turn.round)-\(turn.turn)"
         case .beatReveal(let reveal): return "beatreveal\(reveal.round)-\(reveal.turn)"
+        case .sizeTurn(let turn): return "size\(turn.round)-\(turn.turn)"
+        case .sizeReveal(let reveal): return "sizereveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -295,6 +297,10 @@ struct GameScreen: View {
             BeatTurnView(session: session, turn: turn)
         case .beatReveal(let reveal):
             BeatRevealView(session: session, reveal: reveal)
+        case .sizeTurn(let turn):
+            SizeTurnView(session: session, turn: turn)
+        case .sizeReveal(let reveal):
+            SizeRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -391,6 +397,8 @@ struct GameScreen: View {
         case .safeReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .beatReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .sizeReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)

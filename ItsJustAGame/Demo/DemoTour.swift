@@ -541,6 +541,27 @@ enum Demo {
             ))
         },
 
+        // Size It Up — memorise the shape, then the reveal
+        Step(points: [3: 1, 2: 1], duration: 2.6) {
+            .sizeTurn(SizeTurn(
+                round: 2, turn: 2, points: [3: 1, 2: 1],
+                startAt: now(-1), shape: .triangle, targetSize: 0.55,
+                showSeconds: 2, drawSeconds: 10
+            ))
+        },
+        Step(points: [3: 1, 2: 1]) {
+            .sizeReveal(SizeReveal(
+                round: 2, turn: 2, shape: .triangle, targetSize: 0.55,
+                results: [
+                    SizeResult(slot: 1, sizePerMille: 480),
+                    SizeResult(slot: 2, sizePerMille: 540),
+                    SizeResult(slot: 3, sizePerMille: 620),
+                    SizeResult(slot: 4, sizePerMille: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
         // Feel the Beat — reveal
         Step(points: [1: 1, 2: 1]) {
             .beatReveal(BeatReveal(
@@ -710,6 +731,10 @@ struct DemoTourView: View {
             BeatTurnView(session: session, turn: turn)
         case .beatReveal(let reveal):
             BeatRevealView(session: session, reveal: reveal)
+        case .sizeTurn(let turn):
+            SizeTurnView(session: session, turn: turn)
+        case .sizeReveal(let reveal):
+            SizeRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
