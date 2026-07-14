@@ -332,8 +332,29 @@ shrinking gap) is rebuilt identically everywhere from the seed. Tap the
 odd one fast; a wrong tap adds a time penalty. Your find is **timed
 locally** from when the grid appears, so latency never matters — fastest
 wins, first to 3 takes the round. Simplify widens the colour gap on your
-phone (invisible to everyone else), then pulses the odd cell (level 2) and
-finally outlines it (level 3).
+phone (invisible to everyone else), then rings the odd cell faintly
+(level 2) and outlines it boldly (level 3).
+
+### Trace It
+
+A winding line — a smooth Catmull-Rom curve through seeded control points,
+the same on every device — appears on a square canvas. Trace along it with
+one finger. The device scores the **Chamfer distance** between your stroke
+and the line (mean nearest-point distance both ways, so you're rewarded
+for both staying on the line and covering all of it), and submits that
+number; closest wins. Measured locally, latency never matters. First to 3
+wins the round. Simplify quietly forgives some of your error and draws a
+fatter line to follow (×0.8 / ×0.65 / ×0.5).
+
+### Traffic Light
+
+The light holds red for a random spell (host-rolled, same for everyone),
+then turns green — tap the instant it does. Tap on red and you've jumped
+the light: out for the turn. Your reaction is timed **locally** against
+the shared green moment, so latency never matters — fastest off the mark
+wins, first to 3 takes the round. Simplify shaves your reaction time
+invisibly (×0.85 / ×0.7 / ×0.55), stretches the amber warning, and at the
+top levels shows a live countdown to green.
 
 ### Sort Circuit
 
@@ -531,7 +552,9 @@ Every game implements all three levels:
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
 | Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
-| Odd One Out | wider colour gap | + the odd cell pulses | + it's outlined |
+| Odd One Out | wider colour gap | + a faint ring on the odd cell | + a bold outline |
+| Trace It | error forgiven ×0.8 + fatter line | ×0.65 | ×0.5 |
+| Traffic Light | reaction ×0.85 + longer amber | ×0.7 + countdown to green | ×0.55 + countdown |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
@@ -582,7 +605,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all twenty-eight games
+button. It steps through every screen — lobby, wheel, all thirty games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

@@ -602,6 +602,46 @@ enum Demo {
             ))
         },
 
+        // Trace It — the line, then the reveal
+        Step(points: [3: 1, 1: 1], duration: 2.6) {
+            .traceTurn(TraceTurn(
+                round: 2, turn: 2, points: [3: 1, 1: 1],
+                startAt: now(-1), seed: 99, traceSeconds: 10
+            ))
+        },
+        Step(points: [3: 1, 1: 1]) {
+            .traceReveal(TraceReveal(
+                round: 2, turn: 2,
+                results: [
+                    TraceResult(slot: 1, errorPerMille: 90),
+                    TraceResult(slot: 2, errorPerMille: 150),
+                    TraceResult(slot: 3, errorPerMille: 55),
+                    TraceResult(slot: 4, errorPerMille: nil),
+                ],
+                winners: [3], points: [3: 2, 1: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Traffic Light — the light, then the reveal
+        Step(points: [4: 1, 2: 1], duration: 2.6) {
+            .trafficTurn(TrafficTurn(
+                round: 2, turn: 2, points: [4: 1, 2: 1],
+                startAt: now(-1), redSeconds: 8, tapSeconds: 4
+            ))
+        },
+        Step(points: [4: 1, 2: 1]) {
+            .trafficReveal(TrafficReveal(
+                round: 2, turn: 2,
+                results: [
+                    TrafficResult(slot: 1, reactionMs: 320, falseStart: false),
+                    TrafficResult(slot: 2, reactionMs: 240, falseStart: false),
+                    TrafficResult(slot: 3, reactionMs: nil, falseStart: true),
+                    TrafficResult(slot: 4, reactionMs: 410, falseStart: false),
+                ],
+                winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
         // Feel the Beat — reveal
         Step(points: [1: 1, 2: 1]) {
             .beatReveal(BeatReveal(
@@ -783,6 +823,14 @@ struct DemoTourView: View {
             OddTurnView(session: session, turn: turn)
         case .oddReveal(let reveal):
             OddRevealView(session: session, reveal: reveal)
+        case .traceTurn(let turn):
+            TraceTurnView(session: session, turn: turn)
+        case .traceReveal(let reveal):
+            TraceRevealView(session: session, reveal: reveal)
+        case .trafficTurn(let turn):
+            TrafficTurnView(session: session, turn: turn)
+        case .trafficReveal(let reveal):
+            TrafficRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

@@ -98,6 +98,12 @@ enum HostMessage: Codable {
     // Odd One Out
     case oddTurn(OddTurn)
     case oddReveal(OddReveal)
+    // Trace It
+    case traceTurn(TraceTurn)
+    case traceReveal(TraceReveal)
+    // Traffic Light
+    case trafficTurn(TrafficTurn)
+    case trafficReveal(TrafficReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -150,6 +156,8 @@ enum PlayerMessage: Codable {
     case sizeDraw(round: Int, turn: Int, slot: Int, sizePerMille: Int)
     case spotGuess(round: Int, turn: Int, slot: Int, errorPerMille: Int)
     case oddTap(round: Int, turn: Int, slot: Int, timeMs: Int)
+    case traceDraw(round: Int, turn: Int, slot: Int, errorPerMille: Int)
+    case trafficTap(round: Int, turn: Int, slot: Int, reactionMs: Int?, falseStart: Bool)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -1163,6 +1171,72 @@ struct OddReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Trace It
+
+struct TraceTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device draws the identical line to trace from this seed.
+    var seed: UInt64
+    var traceSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(traceSeconds) }
+}
+
+struct TraceResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// How far the trace strayed from the line, in thousandths of the canvas;
+    /// nil = never traced.
+    var errorPerMille: Int?
+    var id: Int { slot }
+}
+
+struct TraceReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [TraceResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Traffic Light
+
+struct TrafficTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Seconds of red before the light turns green (host-rolled, same for
+    /// everyone). Tapping before green is a false start.
+    var redSeconds: Double
+    var tapSeconds: Double
+
+    var greenAt: Date { startAt.addingTimeInterval(redSeconds) }
+    var deadline: Date { greenAt.addingTimeInterval(tapSeconds) }
+}
+
+struct TrafficResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Reaction after green, in ms; nil = never tapped in time.
+    var reactionMs: Int?
+    var falseStart: Bool
+    var id: Int { slot }
+}
+
+struct TrafficReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [TrafficResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -1365,5 +1439,13 @@ enum RecordName {
 
     static func oddTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-oo\(turn)-odd\(slot)"
+    }
+
+    static func traceDraw(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-tc\(turn)-trc\(slot)"
+    }
+
+    static func trafficTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-tl\(turn)-trf\(slot)"
     }
 }

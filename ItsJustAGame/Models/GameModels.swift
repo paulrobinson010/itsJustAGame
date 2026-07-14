@@ -96,6 +96,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case sizeItUp
     case spotRecall
     case oddOneOut
+    case traceIt
+    case trafficLight
 
     var displayName: String {
         switch self {
@@ -127,6 +129,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .sizeItUp: return "Size It Up"
         case .spotRecall: return "Spot Recall"
         case .oddOneOut: return "Odd One Out"
+        case .traceIt: return "Trace It"
+        case .trafficLight: return "Traffic Light"
         }
     }
 
@@ -161,6 +165,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .sizeItUp: return 2
         case .spotRecall: return 2
         case .oddOneOut: return 2
+        case .traceIt: return 2
+        case .trafficLight: return 2
         }
     }
 
@@ -194,6 +200,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .sizeItUp: return "square.dashed"
         case .spotRecall: return "sparkle.magnifyingglass"
         case .oddOneOut: return "circle.grid.3x3.fill"
+        case .traceIt: return "scribble.variable"
+        case .trafficLight: return "trafficlight"
         }
     }
 
@@ -255,6 +263,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "A handful of dots flash on screen, then vanish. Tap where each one was. Closest to the real spots wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .oddOneOut:
             return "A grid of shapes, one a slightly different colour. Tap the odd one out as fast as you can — it gets harder each turn. Quickest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .traceIt:
+            return "A winding line appears. Trace along it with your finger as accurately as you can. Closest to the line wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .trafficLight:
+            return "Wait on red — tap the instant it turns green. Jump early and you're out for the turn. Fastest off the mark wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -275,7 +287,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         switch self {
         case .globetrotter, .colourClash, .spiritLevel, .pourIt, .marbleMaze,
              .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat,
-             .sizeItUp, .spotRecall, .oddOneOut:
+             .sizeItUp, .spotRecall, .oddOneOut, .traceIt, .trafficLight:
             return 1
         default:
             return 0
@@ -514,4 +526,14 @@ enum GameTiming {
     static let oddMaxSeconds: Double = 15       // time to find it
     static let oddWrongPenaltyMs = 2000         // added per wrong tap
     static let oddRevealSeconds: Double = 5
+
+    // Trace It
+    static let traceSeconds: Double = 10        // time to trace the line
+    static let traceRevealSeconds: Double = 5
+
+    // Traffic Light
+    static let trafficRedMinSeconds: Double = 2 // random red wait before green
+    static let trafficRedMaxSeconds: Double = 7
+    static let trafficTapSeconds: Double = 4    // window to react after green
+    static let trafficRevealSeconds: Double = 5
 }

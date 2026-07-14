@@ -91,6 +91,12 @@ enum GamePhase: Hashable {
     // Odd One Out
     case oddTurn(OddTurn)
     case oddReveal(OddReveal)
+    // Trace It
+    case traceTurn(TraceTurn)
+    case traceReveal(TraceReveal)
+    // Traffic Light
+    case trafficTurn(TrafficTurn)
+    case trafficReveal(TrafficReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -129,6 +135,8 @@ enum GamePhase: Hashable {
         case .sizeTurn(let t): return t.startAt
         case .spotTurn(let t): return t.startAt
         case .oddTurn(let t): return t.startAt
+        case .traceTurn(let t): return t.startAt
+        case .trafficTurn(let t): return t.startAt
         default: return nil
         }
     }
@@ -755,6 +763,36 @@ final class GameSession {
         submittedAnswerIDs.contains(RecordName.oddTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
     }
 
+    // MARK: - Trace It input
+
+    func submitTrace(errorPerMille: Int, for turn: TraceTurn) {
+        let id = RecordName.traceDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.traceDraw(round: turn.round, turn: turn.turn, slot: mySlot, errorPerMille: errorPerMille), id: id)
+        }
+    }
+
+    func hasSubmittedTrace(for turn: TraceTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.traceDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Traffic Light input
+
+    func submitTraffic(reactionMs: Int?, falseStart: Bool, for turn: TrafficTurn) {
+        let id = RecordName.trafficTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.trafficTap(round: turn.round, turn: turn.turn, slot: mySlot, reactionMs: reactionMs, falseStart: falseStart), id: id)
+        }
+    }
+
+    func hasSubmittedTraffic(for turn: TrafficTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.trafficTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -1008,6 +1046,18 @@ final class GameSession {
         case .oddReveal(let reveal):
             points = reveal.points
             phase = .oddReveal(reveal)
+        case .traceTurn(let turn):
+            points = turn.points
+            phase = .traceTurn(turn)
+        case .traceReveal(let reveal):
+            points = reveal.points
+            phase = .traceReveal(reveal)
+        case .trafficTurn(let turn):
+            points = turn.points
+            phase = .trafficTurn(turn)
+        case .trafficReveal(let reveal):
+            points = reveal.points
+            phase = .trafficReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

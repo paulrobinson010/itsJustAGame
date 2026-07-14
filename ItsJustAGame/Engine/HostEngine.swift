@@ -258,6 +258,10 @@ final class HostEngine {
                 winners = await runSpotRound(round: round)
             case .oddOneOut:
                 winners = await runOddRound(round: round)
+            case .traceIt:
+                winners = await runTraceRound(round: round)
+            case .trafficLight:
+                winners = await runTrafficRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -950,7 +954,7 @@ final class HostEngine {
         var points: [Int: Int] = [:]
         var turn = 1
         while !Task.isCancelled {
-            let startAt = Date().addingTimeInterval(2)
+            let startAt = Date().addingTimeInterval(GameTiming.countdownSeconds)
             let wait = Double.random(in: GameTiming.flashWaitMinSeconds...GameTiming.flashWaitMaxSeconds)
             let turnMessage = FlashTurn(
                 round: round,
@@ -2603,6 +2607,118 @@ final class HostEngine {
             turn += 1
         }
         return [players.first ?? 1]
+    }
+
+    // MARK: - Trace It
+
+    /// A winding line (same on every device from the seed); everyone traces
+    /// it. Each device scores its own accuracy, closest wins — latency-free.
+    private func runTraceRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = TraceTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                traceSeconds: GameTiming.traceSeconds
+            )
+            await send(.traceTurn(turnMessage))
+            let errors = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.traceDraw(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .traceDraw(_, _, let slot, let e) = $0 { return (slot, max(0, e)) }; return nil }
+            )
+            var results: [TraceResult] = []
+            for slot in players { results.append(TraceResult(slot: slot, errorPerMille: errors[slot])) }
+            let best = results.compactMap(\.errorPerMille).min()
+            let winners = best.map { top in results.filter { $0.errorPerMille == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = TraceReveal(
+                round: round, turn: turn, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.traceRevealSeconds + 2) : nil
+            )
+            await send(.traceReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.traceRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Traffic Light
+
+    /// Wait on red, tap on green. Reaction is timed on each device against
+    /// the shared green moment; a tap before green is a false start.
+    private func runTrafficRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let red = Double.random(in: GameTiming.trafficRedMinSeconds...GameTiming.trafficRedMaxSeconds)
+            let turnMessage = TrafficTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
+                redSeconds: red,
+                tapSeconds: GameTiming.trafficTapSeconds
+            )
+            await send(.trafficTurn(turnMessage))
+            let results = await collectTraffic(for: turnMessage, players: players)
+
+            let valid = results.values.filter { !$0.falseStart && $0.reactionMs != nil }
+            let best = valid.compactMap(\.reactionMs).min()
+            let winners = best.map { fastest in
+                valid.filter { $0.reactionMs == fastest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = TrafficReveal(
+                round: round, turn: turn,
+                results: players.compactMap { results[$0] },
+                winners: winners, points: points, roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.trafficRevealSeconds + 2) : nil
+            )
+            await send(.trafficReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.trafficRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectTraffic(for turn: TrafficTurn, players: [Int]) async -> [Int: TrafficResult] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var results: [Int: TrafficResult] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { results[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map { RecordName.trafficTap(config.gameID, round: turn.round, turn: turn.turn, slot: $0) }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .trafficTap(_, _, let slot, let reactionMs, let falseStart) = message else { continue }
+                    results[slot] = TrafficResult(slot: slot, reactionMs: reactionMs, falseStart: falseStart)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        for slot in players where results[slot] == nil {
+            results[slot] = TrafficResult(slot: slot, reactionMs: nil, falseStart: false)
+        }
+        return results
     }
 
     // MARK: - Steady Hand
