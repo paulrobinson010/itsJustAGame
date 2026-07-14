@@ -1943,7 +1943,9 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                // Matches the device-local run-up so the collection window
+                // (deadline + grace) fully covers everyone's play.
+                startAt: Date().addingTimeInterval(GameTiming.tiltCountdownSeconds),
                 targetDegrees: target,
                 holdSeconds: GameTiming.levelHoldSeconds
             )
@@ -2022,7 +2024,9 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                // Matches the device-local run-up so the collection window
+                // (deadline + grace) fully covers everyone's play.
+                startAt: Date().addingTimeInterval(GameTiming.tiltCountdownSeconds),
                 targetPercent: target,
                 pourSeconds: GameTiming.pourSeconds
             )

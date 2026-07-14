@@ -9,13 +9,20 @@ struct LevelTurnView: View {
 
     @State private var submitted = false
     @State private var lockedError: Double?
+    /// Device-local "GO" moment, so the run-up is timed on this phone.
+    @State private var goAt: Date?
 
     private var motion: MotionService { MotionService.shared }
+
+    private var playEndsAt: Date? {
+        goAt?.addingTimeInterval(GameTiming.levelHoldSeconds)
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.03)) { context in
             let now = context.date
             let roll = motion.rollDegrees
+            let live = leveling(now: now)
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
                 Text("Turn \(turn.turn) · line up the bubble")
@@ -26,13 +33,13 @@ struct LevelTurnView: View {
                 header(now: now, roll: roll)
                 Spacer(minLength: 8)
                 gauge(roll: roll)
-                if session.myAssist == .cheating, !submitted, now >= turn.startAt, now < turn.deadline {
+                if session.myAssist == .cheating, live {
                     Text(String(format: "%.1f° off", abs(roll - turn.targetDegrees)))
                         .font(Theme.subheadline.monospacedDigit())
                         .foregroundStyle(Theme.cyan)
                 }
                 Spacer(minLength: 8)
-                if !submitted, now >= turn.startAt, now < turn.deadline {
+                if live {
                     Button {
                         lockIn(roll: roll)
                     } label: {
@@ -47,9 +54,16 @@ struct LevelTurnView: View {
         .task {
             submitted = session.hasSubmittedLevel(for: turn)
             motion.start()
+            goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
             await autoLock()
         }
         .onDisappear { motion.stop() }
+    }
+
+    /// Whether the bubble is live to tilt and lock right now.
+    private func leveling(now: Date) -> Bool {
+        guard let go = goAt, let end = playEndsAt, !submitted else { return false }
+        return now >= go && now < end
     }
 
     @ViewBuilder
@@ -57,20 +71,26 @@ struct LevelTurnView: View {
         if submitted {
             Text("Locked in — waiting…")
                 .font(Theme.display(22))
-        } else if now < turn.startAt {
-            Text("Get ready…")
-                .font(Theme.display(24))
-        } else if now >= turn.deadline {
-            Text("Time's up — waiting for the reveal…")
-                .font(Theme.headline)
         } else if !motion.isAvailable {
             Text("This game needs a real device")
                 .font(Theme.subheadline)
                 .foregroundStyle(Theme.magenta)
-        } else {
-            let remaining = Int(max(0, turn.deadline.timeIntervalSince(now)).rounded(.up))
+        } else if let go = goAt, now < go {
+            let count = Int(go.timeIntervalSince(now).rounded(.up))
+            Text(count > 0 ? "\(count)" : "GO!")
+                .font(Theme.display(count > 0 ? 64 : 40))
+                .foregroundStyle(Theme.magenta)
+                .contentTransition(.numericText())
+        } else if let end = playEndsAt, now >= end {
+            Text("Time's up — waiting for the reveal…")
+                .font(Theme.headline)
+        } else if let end = playEndsAt {
+            let remaining = Int(max(0, end.timeIntervalSince(now)).rounded(.up))
             Text("Tilt to the mark · \(remaining)s")
                 .font(Theme.display(22))
+        } else {
+            Text("Get ready…")
+                .font(Theme.display(24))
         }
     }
 
@@ -144,7 +164,8 @@ struct LevelTurnView: View {
     }
 
     private func autoLock() async {
-        let interval = turn.deadline.timeIntervalSinceNow
+        let end = playEndsAt ?? Date().addingTimeInterval(GameTiming.tiltCountdownSeconds + GameTiming.levelHoldSeconds)
+        let interval = end.timeIntervalSinceNow
         if interval > 0 {
             try? await Task.sleep(for: .seconds(interval))
         }

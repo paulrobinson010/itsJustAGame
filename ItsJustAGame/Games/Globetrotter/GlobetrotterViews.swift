@@ -9,6 +9,15 @@ private enum Globe {
         span: MKCoordinateSpan(latitudeDelta: 132, longitudeDelta: 340)
     )
 
+    /// A flatter starting view for the guessing map — enough of the world to
+    /// get your bearings without MapKit tipping into its zoomed-out 3D globe
+    /// (where the far edges curl away and can't be tapped). Players pan and
+    /// zoom from here to place a pin precisely anywhere on Earth.
+    static let startRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 25, longitude: 0),
+        span: MKCoordinateSpan(latitudeDelta: 105, longitudeDelta: 165)
+    )
+
     static func distanceText(_ km: Double) -> String {
         let n = Int(km.rounded())
         let formatter = NumberFormatter()
@@ -88,9 +97,9 @@ struct GlobeTurnView: View {
 
     private var mapView: some View {
         MapReader { proxy in
-            // Frozen on purpose: a tap is your answer, and everyone sees
-            // the same view.
-            Map(initialPosition: .region(Globe.worldRegion), interactionModes: []) {
+            // Pan and zoom to line up your spot, then tap to drop the pin.
+            // (A drag moves the map; a tap is your answer.)
+            Map(initialPosition: .region(Globe.startRegion), interactionModes: [.pan, .zoom]) {
                 if let hint {
                     MapCircle(center: hint.center.clCoordinate, radius: hint.radiusKm * 1000)
                         .foregroundStyle(Theme.cyan.opacity(0.12))
@@ -117,7 +126,7 @@ struct GlobeTurnView: View {
 
     private func guessCaption(remaining: Int) -> String {
         guard hint != nil else {
-            return "\(remaining)s — tap the map to drop your pin"
+            return "\(remaining)s — drag to explore, tap to drop your pin"
         }
         // Simplify level 1 also names the continent; higher levels just get
         // a tighter circle.

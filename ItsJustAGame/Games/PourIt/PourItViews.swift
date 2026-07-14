@@ -10,12 +10,25 @@ struct PourTurnView: View {
     @State private var fill: Double = 0
     @State private var overflowed = false
     @State private var submitted = false
+    /// Device-local "GO" moment: set when the view appears, so the run-up is
+    /// timed on this phone rather than the host's clock.
+    @State private var goAt: Date?
+    /// The phone's resting pitch captured at GO — pouring is measured
+    /// relative to it, so you can hold the phone however feels natural.
+    @State private var referencePitch: Double = 0
 
     private var motion: MotionService { MotionService.shared }
+
+    /// Play ends this long after GO (device-local, well inside the host's
+    /// collection window).
+    private var playEndsAt: Date? {
+        goAt?.addingTimeInterval(GameTiming.pourSeconds)
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.05)) { context in
             let now = context.date
+            let live = pouring(now: now)
             VStack(spacing: 14) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
                 Text("Turn \(turn.turn) · pour to the line")
@@ -25,12 +38,12 @@ struct PourTurnView: View {
                     .kerning(1.2)
                 header(now: now)
                 glass
-                if showFillNumber, !submitted {
+                if showFillNumber, !submitted, live {
                     Text("\(Int(fill.rounded()))%")
                         .font(Theme.subheadline.monospacedDigit())
                         .foregroundStyle(Theme.cyan)
                 }
-                if !submitted, now >= turn.startAt, now < turn.deadline, !overflowed {
+                if !submitted, live, !overflowed {
                     Button {
                         submit()
                     } label: {
@@ -46,9 +59,16 @@ struct PourTurnView: View {
             submitted = session.hasSubmittedPour(for: turn)
             if submitted { return }
             motion.start()
+            goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
             await pourLoop()
         }
         .onDisappear { motion.stop() }
+    }
+
+    /// Whether the phone is actively pouring right now.
+    private func pouring(now: Date) -> Bool {
+        guard let go = goAt, let end = playEndsAt, !submitted else { return false }
+        return now >= go && now < end
     }
 
     @ViewBuilder
@@ -59,17 +79,23 @@ struct PourTurnView: View {
                 .foregroundStyle(overflowed ? Theme.magenta : .white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
-        } else if now < turn.startAt {
-            Text("Get ready…")
-                .font(Theme.display(24))
         } else if !motion.isAvailable {
             Text("This game needs a real device")
                 .font(Theme.subheadline)
                 .foregroundStyle(Theme.magenta)
-        } else {
-            let remaining = Int(max(0, turn.deadline.timeIntervalSince(now)).rounded(.up))
+        } else if let go = goAt, now < go {
+            let count = Int(go.timeIntervalSince(now).rounded(.up))
+            Text(count > 0 ? "\(count)" : "GO!")
+                .font(Theme.display(count > 0 ? 64 : 40))
+                .foregroundStyle(Theme.magenta)
+                .contentTransition(.numericText())
+        } else if let end = playEndsAt {
+            let remaining = Int(max(0, end.timeIntervalSince(now)).rounded(.up))
             Text("Tilt to pour · \(remaining)s")
                 .font(Theme.display(22))
+        } else {
+            Text("Get ready…")
+                .font(Theme.display(24))
         }
     }
 
@@ -84,10 +110,11 @@ struct PourTurnView: View {
             let liquidH = glassH * (fill / 100)
             let targetY = 10 + glassH * (1 - Double(turn.targetPercent) / 100)
             ZStack(alignment: .top) {
-                // Pouring jug that tilts with the phone.
+                // Pouring jug that tilts with the phone (relative to the
+                // resting pose captured at GO).
                 Text("🫗")
                     .font(.system(size: 40))
-                    .rotationEffect(.degrees(min(max(motion.pitchDegrees, 0), 60) * (submitted ? 0 : 1)))
+                    .rotationEffect(.degrees(submitted ? 0 : min(max(referencePitch - motion.pitchDegrees, 0), 60)))
                     .position(x: x, y: 6)
 
                 // Glass outline.
@@ -138,7 +165,12 @@ struct PourTurnView: View {
     // MARK: - Pour loop
 
     private func pourLoop() async {
-        while Date() < turn.startAt && !Task.isCancelled { try? await Task.sleep(for: .seconds(0.02)) }
+        let go = goAt ?? Date()
+        while Date() < go && !Task.isCancelled { try? await Task.sleep(for: .seconds(0.02)) }
+        // Capture the resting pose so pouring is a forward tilt from here,
+        // whatever way the phone is being held.
+        referencePitch = motion.pitchDegrees
+        let end = playEndsAt ?? go.addingTimeInterval(GameTiming.pourSeconds)
         var last = Date()
         let slow = session.myAssist == .little || session.myAssist == .big
         let rateScale = slow ? 0.6 : 1.0
@@ -147,12 +179,14 @@ struct PourTurnView: View {
             let now = Date()
             let dt = now.timeIntervalSince(last)
             last = now
-            if now >= turn.deadline {
+            if now >= end {
                 submit()
                 break
             }
-            let pitch = motion.pitchDegrees
-            let effective = min(max(pitch - 12, 0), 48)
+            // Tip the top edge forward from the resting pose to pour; level
+            // back off to stop. (Flip the sign if a tester finds it inverted.)
+            let tilt = referencePitch - motion.pitchDegrees
+            let effective = min(max(tilt - 6, 0), 48)
             var next = fill + effective * 0.8 * rateScale * dt
             if session.myAssist == .cheating {
                 // Top level: it simply won't overflow past the line.

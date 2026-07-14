@@ -253,19 +253,20 @@ struct MazeTurnView: View {
     }
 
     private func step(dt: Double) {
-        let control = gentle ? 0.7 : 1.0
-        let accel = 9.0 * control
-        let ax = min(max(motion.rollDegrees / 40, -1), 1) * accel
-        let ay = min(max(motion.pitchDegrees / 40, -1), 1) * accel
+        let control = gentle ? 0.72 : 1.0
+        let accel = 14.0 * control
+        let ax = min(max(motion.rollDegrees / 32, -1), 1) * accel
+        let ay = min(max(motion.pitchDegrees / 32, -1), 1) * accel
         velX += ax * dt
         velY += ay * dt
-        // Damping for control.
-        let damp = pow(0.0009, dt)
+        // Lighter damping so the ball keeps its roll (still enough to stay
+        // controllable).
+        let damp = pow(0.03, dt)
         velX *= damp
         velY *= damp
         // Speed clamp.
         let speed = (velX * velX + velY * velY).squareRoot()
-        let maxSpeed = 7.0
+        let maxSpeed = gentle ? 9.0 : 12.0
         if speed > maxSpeed {
             velX *= maxSpeed / speed
             velY *= maxSpeed / speed

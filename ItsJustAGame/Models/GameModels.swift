@@ -380,6 +380,11 @@ enum GameTiming {
     static let clashMaxSeconds: Double = 20
     static let clashRevealSeconds: Double = 6
 
+    // Tilt games (Spirit Level, Pour It) share a device-local "get ready"
+    // countdown before play begins — timed on each phone, not the host, so
+    // a late-arriving turn still gives everyone the full run-up.
+    static let tiltCountdownSeconds: Double = 5
+
     // Spirit Level
     static let levelHoldSeconds: Double = 9
     static let levelRevealSeconds: Double = 7
