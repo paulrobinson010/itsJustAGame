@@ -85,6 +85,12 @@ enum GamePhase: Hashable {
     // Size It Up
     case sizeTurn(SizeTurn)
     case sizeReveal(SizeReveal)
+    // Spot Recall
+    case spotTurn(SpotTurn)
+    case spotReveal(SpotReveal)
+    // Odd One Out
+    case oddTurn(OddTurn)
+    case oddReveal(OddReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -121,6 +127,8 @@ enum GamePhase: Hashable {
         case .safeTurn(let t): return t.startAt
         case .beatTurn(let t): return t.startAt
         case .sizeTurn(let t): return t.startAt
+        case .spotTurn(let t): return t.startAt
+        case .oddTurn(let t): return t.startAt
         default: return nil
         }
     }
@@ -717,6 +725,36 @@ final class GameSession {
         submittedAnswerIDs.contains(RecordName.sizeDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
     }
 
+    // MARK: - Spot Recall input
+
+    func submitSpot(errorPerMille: Int, for turn: SpotTurn) {
+        let id = RecordName.spotGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.spotGuess(round: turn.round, turn: turn.turn, slot: mySlot, errorPerMille: errorPerMille), id: id)
+        }
+    }
+
+    func hasSubmittedSpot(for turn: SpotTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.spotGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Odd One Out input
+
+    func submitOdd(timeMs: Int, for turn: OddTurn) {
+        let id = RecordName.oddTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.oddTap(round: turn.round, turn: turn.turn, slot: mySlot, timeMs: timeMs), id: id)
+        }
+    }
+
+    func hasSubmittedOdd(for turn: OddTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.oddTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -958,6 +996,18 @@ final class GameSession {
         case .sizeReveal(let reveal):
             points = reveal.points
             phase = .sizeReveal(reveal)
+        case .spotTurn(let turn):
+            points = turn.points
+            phase = .spotTurn(turn)
+        case .spotReveal(let reveal):
+            points = reveal.points
+            phase = .spotReveal(reveal)
+        case .oddTurn(let turn):
+            points = turn.points
+            phase = .oddTurn(turn)
+        case .oddReveal(let reveal):
+            points = reveal.points
+            phase = .oddReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

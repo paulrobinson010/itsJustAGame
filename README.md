@@ -315,6 +315,26 @@ locally, so latency never matters. First to 3 wins the round. Simplify
 leaves a faint trace of the target up while you draw — barely-there
 (level 1), clearer (level 2), or a near-solid outline to trace (level 3).
 
+### Spot Recall
+
+A handful of dots flash on a square canvas — the same layout on every
+device, seeded — then vanish. Tap where each one was; the device scores
+your **average distance** from the real dots (as a fraction of the canvas)
+and submits just that number, so closest wins. Measured locally, latency
+never matters. First to 3 wins the round. Simplify leaves a faint ghost of
+the real dots up while you tap (fainter to clearer across the levels).
+
+### Odd One Out
+
+A grid of shapes, all the same colour bar one — and the odd one gets
+closer in shade every turn. The grid (which cell is odd, the colours, the
+shrinking gap) is rebuilt identically everywhere from the seed. Tap the
+odd one fast; a wrong tap adds a time penalty. Your find is **timed
+locally** from when the grid appears, so latency never matters — fastest
+wins, first to 3 takes the round. Simplify widens the colour gap on your
+phone (invisible to everyone else), then pulses the odd cell (level 2) and
+finally outlines it (level 3).
+
 ### Sort Circuit
 
 Nine numbered tiles scattered identically on every device (seeded
@@ -510,6 +530,8 @@ Every game implements all three levels:
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
+| Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
+| Odd One Out | wider colour gap | + the odd cell pulses | + it's outlined |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
@@ -560,7 +582,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all twenty-six games
+button. It steps through every screen — lobby, wheel, all twenty-eight games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

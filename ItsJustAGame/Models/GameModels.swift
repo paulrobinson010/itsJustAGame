@@ -94,6 +94,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case crackTheSafe
     case feelTheBeat
     case sizeItUp
+    case spotRecall
+    case oddOneOut
 
     var displayName: String {
         switch self {
@@ -123,6 +125,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .crackTheSafe: return "Crack the Safe"
         case .feelTheBeat: return "Feel the Beat"
         case .sizeItUp: return "Size It Up"
+        case .spotRecall: return "Spot Recall"
+        case .oddOneOut: return "Odd One Out"
         }
     }
 
@@ -155,6 +159,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .crackTheSafe: return 2
         case .feelTheBeat: return 2
         case .sizeItUp: return 2
+        case .spotRecall: return 2
+        case .oddOneOut: return 2
         }
     }
 
@@ -186,6 +192,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .crackTheSafe: return "lock.rotation"
         case .feelTheBeat: return "waveform.path"
         case .sizeItUp: return "square.dashed"
+        case .spotRecall: return "sparkle.magnifyingglass"
+        case .oddOneOut: return "circle.grid.3x3.fill"
         }
     }
 
@@ -243,6 +251,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Feel the rhythm buzz through your phone, then tap it straight back. Closest to the beat wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .sizeItUp:
             return "A shape flashes up, then vanishes. Draw it back at the same size from memory. Closest to the original size wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .spotRecall:
+            return "A handful of dots flash on screen, then vanish. Tap where each one was. Closest to the real spots wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .oddOneOut:
+            return "A grid of shapes, one a slightly different colour. Tap the odd one out as fast as you can — it gets harder each turn. Quickest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -263,7 +275,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         switch self {
         case .globetrotter, .colourClash, .spiritLevel, .pourIt, .marbleMaze,
              .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat,
-             .sizeItUp:
+             .sizeItUp, .spotRecall, .oddOneOut:
             return 1
         default:
             return 0
@@ -490,4 +502,16 @@ enum GameTiming {
     /// Target size range, as a fraction of the square canvas's side.
     static let sizeMinFraction: Double = 0.2
     static let sizeMaxFraction: Double = 0.85
+
+    // Spot Recall
+    static let spotDotCount = 4                 // dots to remember
+    static let spotShowSeconds: Double = 2.5    // how long they flash
+    static let spotRecallSeconds: Double = 12   // time to place your taps
+    static let spotRevealSeconds: Double = 5
+
+    // Odd One Out
+    static let oddGridSize = 5                  // 5×5 grid of shapes
+    static let oddMaxSeconds: Double = 15       // time to find it
+    static let oddWrongPenaltyMs = 2000         // added per wrong tap
+    static let oddRevealSeconds: Double = 5
 }

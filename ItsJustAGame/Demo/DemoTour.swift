@@ -562,6 +562,46 @@ enum Demo {
             ))
         },
 
+        // Spot Recall — memorise then reveal
+        Step(points: [1: 1, 4: 1], duration: 2.6) {
+            .spotTurn(SpotTurn(
+                round: 2, turn: 2, points: [1: 1, 4: 1],
+                startAt: now(-1), seed: 42, dotCount: 4, showSeconds: 2.5, recallSeconds: 12
+            ))
+        },
+        Step(points: [1: 1, 4: 1]) {
+            .spotReveal(SpotReveal(
+                round: 2, turn: 2,
+                results: [
+                    SpotResult(slot: 1, errorPerMille: 60),
+                    SpotResult(slot: 2, errorPerMille: 180),
+                    SpotResult(slot: 3, errorPerMille: 110),
+                    SpotResult(slot: 4, errorPerMille: nil),
+                ],
+                winners: [1], points: [1: 2, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Odd One Out — the grid, then the reveal
+        Step(points: [2: 1, 3: 1], duration: 2.6) {
+            .oddTurn(OddTurn(
+                round: 2, turn: 2, points: [2: 1, 3: 1],
+                startAt: now(-1), seed: 7, gridSize: 5, maxSeconds: 15
+            ))
+        },
+        Step(points: [2: 1, 3: 1]) {
+            .oddReveal(OddReveal(
+                round: 2, turn: 2,
+                results: [
+                    OddResult(slot: 1, timeMs: 3400),
+                    OddResult(slot: 2, timeMs: 1900),
+                    OddResult(slot: 3, timeMs: 2600),
+                    OddResult(slot: 4, timeMs: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
         // Feel the Beat — reveal
         Step(points: [1: 1, 2: 1]) {
             .beatReveal(BeatReveal(
@@ -735,6 +775,14 @@ struct DemoTourView: View {
             SizeTurnView(session: session, turn: turn)
         case .sizeReveal(let reveal):
             SizeRevealView(session: session, reveal: reveal)
+        case .spotTurn(let turn):
+            SpotTurnView(session: session, turn: turn)
+        case .spotReveal(let reveal):
+            SpotRevealView(session: session, reveal: reveal)
+        case .oddTurn(let turn):
+            OddTurnView(session: session, turn: turn)
+        case .oddReveal(let reveal):
+            OddRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

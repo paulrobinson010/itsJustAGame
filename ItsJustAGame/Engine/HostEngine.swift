@@ -254,6 +254,10 @@ final class HostEngine {
                 winners = await runBeatRound(round: round)
             case .sizeItUp:
                 winners = await runSizeRound(round: round)
+            case .spotRecall:
+                winners = await runSpotRound(round: round)
+            case .oddOneOut:
+                winners = await runOddRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -2499,6 +2503,101 @@ final class HostEngine {
             )
             await send(.sizeReveal(reveal))
             try? await Task.sleep(for: .seconds(GameTiming.sizeRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Spot Recall
+
+    /// Dots flash from a shared seed, then vanish; everyone taps where they
+    /// were. Each device scores its own tap error, so closest wins —
+    /// latency-free.
+    private func runSpotRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = SpotTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                dotCount: GameTiming.spotDotCount,
+                showSeconds: GameTiming.spotShowSeconds,
+                recallSeconds: GameTiming.spotRecallSeconds
+            )
+            await send(.spotTurn(turnMessage))
+            let errors = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.spotGuess(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .spotGuess(_, _, let slot, let e) = $0 { return (slot, max(0, e)) }; return nil }
+            )
+            var results: [SpotResult] = []
+            for slot in players { results.append(SpotResult(slot: slot, errorPerMille: errors[slot])) }
+            let best = results.compactMap(\.errorPerMille).min()
+            let winners = best.map { top in results.filter { $0.errorPerMille == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = SpotReveal(
+                round: round, turn: turn, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.spotRevealSeconds + 2) : nil
+            )
+            await send(.spotReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.spotRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Odd One Out
+
+    /// A grid with one off-colour cell, built identically from a shared seed
+    /// (the colour gap shrinks as turns climb). Each device times its own
+    /// find, so fastest wins — latency-free.
+    private func runOddRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = OddTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                gridSize: GameTiming.oddGridSize,
+                maxSeconds: GameTiming.oddMaxSeconds
+            )
+            await send(.oddTurn(turnMessage))
+            let times = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.oddTap(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .oddTap(_, _, let slot, let ms) = $0 { return (slot, max(0, ms)) }; return nil }
+            )
+            var results: [OddResult] = []
+            for slot in players { results.append(OddResult(slot: slot, timeMs: times[slot])) }
+            let best = results.compactMap(\.timeMs).min()
+            let winners = best.map { top in results.filter { $0.timeMs == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = OddReveal(
+                round: round, turn: turn, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.oddRevealSeconds + 2) : nil
+            )
+            await send(.oddReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.oddRevealSeconds))
             if !roundWinners.isEmpty { return roundWinners }
             if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
             turn += 1

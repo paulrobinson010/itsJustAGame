@@ -186,6 +186,10 @@ struct GameScreen: View {
         case .beatReveal(let reveal): return "beatreveal\(reveal.round)-\(reveal.turn)"
         case .sizeTurn(let turn): return "size\(turn.round)-\(turn.turn)"
         case .sizeReveal(let reveal): return "sizereveal\(reveal.round)-\(reveal.turn)"
+        case .spotTurn(let turn): return "spot\(turn.round)-\(turn.turn)"
+        case .spotReveal(let reveal): return "spotreveal\(reveal.round)-\(reveal.turn)"
+        case .oddTurn(let turn): return "odd\(turn.round)-\(turn.turn)"
+        case .oddReveal(let reveal): return "oddreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -307,6 +311,14 @@ struct GameScreen: View {
             SizeTurnView(session: session, turn: turn)
         case .sizeReveal(let reveal):
             SizeRevealView(session: session, reveal: reveal)
+        case .spotTurn(let turn):
+            SpotTurnView(session: session, turn: turn)
+        case .spotReveal(let reveal):
+            SpotRevealView(session: session, reveal: reveal)
+        case .oddTurn(let turn):
+            OddTurnView(session: session, turn: turn)
+        case .oddReveal(let reveal):
+            OddRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -405,6 +417,10 @@ struct GameScreen: View {
         case .beatReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .sizeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .spotReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .oddReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)

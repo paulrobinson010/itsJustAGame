@@ -92,6 +92,12 @@ enum HostMessage: Codable {
     // Size It Up
     case sizeTurn(SizeTurn)
     case sizeReveal(SizeReveal)
+    // Spot Recall
+    case spotTurn(SpotTurn)
+    case spotReveal(SpotReveal)
+    // Odd One Out
+    case oddTurn(OddTurn)
+    case oddReveal(OddReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -142,6 +148,8 @@ enum PlayerMessage: Codable {
     case safeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
     case beatError(round: Int, turn: Int, slot: Int, errorMs: Int)
     case sizeDraw(round: Int, turn: Int, slot: Int, sizePerMille: Int)
+    case spotGuess(round: Int, turn: Int, slot: Int, errorPerMille: Int)
+    case oddTap(round: Int, turn: Int, slot: Int, timeMs: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -1085,6 +1093,76 @@ struct SizeReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Spot Recall
+
+struct SpotTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device places the identical dots from this seed.
+    var seed: UInt64
+    var dotCount: Int
+    var showSeconds: Double
+    var recallSeconds: Double
+
+    /// Tapping begins once the dots have flashed and vanished.
+    var recallStart: Date { startAt.addingTimeInterval(showSeconds) }
+    var deadline: Date { recallStart.addingTimeInterval(recallSeconds) }
+}
+
+struct SpotResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Mean distance from the real dots, in thousandths of the canvas side;
+    /// nil = never tapped.
+    var errorPerMille: Int?
+    var id: Int { slot }
+}
+
+struct SpotReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [SpotResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Odd One Out
+
+struct OddTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical grid (odd cell + colour gap) from
+    /// this seed; the gap shrinks as the turn number climbs.
+    var seed: UInt64
+    var gridSize: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct OddResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to find the odd one in ms (plus wrong-tap penalties); nil = never
+    /// found it.
+    var timeMs: Int?
+    var id: Int { slot }
+}
+
+struct OddReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [OddResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -1279,5 +1357,13 @@ enum RecordName {
 
     static func sizeDraw(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-sz\(turn)-siz\(slot)"
+    }
+
+    static func spotGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sp\(turn)-spt\(slot)"
+    }
+
+    static func oddTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-oo\(turn)-odd\(slot)"
     }
 }
