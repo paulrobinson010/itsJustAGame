@@ -64,6 +64,9 @@ enum GamePhase: Hashable {
     // Pour It
     case pourTurn(PourTurn)
     case pourReveal(PourReveal)
+    // Marble Maze
+    case mazeTurn(MazeTurn)
+    case mazeReveal(MazeReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -550,6 +553,26 @@ final class GameSession {
         )
     }
 
+    // MARK: - Marble Maze input
+
+    func submitMaze(elapsedMs: Int, for turn: MazeTurn) {
+        let id = RecordName.mazeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.mazeTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedMaze(for turn: MazeTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.mazeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -739,6 +762,12 @@ final class GameSession {
         case .pourReveal(let reveal):
             points = reveal.points
             phase = .pourReveal(reveal)
+        case .mazeTurn(let turn):
+            points = turn.points
+            phase = .mazeTurn(turn)
+        case .mazeReveal(let reveal):
+            points = reveal.points
+            phase = .mazeReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

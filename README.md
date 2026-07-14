@@ -296,6 +296,20 @@ one-second penalty. Timing runs locally against the shared start
 timestamp, so latency never matters. Fastest penalty-inclusive time
 takes the point; first to 3 wins the round.
 
+### Marble Maze
+
+Tilt to roll a ball through a maze to the exit — fastest escape wins the
+point, first to 3 wins the round. Each turn the host sends a seed and
+every device regenerates the **identical** maze (a perfect maze from a
+recursive-backtracker on a 6×6 grid — `MazeModel`), so it's a fair race
+and never the same maze twice. The ball is simple continuous physics:
+tilt (roll/pitch) accelerates it, damping keeps it controllable, and it's
+pushed out of wall segments by circle-vs-segment collision. Time is
+measured locally from the shared start, latency-immune. Needs a real
+device (no motion in the Simulator). Simplify: gentler, slower ball
+(level 1); the solution path drawn faintly (level 2); the path drawn
+boldly, plus the gentler ball (level 3).
+
 ### Spirit Level
 
 Tilt the phone (left–right roll, read from CoreMotion device attitude) to
@@ -414,6 +428,7 @@ Every game implements all three levels:
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
+| Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
 | Spirit Level | wide tolerance band round the mark | tighter band + bubble glows when close | live "X.X° off" readout |
 | Pour It | slower pour + green band round the line | + live fill % | + can't overflow past the line |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
@@ -456,7 +471,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all nineteen games
+button. It steps through every screen — lobby, wheel, all twenty games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

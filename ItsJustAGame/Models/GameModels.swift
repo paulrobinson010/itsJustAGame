@@ -68,6 +68,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case colourClash
     case spiritLevel
     case pourIt
+    case marbleMaze
 
     var displayName: String {
         switch self {
@@ -90,6 +91,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .colourClash: return "Colour Clash"
         case .spiritLevel: return "Spirit Level"
         case .pourIt: return "Pour It"
+        case .marbleMaze: return "Marble Maze"
         }
     }
 
@@ -115,6 +117,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .colourClash: return 2
         case .spiritLevel: return 2
         case .pourIt: return 2
+        case .marbleMaze: return 2
         }
     }
 
@@ -139,6 +142,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .colourClash: return "paintpalette.fill"
         case .spiritLevel: return "gyroscope"
         case .pourIt: return "drop.fill"
+        case .marbleMaze: return "square.grid.3x3.fill"
         }
     }
 
@@ -182,6 +186,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Tilt your phone to line the bubble up with the mark, then lock it in — no numbers to help you. Closest to the mark wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .pourIt:
             return "Tilt to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .marbleMaze:
+            return "Tilt your phone to roll the ball through the maze to the exit. Fastest to escape wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -351,4 +357,9 @@ enum GameTiming {
     // Pour It
     static let pourSeconds: Double = 12
     static let pourRevealSeconds: Double = 7
+
+    // Marble Maze
+    static let mazeSize = 6
+    static let mazeMaxSeconds: Double = 45
+    static let mazeRevealSeconds: Double = 6
 }

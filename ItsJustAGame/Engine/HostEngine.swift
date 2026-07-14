@@ -222,6 +222,8 @@ final class HostEngine {
                 winners = await runLevelRound(round: round)
             case .pourIt:
                 winners = await runPourRound(round: round)
+            case .marbleMaze:
+                winners = await runMazeRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -2083,6 +2085,85 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return fills
+    }
+
+    // MARK: - Marble Maze
+
+    /// A fresh seeded maze each turn — every device regenerates the same
+    /// one. Everyone rolls their ball to the exit; the fastest escape wins,
+    /// timed locally so latency never matters.
+    private func runMazeRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = MazeTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                size: GameTiming.mazeSize,
+                maxSeconds: GameTiming.mazeMaxSeconds
+            )
+            await send(.mazeTurn(turnMessage))
+            let times = await collectMazeTimes(for: turnMessage, players: players)
+
+            var results: [MazeResult] = []
+            for slot in players {
+                results.append(MazeResult(slot: slot, elapsedMs: times[slot]))
+            }
+            let best = results.compactMap(\.elapsedMs).min()
+            let winners = best.map { fastest in
+                results.filter { $0.elapsedMs == fastest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = MazeReveal(
+                round: round,
+                turn: turn,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.mazeRevealSeconds + 2) : nil
+            )
+            await send(.mazeReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.mazeRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectMazeTimes(for turn: MazeTurn, players: [Int]) async -> [Int: Int] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var times: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { times[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.mazeTime(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .mazeTime(_, _, let slot, let elapsedMs) = message else { continue }
+                    times[slot] = max(0, elapsedMs)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return times
     }
 
     // MARK: - Steady Hand

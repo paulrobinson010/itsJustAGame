@@ -68,6 +68,9 @@ enum HostMessage: Codable {
     // Pour It
     case pourTurn(PourTurn)
     case pourReveal(PourReveal)
+    // Marble Maze
+    case mazeTurn(MazeTurn)
+    case mazeReveal(MazeReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -111,6 +114,7 @@ enum PlayerMessage: Codable {
     case clashTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
     case levelError(round: Int, turn: Int, slot: Int, errorMilliDeg: Int)
     case pourFill(round: Int, turn: Int, slot: Int, fillPercent: Int, overflowed: Bool)
+    case mazeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -809,6 +813,38 @@ struct PourReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Marble Maze
+
+struct MazeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device regenerates the identical maze from this seed.
+    var seed: UInt64
+    var size: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct MazeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to reach the exit; nil = never escaped.
+    var elapsedMs: Int?
+    var id: Int { slot }
+}
+
+struct MazeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [MazeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -975,5 +1011,9 @@ enum RecordName {
 
     static func pourFill(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-po\(turn)-pur\(slot)"
+    }
+
+    static func mazeTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-mz\(turn)-maz\(slot)"
     }
 }

@@ -465,6 +465,26 @@ enum Demo {
             ))
         },
 
+        // Marble Maze — the maze renders even without motion
+        Step(points: [2: 1, 3: 1], duration: 2.6) {
+            .mazeTurn(MazeTurn(
+                round: 2, turn: 2, points: [2: 1, 3: 1],
+                startAt: now(-3), seed: 24_601, size: 6, maxSeconds: 45
+            ))
+        },
+        Step(points: [2: 1, 3: 1]) {
+            .mazeReveal(MazeReveal(
+                round: 2, turn: 2,
+                results: [
+                    MazeResult(slot: 1, elapsedMs: 18_400),
+                    MazeResult(slot: 2, elapsedMs: 12_900),
+                    MazeResult(slot: 3, elapsedMs: 15_700),
+                    MazeResult(slot: 4, elapsedMs: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -596,6 +616,10 @@ struct DemoTourView: View {
             PourTurnView(session: session, turn: turn)
         case .pourReveal(let reveal):
             PourRevealView(session: session, reveal: reveal)
+        case .mazeTurn(let turn):
+            MazeTurnView(session: session, turn: turn)
+        case .mazeReveal(let reveal):
+            MazeRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
