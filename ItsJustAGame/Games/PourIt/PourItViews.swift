@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// One Pour It turn: tilt the phone forward to pour, level off to stop, hit
-/// the target line without spilling. Fill is integrated locally from the
-/// pitch, so latency never matters.
+/// One Pour It turn: tip the phone to either side to pour, level off to
+/// stop, hit the target line without spilling. Fill is integrated locally
+/// from the roll, so latency never matters.
 struct PourTurnView: View {
     let session: GameSession
     let turn: PourTurn
@@ -13,9 +13,10 @@ struct PourTurnView: View {
     /// Device-local "GO" moment: set when the view appears, so the run-up is
     /// timed on this phone rather than the host's clock.
     @State private var goAt: Date?
-    /// The phone's resting pitch captured at GO — pouring is measured
-    /// relative to it, so you can hold the phone however feels natural.
-    @State private var referencePitch: Double = 0
+    /// The phone's resting roll captured at GO — pouring is measured relative
+    /// to it, so you can hold the phone however feels natural and tip either
+    /// way.
+    @State private var referenceRoll: Double = 0
 
     private var motion: MotionService { MotionService.shared }
 
@@ -62,7 +63,7 @@ struct PourTurnView: View {
             // Let device motion warm up, then capture the resting pose so the
             // glass already responds to tilt during the countdown.
             try? await Task.sleep(for: .milliseconds(250))
-            referencePitch = motion.pitchDegrees
+            referenceRoll = motion.rollDegrees
             goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
             await pourLoop()
         }
@@ -114,12 +115,12 @@ struct PourTurnView: View {
             let liquidH = glassH * (fill / 100)
             let targetY = 10 + glassH * (1 - Double(turn.targetPercent) / 100)
             ZStack(alignment: .top) {
-                // A plain glass that tips as you tilt the phone forward from
-                // its resting pose — live from the countdown on, so you can
-                // find the feel before it counts.
+                // A plain glass that tips the same way you roll the phone —
+                // either direction pours — live from the countdown on, so you
+                // can find the feel before it counts.
                 Text("🥛")
                     .font(.system(size: 40))
-                    .rotationEffect(.degrees(submitted ? 0 : -min(max(referencePitch - motion.pitchDegrees, 0), 70)))
+                    .rotationEffect(.degrees(submitted ? 0 : min(max(motion.rollDegrees - referenceRoll, -70), 70)))
                     .position(x: x, y: 6)
 
                 // Glass outline.
@@ -172,9 +173,9 @@ struct PourTurnView: View {
     private func pourLoop() async {
         let go = goAt ?? Date()
         while Date() < go && !Task.isCancelled { try? await Task.sleep(for: .seconds(0.02)) }
-        // Capture the resting pose so pouring is a forward tilt from here,
-        // whatever way the phone is being held.
-        referencePitch = motion.pitchDegrees
+        // Capture the resting pose so pouring is a tilt from here, whatever
+        // way the phone is being held.
+        referenceRoll = motion.rollDegrees
         let end = playEndsAt ?? go.addingTimeInterval(GameTiming.pourSeconds)
         var last = Date()
         let slow = session.myAssist == .little || session.myAssist == .big
@@ -188,9 +189,10 @@ struct PourTurnView: View {
                 submit()
                 break
             }
-            // Tip the top edge forward from the resting pose to pour; level
-            // back off to stop. (Flip the sign if a tester finds it inverted.)
-            let tilt = referencePitch - motion.pitchDegrees
+            // Tip the phone to either side from the resting pose to pour;
+            // level back off to stop. Magnitude drives the flow, so it pours
+            // whichever way you tilt.
+            let tilt = abs(motion.rollDegrees - referenceRoll)
             let effective = min(max(tilt - 6, 0), 48)
             var next = fill + effective * 0.8 * rateScale * dt
             if session.myAssist == .cheating {

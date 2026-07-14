@@ -224,7 +224,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .spiritLevel:
             return "Tilt to keep the bubble between the two markers — but they drift faster and faster. The clock runs as long as you stay in. Longest hold wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .pourIt:
-            return "Tilt to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+            return "Tip the phone either way to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .marbleMaze:
             return "Tilt your phone to roll the ball through the maze to the exit. Fastest to escape wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .loudest:

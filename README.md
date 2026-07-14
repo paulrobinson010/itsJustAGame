@@ -335,14 +335,16 @@ widens the gap between the markers, so the zone is easier to stay inside
 
 ### Pour It
 
-Tilt the phone forward (pitch) to pour, level off to stop, and hit a
-target fill line without spilling. Fill is integrated locally from the
-tilt each frame (pour rate ∝ how far past ~12° you tip), so it's
-latency-free; overflowing past the top spills, and a clean pour always
-beats a spill. Closest to the line takes the point; first to 3 wins the
-round. Needs a real device. Simplify: slower pour and a green band round
-the line (level 1), plus a live fill % (level 2), and at the top level it
-simply won't overflow past the line (level 3).
+Tip the phone to either side (roll) to pour, level off to stop, and hit a
+target fill line without spilling. The glass on screen tips the way you
+roll — clockwise or anti-clockwise — and either direction pours. Fill is
+integrated locally from the roll magnitude each frame (pour rate ∝ how far
+past ~6° you tip), so it's latency-free; overflowing past the top spills,
+and a clean pour always beats a spill. Closest to the line takes the
+point; first to 3 wins the round. Needs a real device. Simplify: slower
+pour and a green band round the line (level 1), plus a live fill %
+(level 2), and at the top level it simply won't overflow past the line
+(level 3).
 
 ### Loudest
 

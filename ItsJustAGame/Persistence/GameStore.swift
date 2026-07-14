@@ -27,6 +27,21 @@ final class GameStore {
         save()
     }
 
+    /// Rematch invite IDs the user has dismissed, so a discovered rematch
+    /// they deleted isn't re-added the next time the app looks for invites.
+    private let dismissedKey = "dismissedRematchIDs"
+    var dismissedRematchIDs: Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: dismissedKey) ?? [])
+    }
+
+    /// Delete a waiting rematch request and remember it, so it stays gone.
+    func dismissRematch(_ game: SavedGame) {
+        var dismissed = dismissedRematchIDs
+        dismissed.insert(game.gameID)
+        UserDefaults.standard.set(Array(dismissed), forKey: dismissedKey)
+        remove(game)
+    }
+
     func markWelcomed(_ game: SavedGame) {
         guard let index = games.firstIndex(where: { $0.gameID == game.gameID }) else { return }
         games[index].needsWelcome = false

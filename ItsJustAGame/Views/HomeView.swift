@@ -85,6 +85,13 @@ struct HomeView: View {
                                     }
                                 }
                             }
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    model.store.dismissRematch(game)
+                                } label: {
+                                    Label("Dismiss", systemImage: "trash")
+                                }
+                            }
                         }
                     } header: {
                         Text("Rematch waiting")

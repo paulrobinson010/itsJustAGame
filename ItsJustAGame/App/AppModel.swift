@@ -196,7 +196,8 @@ final class AppModel {
             guard let found = try? await transport.get(ids: [id]),
                   let body = found[id],
                   let invite = try? crypto.open(RematchInvite.self, from: body),
-                  !store.games.contains(where: { $0.gameID == invite.newGameID }) else { continue }
+                  !store.games.contains(where: { $0.gameID == invite.newGameID }),
+                  !store.dismissedRematchIDs.contains(invite.newGameID) else { continue }
             adoptRematch(invite, from: old, open: false)
         }
     }
