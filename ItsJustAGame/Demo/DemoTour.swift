@@ -396,6 +396,27 @@ enum Demo {
             ))
         },
 
+        // Globetrotter
+        Step(points: [2: 1, 4: 1]) {
+            .globeTurn(GlobeTurn(
+                round: 2, turn: 3, landmark: "Taj Mahal", continent: "Asia",
+                points: [2: 1, 4: 1], startAt: now(-3), guessSeconds: 15
+            ))
+        },
+        Step(points: [2: 1, 4: 1]) {
+            .globeReveal(GlobeReveal(
+                round: 2, turn: 3, landmark: "Taj Mahal", country: "India",
+                target: Coordinate(latitude: 27.1751, longitude: 78.0421),
+                outcomes: [
+                    FingerOutcome(slot: 1, coordinate: Coordinate(latitude: 31.0, longitude: 71.0), distanceKm: 940),
+                    FingerOutcome(slot: 2, coordinate: Coordinate(latitude: 26.2, longitude: 80.3), distanceKm: 250),
+                    FingerOutcome(slot: 3, coordinate: Coordinate(latitude: 15.0, longitude: 74.0), distanceKm: 1400),
+                    FingerOutcome(slot: 4, coordinate: Coordinate(latitude: 28.6, longitude: 77.2), distanceKm: 180),
+                ],
+                winners: [4], points: [2: 1, 4: 2], roundWinners: [], nextAt: now(8)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -511,6 +532,10 @@ struct DemoTourView: View {
             FrenzyTurnView(session: session, turn: turn)
         case .frenzyReveal(let reveal):
             FrenzyRevealView(session: session, reveal: reveal)
+        case .globeTurn(let turn):
+            GlobeTurnView(session: session, turn: turn)
+        case .globeReveal(let reveal):
+            GlobeRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

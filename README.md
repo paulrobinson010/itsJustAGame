@@ -202,6 +202,21 @@ the continental map view. The capital's location stays on the host until
 the reveal, which shows the starred capital, everyone's pins, and
 distances in km.
 
+### Globetrotter
+
+Put Your Finger On It's globe-scale sibling, sharing the same map
+machinery (frozen satellite view, closest-pin scoring, dashed-distance
+reveal). Instead of a region's capital, it names a **famous landmark**
+("Where is the Taj Mahal?") over a bare view of the whole planet —
+continents by shape, no labels — and you drop your pin anywhere on Earth
+within 15 seconds. Closest takes the point; first to 3 wins the round.
+The bank is `LandmarkAtlas`: ~175 globally-recognisable landmarks and
+natural wonders (`name · country · continent · coordinate`), spread
+across all six continents so it isn't Euro/US-heavy. Coordinates are
+city-level approximate — invisible at world scale, and every player is
+scored against the same target. The landmark's location stays on the
+host until the reveal (starred, with everyone's pins and distances).
+
 ### Ten Seconds
 
 The clock counts up on screen, then hides at 3 seconds. Keep counting in
@@ -354,6 +369,7 @@ Every game implements all three levels:
 | Repeat After Me | next pad blinks a ring when you stall | ring always on next pad | next pad fully lit |
 | Lightning | dot turns cyan just before the flash | visible 3-2-1 countdown | countdown + your time counts ×0.6 |
 | Put Your Finger On It | big hint circle on the map (off-centre from the capital) | smaller circle | tiny circle |
+| Globetrotter | continent named + big hint circle (off-centre) | smaller circle | tiny circle |
 | Ten Seconds | clock visible ~1.7× longer | ~2.5× longer + silent pulsing beat | clock never hides |
 | Push Your Luck | bust odds shown | plain-English bank/ride advice | host pre-spins — you're told if the next spin busts |
 | Gold Rush | top-3 squares outlined | + others' picks appear live on your board | + taken squares lock, so you can't clash |
@@ -400,7 +416,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all fifteen games
+button. It steps through every screen — lobby, wheel, all sixteen games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

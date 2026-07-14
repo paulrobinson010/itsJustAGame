@@ -52,6 +52,9 @@ enum GamePhase: Hashable {
     // Tap Frenzy
     case frenzyTurn(FrenzyTurn)
     case frenzyReveal(FrenzyReveal)
+    // Globetrotter
+    case globeTurn(GlobeTurn)
+    case globeReveal(GlobeReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -458,6 +461,26 @@ final class GameSession {
         )
     }
 
+    // MARK: - Globetrotter input
+
+    func submitGlobe(coordinate: Coordinate, for turn: GlobeTurn) {
+        let id = RecordName.globeGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.globeGuess(round: turn.round, turn: turn.turn, slot: mySlot, coordinate: coordinate),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedGlobe(for turn: GlobeTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.globeGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -623,6 +646,12 @@ final class GameSession {
         case .frenzyReveal(let reveal):
             points = reveal.points
             phase = .frenzyReveal(reveal)
+        case .globeTurn(let turn):
+            points = turn.points
+            phase = .globeTurn(turn)
+        case .globeReveal(let reveal):
+            points = reveal.points
+            phase = .globeReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

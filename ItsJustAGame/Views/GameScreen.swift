@@ -151,6 +151,8 @@ struct GameScreen: View {
         case .showdownReveal(let reveal): return "showdownreveal\(reveal.round)-\(reveal.turn)"
         case .frenzyTurn(let turn): return "frenzy\(turn.round)-\(turn.turn)"
         case .frenzyReveal(let reveal): return "frenzyreveal\(reveal.round)-\(reveal.turn)"
+        case .globeTurn(let turn): return "globe\(turn.round)-\(turn.turn)"
+        case .globeReveal(let reveal): return "globereveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -228,6 +230,10 @@ struct GameScreen: View {
             FrenzyTurnView(session: session, turn: turn)
         case .frenzyReveal(let reveal):
             FrenzyRevealView(session: session, reveal: reveal)
+        case .globeTurn(let turn):
+            GlobeTurnView(session: session, turn: turn)
+        case .globeReveal(let reveal):
+            GlobeRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -304,6 +310,8 @@ struct GameScreen: View {
                 SoundPlayer.shared.play(.tick)
             }
         case .frenzyReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .globeReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)

@@ -214,6 +214,8 @@ final class HostEngine {
                 winners = await runShowdownRound(round: round)
             case .tapFrenzy:
                 winners = await runFrenzyRound(round: round)
+            case .globetrotter:
+                winners = await runGlobeRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -1081,6 +1083,116 @@ final class HostEngine {
                 for body in found.values {
                     guard let message = try? crypto.open(PlayerMessage.self, from: body),
                           case .fingerGuess(_, _, let slot, let coordinate) = message else { continue }
+                    guesses[slot] = coordinate
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return guesses
+    }
+
+    // MARK: - Globetrotter
+
+    /// Same closest-pin machinery as Put Your Finger On It, but the map is
+    /// the whole world and the target is a famous landmark rather than a
+    /// region's capital.
+    private func runGlobeRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var usedNames: Set<String> = []
+        var turn = 1
+        while !Task.isCancelled {
+            let fresh = LandmarkAtlas.all.filter { !usedNames.contains($0.name) }
+            guard let landmark = (fresh.randomElement() ?? LandmarkAtlas.all.randomElement()) else {
+                return [players.first ?? 1]
+            }
+            usedNames.insert(landmark.name)
+            var assistHints: [Int: FingerHint] = [:]
+            for slot in players {
+                guard let level = assistLevel(slot) else { continue }
+                let radiusKm: Double
+                switch level {
+                case .little: radiusKm = 1400
+                case .big: radiusKm = 650
+                case .cheating: radiusKm = 220
+                }
+                // Off-centre so the middle of the glow isn't the answer.
+                let center = DirectionMath.destination(
+                    from: landmark.coordinate,
+                    bearing: Double.random(in: 0..<360),
+                    distanceMeters: Double.random(in: 0...(radiusKm * 550))
+                )
+                assistHints[slot] = FingerHint(center: center, radiusKm: radiusKm)
+            }
+            let turnMessage = GlobeTurn(
+                round: round,
+                turn: turn,
+                landmark: landmark.name,
+                continent: landmark.continent,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                guessSeconds: GameTiming.globeGuessSeconds,
+                assistHints: assistHints.isEmpty ? nil : assistHints
+            )
+            await send(.globeTurn(turnMessage))
+            let guesses = await collectGlobeGuesses(for: turnMessage, players: players)
+
+            var outcomes: [FingerOutcome] = []
+            for slot in players {
+                let coordinate = guesses[slot]
+                let distanceKm = coordinate.map {
+                    DirectionMath.distanceMeters(from: $0, to: landmark.coordinate) / 1000
+                }
+                outcomes.append(FingerOutcome(slot: slot, coordinate: coordinate, distanceKm: distanceKm))
+            }
+            let best = outcomes.compactMap(\.distanceKm).min()
+            let winners = best.map { closest in
+                outcomes.filter { $0.distanceKm == closest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = GlobeReveal(
+                round: round,
+                turn: turn,
+                landmark: landmark.name,
+                country: landmark.country,
+                target: landmark.coordinate,
+                outcomes: outcomes,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.globeRevealSeconds + 2) : nil
+            )
+            await send(.globeReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.globeRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectGlobeGuesses(for turn: GlobeTurn, players: [Int]) async -> [Int: Coordinate] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var guesses: [Int: Coordinate] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { guesses[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.globeGuess(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .globeGuess(_, _, let slot, let coordinate) = message else { continue }
                     guesses[slot] = coordinate
                 }
             }

@@ -56,6 +56,9 @@ enum HostMessage: Codable {
     // Tap Frenzy
     case frenzyTurn(FrenzyTurn)
     case frenzyReveal(FrenzyReveal)
+    // Globetrotter
+    case globeTurn(GlobeTurn)
+    case globeReveal(GlobeReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -95,6 +98,7 @@ enum PlayerMessage: Codable {
     case steadyTime(round: Int, turn: Int, slot: Int, survivedMs: Int)
     case showdownThrow(round: Int, turn: Int, slot: Int, throwing: RPSThrow)
     case frenzyTaps(round: Int, turn: Int, slot: Int, taps: Int)
+    case globeGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -691,6 +695,42 @@ struct ShowdownReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Globetrotter
+
+/// Reuses FingerHint (the off-centre hint circle) and FingerOutcome (a
+/// player's pin + distance) — the map machinery is shared with Put Your
+/// Finger On It; only the question differs (a world landmark, not a
+/// region's capital).
+struct GlobeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    /// The landmark being asked about ("Where is the Taj Mahal?"). Its
+    /// coordinate stays on the host until the reveal.
+    var landmark: String
+    var continent: String
+    var points: [Int: Int]
+    var startAt: Date
+    var guessSeconds: Double
+    /// Simplify: a circle the landmark sits inside (off-centre so it
+    /// doesn't pinpoint it), keyed by the assisted player it's for.
+    var assistHints: [Int: FingerHint]?
+
+    var deadline: Date { startAt.addingTimeInterval(guessSeconds) }
+}
+
+struct GlobeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var landmark: String
+    var country: String
+    var target: Coordinate
+    var outcomes: [FingerOutcome]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Tap Frenzy
 
 struct FrenzyTurn: Codable, Hashable {
@@ -804,5 +844,9 @@ enum RecordName {
 
     static func frenzyTaps(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-tf\(turn)-frz\(slot)"
+    }
+
+    static func globeGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-gt\(turn)-glb\(slot)"
     }
 }

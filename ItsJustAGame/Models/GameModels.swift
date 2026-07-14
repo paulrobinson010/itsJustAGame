@@ -64,6 +64,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case steadyHand
     case showdown
     case tapFrenzy
+    case globetrotter
 
     var displayName: String {
         switch self {
@@ -82,6 +83,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .steadyHand: return "Steady Hand"
         case .showdown: return "Showdown"
         case .tapFrenzy: return "Tap Frenzy"
+        case .globetrotter: return "Globetrotter"
         }
     }
 
@@ -103,6 +105,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .steadyHand: return 2
         case .showdown: return 2
         case .tapFrenzy: return 2
+        case .globetrotter: return 2
         }
     }
 
@@ -123,6 +126,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .steadyHand: return "hand.raised.fill"
         case .showdown: return "scissors"
         case .tapFrenzy: return "hand.tap.fill"
+        case .globetrotter: return "globe.europe.africa.fill"
         }
     }
 
@@ -158,6 +162,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Rock, paper, scissors — against the whole table at once. You score a win for every player you beat. First to \(GameTiming.showdownTarget) wins takes the round."
         case .tapFrenzy:
             return "\(Int(GameTiming.frenzyTapSeconds)) seconds. Tap as many times as you can. That's it. Most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .globetrotter:
+            return "A famous landmark, a world map, \(Int(GameTiming.globeGuessSeconds)) seconds. Drop your pin where on Earth you think it is — closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -309,4 +315,8 @@ enum GameTiming {
     static let frenzyRevealSeconds: Double = 6
     /// The biggest extra window Simplify can add, so the host waits for it.
     static let frenzyMaxAssistExtraSeconds: Double = 5
+
+    // Globetrotter
+    static let globeGuessSeconds: Double = 15
+    static let globeRevealSeconds: Double = 9
 }
