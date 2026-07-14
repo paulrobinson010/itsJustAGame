@@ -81,8 +81,8 @@ enum Demo {
     static let steps: [Step] = [
         // Core flow
         Step { .lobby(joined: [1, 2, 3, 4]) },
-        Step(points: [:]) { .wheel(round: 2, chooser: 3, spinSeconds: 5) },
-        Step { .wheel(round: 2, chooser: 1, spinSeconds: 5) },
+        Step(points: [:]) { .wheel(round: 2, chooser: 3, spinSeconds: 5, maxGameVersion: AppProtocol.current) },
+        Step { .wheel(round: 2, chooser: 1, spinSeconds: 5, maxGameVersion: AppProtocol.current) },
         Step { .roundIntro(round: 2, game: .senseOfDirection) },
 
         // Sense of Direction
@@ -604,8 +604,8 @@ struct DemoTourView: View {
         switch session.phase {
         case .lobby(let joined):
             LobbyView(session: session, engine: engine, joined: joined)
-        case .wheel(let round, let chooser, let spinSeconds):
-            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds)
+        case .wheel(let round, let chooser, let spinSeconds, let maxGameVersion):
+            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: maxGameVersion)
         case .roundIntro(let round, let game):
             RoundIntroView(round: round, game: game)
         case .turn(let turnStart):

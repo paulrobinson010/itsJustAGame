@@ -28,7 +28,16 @@ final class HostEngine {
     private var lobbyTask: Task<Void, Never>?
     private var gameTask: Task<Void, Never>?
     private var playerCoordinates: [Int: Coordinate] = [:]
+    /// slot → the wire version each joiner reported. The host (slot 1) runs
+    /// the current version; joiners without a reported version are 1.0 (0).
+    private var playerVersions: [Int: Int] = [1: AppProtocol.current]
     private var lastChooser: Int?
+
+    /// The highest wire version every joined player can handle — games above
+    /// it are kept out of the menu so nobody gets a message they can't read.
+    private var groupMaxVersion: Int {
+        joined.map { playerVersions[$0] ?? 0 }.min() ?? AppProtocol.current
+    }
 
     init(
         config: GameConfig,
@@ -149,11 +158,12 @@ final class HostEngine {
         var changed = false
         for body in found.values {
             guard let message = try? crypto.open(PlayerMessage.self, from: body),
-                  case .join(let slot, _, let coordinate) = message else { continue }
+                  case .join(let slot, _, let coordinate, let version) = message else { continue }
             if !joined.contains(slot) {
                 joined.insert(slot)
                 changed = true
             }
+            playerVersions[slot] = version ?? 0
             if let coordinate {
                 playerCoordinates[slot] = coordinate
             }
@@ -177,7 +187,7 @@ final class HostEngine {
                 let chooser = pickChooser()
                 lastChooser = chooser
                 let spinSeconds = Double.random(in: 3...10)
-                await send(.wheel(round: round, chooser: chooser, spinSeconds: spinSeconds))
+                await send(.wheel(round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: groupMaxVersion))
                 game = await waitForChoice(round: round, chooser: chooser, spinSeconds: spinSeconds)
             }
             await send(.roundStart(round: round, game: game))
@@ -285,7 +295,8 @@ final class HostEngine {
             gameID: UUID().uuidString.lowercased(),
             roundsToWin: config.roundsToWin,
             players: players,
-            createdAt: Date()
+            createdAt: Date(),
+            protocolVersion: AppProtocol.current
         )
         let invite = RematchInvite(
             newGameID: newConfig.gameID,
@@ -336,16 +347,17 @@ final class HostEngine {
                let body = found[id],
                let message = try? crypto.open(PlayerMessage.self, from: body),
                case .choice(_, _, let game) = message {
-                // The host is authoritative: a game without enough players
-                // can't be chosen, whatever the chooser's device claimed.
-                if joined.count >= game.minPlayers {
+                // The host is authoritative: a game without enough players —
+                // or one an older player in the game can't decode — can't be
+                // chosen, whatever the chooser's device claimed.
+                if joined.count >= game.minPlayers, game.minProtocolVersion <= groupMaxVersion {
                     return game
                 }
                 break
             }
             try? await Task.sleep(for: .seconds(0.75))
         }
-        return MiniGameType.available(for: joined.count).randomElement() ?? .senseOfDirection
+        return MiniGameType.available(for: joined.count, maxVersion: groupMaxVersion).randomElement() ?? .senseOfDirection
     }
 
     private func runDirectionRound(round: Int) async -> Int {

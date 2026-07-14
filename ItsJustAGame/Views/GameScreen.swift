@@ -118,7 +118,7 @@ struct GameScreen: View {
         guard !showWelcome else { return "welcome" }
         switch session.phase {
         case .lobby: return "lobby"
-        case .wheel(let round, _, _): return "wheel\(round)"
+        case .wheel(let round, _, _, _): return "wheel\(round)"
         case .roundIntro(let round, _): return "intro\(round)"
         case .turn(let turnStart): return "turn\(turnStart.round)-\(turnStart.turn)"
         case .reveal(let reveal): return "reveal\(reveal.round)-\(reveal.turn)"
@@ -182,8 +182,8 @@ struct GameScreen: View {
         switch session.phase {
         case .lobby(let joined):
             LobbyView(session: session, engine: engine, joined: joined)
-        case .wheel(let round, let chooser, let spinSeconds):
-            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds)
+        case .wheel(let round, let chooser, let spinSeconds, let maxGameVersion):
+            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: maxGameVersion)
         case .roundIntro(let round, let game):
             RoundIntroView(round: round, game: game)
         case .turn(let turnStart):

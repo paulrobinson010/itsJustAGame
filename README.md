@@ -158,6 +158,15 @@ game-level tie-break wheel applies as everywhere else.
   in the development environment.
 - Sync is foreground polling (~1.5–2 s) for v1. Fine for a lobby-and-turns
   party game; push subscriptions can come later.
+- **Version handshake** (`AppProtocol.current`): the host stamps its wire
+  version into `GameConfig`, and each joiner reports its own in the `join`
+  message. The host (authoritative) keeps any game an older player can't
+  decode out of the wheel menu, so a mixed-version table only ever plays
+  games everyone can read. A joiner whose host is on a *newer* version than
+  it understands is told to update. All the version fields are optional, so
+  new and old builds still decode each other's messages — only the game set
+  is gated. Bump `AppProtocol.current` whenever the wire format changes and
+  tag any new/changed game with its `minProtocolVersion`.
 
 ```
 ItsJustAGame/

@@ -33,11 +33,30 @@ struct PlayerInfo: Codable, Hashable, Identifiable {
     var id: Int { slot }
 }
 
+/// The version of the encrypted wire format (message shapes + game set).
+/// Bump `current` whenever a change would stop an older build from
+/// decoding the stream — new games, renamed/added message fields, etc.
+/// A peer whose data omits the version (or is lower) is treated as that
+/// older version; a peer whose version is *higher* than ours is one we may
+/// not fully understand, so we tell the user to update.
+enum AppProtocol {
+    /// v0 = the 1.0 App Store release (before versioning existed).
+    /// v1 = the 1.1 game set (Globetrotter, Colour Clash, the tilt/mic
+    ///      games, Crack the Safe, Feel the Beat).
+    static let current = 1
+}
+
 struct GameConfig: Codable, Hashable {
     var gameID: String
     var roundsToWin: Int
     var players: [PlayerInfo]
     var createdAt: Date
+    /// The host's wire-format version. Optional so pre-1.1 configs (and any
+    /// created by a 1.0 host) decode cleanly as version 0.
+    var protocolVersion: Int?
+
+    /// The host's wire version, with the pre-versioning default.
+    var wireVersion: Int { protocolVersion ?? 0 }
 
     func player(_ slot: Int) -> PlayerInfo? {
         players.first { $0.slot == slot }
@@ -229,6 +248,25 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
 
     static func available(for playerCount: Int) -> [MiniGameType] {
         allCases.filter { playerCount >= $0.minPlayers }
+    }
+
+    /// The lowest wire version that can run this game. The 1.1 games can't
+    /// be decoded by a 1.0 build, so the host keeps them out of the menu
+    /// whenever a 1.0 player is in the game.
+    var minProtocolVersion: Int {
+        switch self {
+        case .globetrotter, .colourClash, .spiritLevel, .pourIt, .marbleMaze,
+             .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat:
+            return 1
+        default:
+            return 0
+        }
+    }
+
+    /// Games playable by a group whose lowest wire version is `version`
+    /// (and that have enough players).
+    static func available(for playerCount: Int, maxVersion: Int) -> [MiniGameType] {
+        available(for: playerCount).filter { $0.minProtocolVersion <= maxVersion }
     }
 
     /// The smallest minimum across all games — below this, no round can be

@@ -4,7 +4,7 @@ import SwiftUI
 
 enum GamePhase: Hashable {
     case lobby(joined: Set<Int>)
-    case wheel(round: Int, chooser: Int, spinSeconds: Double)
+    case wheel(round: Int, chooser: Int, spinSeconds: Double, maxGameVersion: Int?)
     case roundIntro(round: Int, game: MiniGameType)
     // Sense of Direction
     case turn(TurnStart)
@@ -666,7 +666,10 @@ final class GameSession {
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
-        let message = PlayerMessage.join(slot: saved.mySlot, name: name, coordinate: coordinate)
+        let message = PlayerMessage.join(
+            slot: saved.mySlot, name: name, coordinate: coordinate,
+            protocolVersion: AppProtocol.current
+        )
         await publish(message, id: RecordName.join(saved.gameID, slot: saved.mySlot))
     }
 
@@ -697,7 +700,9 @@ final class GameSession {
             var advanced = false
             while let body = found[RecordName.host(saved.gameID, seq: nextSeq)] {
                 guard let message = try? crypto.open(HostMessage.self, from: body) else {
-                    lastError = "Couldn't decrypt a game message — is the link right?"
+                    // Either the link/key is wrong, or the host is on a newer
+                    // wire format we can't read yet.
+                    lastError = "Couldn't read a game message — check the link is right, and that your app is up to date."
                     return
                 }
                 apply(message)
@@ -729,14 +734,19 @@ final class GameSession {
         switch message {
         case .gameCreated(let config):
             self.config = config
+            // A host on a newer wire format than we understand — warn rather
+            // than fail cryptically later.
+            if config.wireVersion > AppProtocol.current {
+                lastError = "This game needs a newer version of the app — check the App Store for an update."
+            }
         case .lobby(let joined):
             joinedSlots = Set(joined)
             if case .lobby = phase {
                 phase = .lobby(joined: Set(joined))
             }
-        case .wheel(let round, let chooser, let spinSeconds):
+        case .wheel(let round, let chooser, let spinSeconds, let maxGameVersion):
             points = [:]
-            phase = .wheel(round: round, chooser: chooser, spinSeconds: spinSeconds)
+            phase = .wheel(round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: maxGameVersion)
         case .roundStart(let round, let game):
             phase = .roundIntro(round: round, game: game)
         case .turnStart(let turnStart):

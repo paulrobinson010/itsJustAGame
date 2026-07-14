@@ -95,7 +95,8 @@ final class AppModel {
             gameID: UUID().uuidString.lowercased(),
             roundsToWin: roundsToWin,
             players: players,
-            createdAt: Date()
+            createdAt: Date(),
+            protocolVersion: AppProtocol.current
         )
         let crypto = GameCrypto()
         let saved = SavedGame(
@@ -126,7 +127,8 @@ final class AppModel {
                 name: name.isEmpty ? "You" : name,
                 colorIndex: Int.random(in: 0..<PlayerStyle.palette.count)
             )],
-            createdAt: Date()
+            createdAt: Date(),
+            protocolVersion: AppProtocol.current
         )
         let crypto = GameCrypto()
         activeGame = SavedGame(

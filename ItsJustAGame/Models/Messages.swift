@@ -8,7 +8,10 @@ import Foundation
 enum HostMessage: Codable {
     case gameCreated(config: GameConfig)
     case lobby(joined: [Int])
-    case wheel(round: Int, chooser: Int, spinSeconds: Double)
+    /// `maxGameVersion` is the highest wire version every joined player can
+    /// handle — the chooser filters the menu to games at or below it.
+    /// Optional so a 1.0 host's wheel (which lacks it) still decodes.
+    case wheel(round: Int, chooser: Int, spinSeconds: Double, maxGameVersion: Int?)
     case roundStart(round: Int, game: MiniGameType)
     // Sense of Direction
     case turnStart(TurnStart)
@@ -107,7 +110,7 @@ struct RematchInvite: Codable, Hashable {
 /// knows to poll for. Players never talk to each other directly — the host
 /// folds their input into the next host message.
 enum PlayerMessage: Codable {
-    case join(slot: Int, name: String, coordinate: Coordinate?)
+    case join(slot: Int, name: String, coordinate: Coordinate?, protocolVersion: Int?)
     case choice(round: Int, slot: Int, game: MiniGameType)
     case answer(DirectionAnswer)
     case hide(round: Int, slot: Int, cell: Int)
