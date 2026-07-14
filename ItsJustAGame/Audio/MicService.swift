@@ -12,18 +12,24 @@ final class MicService: @unchecked Sendable {
     private let lock = NSLock()
     private var _level = 0.0
     private var _peak = 0.0
+    private var _smooth = 0.0
+    private var _sustained = 0.0
     private var _pitch = 0.0
     private(set) var isRunning = false
 
     /// Instantaneous loudness, 0 (silence) to 1 (very loud).
     var level: Double { lock.lock(); defer { lock.unlock() }; return _level }
-    /// Loudest level seen since the last resetPeak().
+    /// Loudest single reading since the last resetPeak().
     var peak: Double { lock.lock(); defer { lock.unlock() }; return _peak }
+    /// The loudest *sustained* level since resetPeak — a smoothed value that
+    /// only climbs when you hold a loud sound, so a one-off spike can't max
+    /// it. This is what Loudest scores, so hitting the top takes real lungs.
+    var sustainedPeak: Double { lock.lock(); defer { lock.unlock() }; return _sustained }
     /// Estimated fundamental of a hum, in Hz (0 if none detected).
     var pitchHz: Double { lock.lock(); defer { lock.unlock() }; return _pitch }
 
     func resetPeak() {
-        lock.lock(); _peak = 0; lock.unlock()
+        lock.lock(); _peak = 0; _smooth = 0; _sustained = 0; lock.unlock()
     }
 
     /// Requests permission (once) and starts metering. Returns false if the
@@ -93,6 +99,11 @@ final class MicService: @unchecked Sendable {
         lock.lock()
         _level = level
         _peak = max(_peak, level)
+        // Sustained loudness: chase the level with a slow attack (~46 ms per
+        // buffer, so it takes the best part of a second of continuous shouting
+        // to approach full scale). A brief spike barely moves it.
+        _smooth += (level - _smooth) * 0.12
+        _sustained = max(_sustained, _smooth)
         // Clear the pitch when it's too quiet to be a hum — otherwise the
         // last detected note lingers and silence reads as a perfect match.
         _pitch = pitch ?? 0

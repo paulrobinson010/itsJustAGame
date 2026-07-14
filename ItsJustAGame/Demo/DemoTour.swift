@@ -502,12 +502,12 @@ enum Demo {
         // Blow It Out — reveal
         Step(points: [2: 1, 3: 1]) {
             .blowReveal(BlowReveal(
-                round: 2, turn: 2, candleCount: 10,
+                round: 2, turn: 2, candleCount: 20,
                 results: [
-                    BlowResult(slot: 1, candles: 6),
-                    BlowResult(slot: 2, candles: 9),
-                    BlowResult(slot: 3, candles: 4),
-                    BlowResult(slot: 4, candles: 7),
+                    BlowResult(slot: 1, candles: 12),
+                    BlowResult(slot: 2, candles: 17),
+                    BlowResult(slot: 3, candles: 8),
+                    BlowResult(slot: 4, candles: 14),
                 ],
                 winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
             ))

@@ -60,12 +60,21 @@ struct BlowTurnView: View {
 
     private var cake: some View {
         let lit = turn.candles - candlesOut
+        let perRow = 10
+        let rows = (turn.candles + perRow - 1) / perRow
         return VStack(spacing: 4) {
-            HStack(spacing: 8) {
-                ForEach(0..<turn.candles, id: \.self) { i in
-                    Text(i < lit ? "🕯️" : "▪️")
-                        .font(.system(size: 30))
-                        .opacity(i < lit ? 1 : 0.35)
+            VStack(spacing: 6) {
+                ForEach(0..<rows, id: \.self) { row in
+                    HStack(spacing: 6) {
+                        ForEach(0..<perRow, id: \.self) { col in
+                            let i = row * perRow + col
+                            if i < turn.candles {
+                                Text(i < lit ? "🕯️" : "▪️")
+                                    .font(.system(size: 22))
+                                    .opacity(i < lit ? 1 : 0.35)
+                            }
+                        }
+                    }
                 }
             }
             RoundedRectangle(cornerRadius: 12, style: .continuous)

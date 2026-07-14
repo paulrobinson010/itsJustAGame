@@ -58,7 +58,9 @@ struct LoudTurnView: View {
     }
 
     private func meter(live: Bool) -> some View {
-        let value = live ? mic.level : mic.peak
+        // The bar tracks the live level so it feels responsive; the number is
+        // the sustained score, which is what actually counts.
+        let value = live ? mic.level : mic.sustainedPeak
         return VStack(spacing: 12) {
             GeometryReader { proxy in
                 let w = proxy.size.width
@@ -70,11 +72,17 @@ struct LoudTurnView: View {
                 }
             }
             .frame(height: 40)
-            Text("\(Int(mic.peak * 1000))")
+            Text("\(Self.loudScore(mic.sustainedPeak))")
                 .font(Theme.display(40)).monospacedDigit()
                 .foregroundStyle(Theme.cyan)
         }
         .padding(.horizontal, 32)
+    }
+
+    /// 0–1 sustained loudness → 0–1000, with a curve so the top is genuinely
+    /// hard: you have to be very loud, for a good second, to near 1000.
+    static func loudScore(_ raw: Double) -> Int {
+        Int((pow(min(1.0, max(0, raw)), 1.5) * 1000).rounded())
     }
 
     private func autoSubmit() async {
@@ -90,7 +98,7 @@ struct LoudTurnView: View {
         case .cheating: boost = 1.6
         default: boost = 1.0
         }
-        let level = min(1000, Int(mic.peak * 1000 * boost))
+        let level = min(1000, Self.loudScore(mic.sustainedPeak * boost))
         SoundPlayer.shared.play(.lockin)
         session.submitLoud(level: level, for: turn)
     }

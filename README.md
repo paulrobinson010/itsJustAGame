@@ -346,19 +346,22 @@ simply won't overflow past the line (level 3).
 
 ### Loudest
 
-On GO, everyone shouts; the loudest peak wins the point, first to 3 wins
-the round. A shared `MicService` (AVAudioEngine tap) reduces the mic to a
-0–1 loudness on the render thread — **raw audio is never recorded,
-stored, or transmitted**, only a peak number 0–1000. Measured on each
-device, so it's latency-free. Needs mic permission (and a real device).
-Simplify quietly scales your loudness up (×1.15 / ×1.3 / ×1.6) — invisible
-at the reveal.
+On GO, everyone shouts; the loudest wins the point, first to 3 wins the
+round. A shared `MicService` (AVAudioEngine tap) reduces the mic to a 0–1
+loudness on the render thread — **raw audio is never recorded, stored, or
+transmitted**, only a number 0–1000. The score is a *sustained* loudness
+(a slow-attack smoothed peak) put through a curve, so a one-off spike
+won't do it — you have to hold a genuinely loud shout for the best part of
+a second to near 1000. Measured on each device, so it's latency-free.
+Needs mic permission (and a real device). Simplify quietly scales your
+loudness up (×1.15 / ×1.3 / ×1.6) — invisible at the reveal.
 
 ### Blow It Out
 
-Blow at the phone to snuff a row of birthday candles; the device
-integrates sustained loudness (above a threshold, so a shout won't do it)
-into a candle count, most out wins. First to 3 rounds. Same mic-to-number
+Blow at the phone to snuff two rows of birthday candles (20 of them); the
+device integrates sustained loudness (above a threshold, so a shout won't
+do it) into a candle count, most out wins — you can't clear the lot in the
+window, so it's a race for the most. First to 3 rounds. Same mic-to-number
 privacy as Loudest. Simplify makes the candles easier to blow out
 (×1.3 / ×1.6 / ×2).
 

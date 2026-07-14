@@ -11,15 +11,17 @@ struct LevelDrift {
         func pick(_ range: ClosedRange<Double>) -> Double {
             Double.random(in: range, using: &generator)
         }
-        a1 = pick(14...20)   // degrees
-        a2 = pick(6...11)
-        w1 = pick(0.45...0.7)
-        w2 = pick(0.9...1.4)
+        a1 = pick(13...18)   // degrees
+        a2 = pick(6...10)
+        w1 = pick(0.6...0.9)
+        w2 = pick(1.2...1.7)
     }
 
     /// Centre of the level zone, in degrees, at elapsed time `t` seconds.
+    /// The time base grows with t², so the zone barely moves for the first
+    /// couple of seconds and then speeds up — an easy start, a frantic end.
     func center(at t: Double) -> Double {
-        let s = t * (1 + t / 12)   // time accelerates → movement speeds up
+        let s = t * t / 12
         return a1 * sin(w1 * s) + a2 * sin(w2 * s)
     }
 }

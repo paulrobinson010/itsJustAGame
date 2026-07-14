@@ -445,7 +445,7 @@ enum GameTiming {
 
     // Blow It Out
     static let blowSeconds: Double = 6
-    static let blowCandles = 10
+    static let blowCandles = 20
     static let blowRevealSeconds: Double = 6
 
     // Hum It
