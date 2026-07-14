@@ -327,6 +327,11 @@ enum GameTiming {
     static let answerGraceSeconds: Double = 6
     static let pointsToWinRound = 3
     static let maxTurnsPerRound = 10
+    /// A rematch auto-starts on its own, but only after everyone has been in
+    /// the lobby together for this long — so a player who just tapped "join"
+    /// actually sees the lobby and a beat to breathe before it kicks off,
+    /// instead of the game snapping straight past them.
+    static let rematchLobbyDwell: Double = 5
 
     // Hide & Seek
     static let hideSeconds: Double = 15

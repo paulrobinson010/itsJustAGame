@@ -111,12 +111,20 @@ final class HostEngine {
             }
         }
         let lobbyOpenedAt = Date()
+        var lastRosterChangeAt = Date()
         while !Task.isCancelled && !gameRunning {
+            let before = joined
             await pollJoins()
+            if joined != before { lastRosterChangeAt = Date() }
             if autoStart {
                 let everyone = Set(config.players.map(\.slot))
+                // Give everyone a moment in the lobby after the last person
+                // joins, so a fresh joiner isn't dropped straight into play.
+                let settled = Date().timeIntervalSince(lastRosterChangeAt) >= GameTiming.rematchLobbyDwell
                 let waitedLongEnough = Date().timeIntervalSince(lobbyOpenedAt) > 25
-                if joined == everyone || (waitedLongEnough && joined.count >= MiniGameType.smallestMinimum) {
+                let full = joined == everyone
+                let quorum = waitedLongEnough && joined.count >= MiniGameType.smallestMinimum
+                if (full || quorum) && settled {
                     beginGame()
                     break
                 }

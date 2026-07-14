@@ -32,6 +32,14 @@ final class MicService: @unchecked Sendable {
         lock.lock(); _peak = 0; _smooth = 0; _sustained = 0; lock.unlock()
     }
 
+    /// Prompt for mic access up front (on entering a game), so the system
+    /// dialog never interrupts the start of a mic mini game. No-op once the
+    /// user has already answered.
+    func prewarmPermission() {
+        guard AVAudioSession.sharedInstance().recordPermission == .undetermined else { return }
+        Task { _ = await requestPermission() }
+    }
+
     /// Requests permission (once) and starts metering. Returns false if the
     /// mic is unavailable or the user declined.
     ///

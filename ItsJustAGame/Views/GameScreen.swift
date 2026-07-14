@@ -31,6 +31,13 @@ struct GameScreen: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.background)
+            // Ask for mic + location up front, on entering the game, so a
+            // permission dialog never lands mid-round and costs someone a
+            // start. Both are one-time prompts and no-op once answered.
+            .onAppear {
+                LocationService.shared.requestPermission()
+                MicService.shared.prewarmPermission()
+            }
             // No cross-fades while the initial replay drains the stream.
             .animation(session.caughtUp ? .easeInOut(duration: 0.35) : nil, value: contentKey)
             .toolbar {
