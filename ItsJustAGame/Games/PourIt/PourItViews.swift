@@ -110,9 +110,9 @@ struct PourTurnView: View {
             let liquidH = glassH * (fill / 100)
             let targetY = 10 + glassH * (1 - Double(turn.targetPercent) / 100)
             ZStack(alignment: .top) {
-                // Pouring jug that tilts with the phone (relative to the
-                // resting pose captured at GO).
-                Text("🫗")
+                // A plain glass that tips with the phone (relative to the
+                // resting pose captured at GO) — no built-in pouring liquid.
+                Text("🥛")
                     .font(.system(size: 40))
                     .rotationEffect(.degrees(submitted ? 0 : min(max(referencePitch - motion.pitchDegrees, 0), 60)))
                     .position(x: x, y: 6)
