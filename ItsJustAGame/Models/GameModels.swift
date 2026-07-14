@@ -65,6 +65,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case showdown
     case tapFrenzy
     case globetrotter
+    case colourClash
 
     var displayName: String {
         switch self {
@@ -84,6 +85,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .showdown: return "Showdown"
         case .tapFrenzy: return "Tap Frenzy"
         case .globetrotter: return "Globetrotter"
+        case .colourClash: return "Colour Clash"
         }
     }
 
@@ -106,6 +108,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .showdown: return 2
         case .tapFrenzy: return 2
         case .globetrotter: return 2
+        case .colourClash: return 2
         }
     }
 
@@ -127,6 +130,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .showdown: return "scissors"
         case .tapFrenzy: return "hand.tap.fill"
         case .globetrotter: return "globe.europe.africa.fill"
+        case .colourClash: return "paintpalette.fill"
         }
     }
 
@@ -164,6 +168,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "\(Int(GameTiming.frenzyTapSeconds)) seconds. Tap as many times as you can. That's it. Most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .globetrotter:
             return "A famous landmark, a world map, \(Int(GameTiming.globeGuessSeconds)) seconds. Drop your pin where on Earth you think it is — closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .colourClash:
+            return "The name of a colour, printed in a different colour. Tap the colour it's PRINTED in — not the word — as fast as you can through them all. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -319,4 +325,10 @@ enum GameTiming {
     // Globetrotter
     static let globeGuessSeconds: Double = 15
     static let globeRevealSeconds: Double = 9
+
+    // Colour Clash
+    static let clashPromptCount = 8
+    static let clashPenaltyMs = 1000
+    static let clashMaxSeconds: Double = 20
+    static let clashRevealSeconds: Double = 6
 }

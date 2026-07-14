@@ -202,6 +202,20 @@ the continental map view. The capital's location stays on the host until
 the reveal, which shows the starred capital, everyone's pins, and
 distances in km.
 
+### Colour Clash
+
+The Stroop test as a race. A colour name flashes up printed in a
+different colour — "GREEN" in red ink — and you tap the colour it's
+**printed in**, not the word, through a run of eight prompts. The
+sequence is regenerated identically on every device from a seed (like
+Sort Circuit's tile layout); each device validates taps locally and
+reports only its penalty-inclusive time, so the host scores it
+latency-free. Wrong taps flash and add a second. Fastest run takes the
+point; first to 3 wins the round. The fun is watching clever adults
+overthink it while the kids just see the colour. (Inherently a colour-
+vision game — buttons are name-labelled, but the prompt's hue is the
+whole point.)
+
 ### Globetrotter
 
 Put Your Finger On It's globe-scale sibling, sharing the same map
@@ -376,6 +390,7 @@ Every game implements all three levels:
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
+| Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
 | Showdown | what-beats-what reminder | others' throws appear live | + told which throw beats the most right now |
 | Tap Frenzy | your window quietly runs 1.5s longer | 3s longer | 5s longer |
@@ -416,7 +431,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all sixteen games
+button. It steps through every screen — lobby, wheel, all seventeen games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

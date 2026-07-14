@@ -417,6 +417,26 @@ enum Demo {
             ))
         },
 
+        // Colour Clash — mid-run
+        Step(points: [1: 1, 2: 1]) {
+            .clashTurn(ClashTurn(
+                round: 2, turn: 2, points: [1: 1, 2: 1],
+                startAt: now(-4), seed: 5150, promptCount: 8, maxSeconds: 20
+            ))
+        },
+        Step(points: [1: 1, 2: 1]) {
+            .clashReveal(ClashReveal(
+                round: 2, turn: 2,
+                results: [
+                    ClashResult(slot: 1, elapsedMs: 6120, mistakes: 0),
+                    ClashResult(slot: 2, elapsedMs: 5480, mistakes: 1),
+                    ClashResult(slot: 3, elapsedMs: 8300, mistakes: 2),
+                    ClashResult(slot: 4, elapsedMs: 7010, mistakes: 0),
+                ],
+                winners: [2], points: [1: 1, 2: 2], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -536,6 +556,10 @@ struct DemoTourView: View {
             GlobeTurnView(session: session, turn: turn)
         case .globeReveal(let reveal):
             GlobeRevealView(session: session, reveal: reveal)
+        case .clashTurn(let turn):
+            ClashTurnView(session: session, turn: turn)
+        case .clashReveal(let reveal):
+            ClashRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

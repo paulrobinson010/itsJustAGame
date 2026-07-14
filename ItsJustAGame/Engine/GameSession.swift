@@ -55,6 +55,9 @@ enum GamePhase: Hashable {
     // Globetrotter
     case globeTurn(GlobeTurn)
     case globeReveal(GlobeReveal)
+    // Colour Clash
+    case clashTurn(ClashTurn)
+    case clashReveal(ClashReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -481,6 +484,26 @@ final class GameSession {
         )
     }
 
+    // MARK: - Colour Clash input
+
+    func submitClash(elapsedMs: Int, mistakes: Int, for turn: ClashTurn) {
+        let id = RecordName.clashTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.clashTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs, mistakes: mistakes),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedClash(for turn: ClashTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.clashTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -652,6 +675,12 @@ final class GameSession {
         case .globeReveal(let reveal):
             points = reveal.points
             phase = .globeReveal(reveal)
+        case .clashTurn(let turn):
+            points = turn.points
+            phase = .clashTurn(turn)
+        case .clashReveal(let reveal):
+            points = reveal.points
+            phase = .clashReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

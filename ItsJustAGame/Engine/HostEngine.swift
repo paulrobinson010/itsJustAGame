@@ -216,6 +216,8 @@ final class HostEngine {
                 winners = await runFrenzyRound(round: round)
             case .globetrotter:
                 winners = await runGlobeRound(round: round)
+            case .colourClash:
+                winners = await runClashRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -1819,6 +1821,88 @@ final class HostEngine {
                 for body in found.values {
                     guard let message = try? crypto.open(PlayerMessage.self, from: body),
                           case .sortTime(_, _, let slot, let elapsedMs, let mistakes) = message else { continue }
+                    times[slot] = (elapsedMs, mistakes)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return times
+    }
+
+    // MARK: - Colour Clash
+
+    /// Same seeded-sequence, fastest-clean-run scoring as Sort Circuit —
+    /// the host only sees times, never the colours, so it's latency-free.
+    private func runClashRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = ClashTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                promptCount: GameTiming.clashPromptCount,
+                maxSeconds: GameTiming.clashMaxSeconds
+            )
+            await send(.clashTurn(turnMessage))
+            let times = await collectClashTimes(for: turnMessage, players: players)
+
+            var results: [ClashResult] = []
+            for slot in players {
+                if let (elapsedMs, mistakes) = times[slot] {
+                    results.append(ClashResult(slot: slot, elapsedMs: elapsedMs, mistakes: mistakes))
+                } else {
+                    results.append(ClashResult(slot: slot, elapsedMs: nil, mistakes: 0))
+                }
+            }
+            let best = results.compactMap(\.elapsedMs).min()
+            let winners = best.map { fastest in
+                results.filter { $0.elapsedMs == fastest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = ClashReveal(
+                round: round,
+                turn: turn,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.clashRevealSeconds + 2) : nil
+            )
+            await send(.clashReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.clashRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectClashTimes(for turn: ClashTurn, players: [Int]) async -> [Int: (Int, Int)] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var times: [Int: (Int, Int)] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { times[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.clashTime(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .clashTime(_, _, let slot, let elapsedMs, let mistakes) = message else { continue }
                     times[slot] = (elapsedMs, mistakes)
                 }
             }

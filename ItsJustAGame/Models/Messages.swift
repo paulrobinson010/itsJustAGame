@@ -59,6 +59,9 @@ enum HostMessage: Codable {
     // Globetrotter
     case globeTurn(GlobeTurn)
     case globeReveal(GlobeReveal)
+    // Colour Clash
+    case clashTurn(ClashTurn)
+    case clashReveal(ClashReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -99,6 +102,7 @@ enum PlayerMessage: Codable {
     case showdownThrow(round: Int, turn: Int, slot: Int, throwing: RPSThrow)
     case frenzyTaps(round: Int, turn: Int, slot: Int, taps: Int)
     case globeGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
+    case clashTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -731,6 +735,43 @@ struct GlobeReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Colour Clash
+
+/// The Stroop game: a colour name printed in a clashing ink. The prompt
+/// sequence is regenerated identically on every device from the seed
+/// (like Sort Circuit's tile layout); each device validates taps locally
+/// and reports only its penalty-inclusive time, so the host scores it
+/// latency-free.
+struct ClashTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var seed: UInt64
+    var promptCount: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct ClashResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Penalty-inclusive; nil = never finished.
+    var elapsedMs: Int?
+    var mistakes: Int
+    var id: Int { slot }
+}
+
+struct ClashReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [ClashResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Tap Frenzy
 
 struct FrenzyTurn: Codable, Hashable {
@@ -848,5 +889,9 @@ enum RecordName {
 
     static func globeGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-gt\(turn)-glb\(slot)"
+    }
+
+    static func clashTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-cc\(turn)-clc\(slot)"
     }
 }
