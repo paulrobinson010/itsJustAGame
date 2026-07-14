@@ -45,7 +45,9 @@ struct HumTurnView: View {
         .task {
             submitted = session.hasSubmittedHum(for: turn)
             if submitted { return }
-            let ok = await mic.start()
+            // Not measurement mode — Hum It has to play its reference note out
+            // loud, which measurement mode would mute.
+            let ok = await mic.start(measurement: false)
             micDenied = !ok
             await sequence()
         }

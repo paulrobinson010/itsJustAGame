@@ -28,12 +28,19 @@ final class MicService: @unchecked Sendable {
 
     /// Requests permission (once) and starts metering. Returns false if the
     /// mic is unavailable or the user declined.
-    func start() async -> Bool {
+    ///
+    /// `measurement` mode strips output processing so a shout isn't
+    /// auto-attenuated (right for Loudest/Blow It Out) — but it also
+    /// silences playback, so Hum It, which plays a reference tone, passes
+    /// `measurement: false` to keep the note audible.
+    func start(measurement: Bool = true) async -> Bool {
         guard !isRunning else { return true }
         guard await requestPermission() else { return false }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .mixWithOthers])
+            try session.setCategory(.playAndRecord,
+                                    mode: measurement ? .measurement : .default,
+                                    options: [.defaultToSpeaker, .mixWithOthers])
             try session.setActive(true)
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
