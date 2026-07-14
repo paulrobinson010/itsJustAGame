@@ -1,10 +1,11 @@
+import AVFoundation
 import SwiftUI
 import UIKit
 
-/// One Feel the Beat turn: a rhythm buzzes through the phone (haptic + a
-/// soft tick), then you tap it straight back. The device compares your
-/// tap gaps to the pattern and reports the average error in ms; closest
-/// wins. Nothing but a number leaves the phone.
+/// One Feel the Beat turn: a rhythm thumps through the phone — a strong
+/// haptic and a punchy low drum beat — then you tap it straight back. The
+/// device compares your tap gaps to the pattern and reports the average
+/// error in ms; closest wins. Nothing but a number leaves the phone.
 struct BeatTurnView: View {
     let session: GameSession
     let turn: BeatTurn
@@ -13,6 +14,10 @@ struct BeatTurnView: View {
     @State private var canTap = false
     @State private var taps: [Date] = []
     @State private var pulse = false
+    /// A small pool of punchy drum-beat players (built once), so back-to-back
+    /// beats never cut each other off.
+    @State private var beatPlayers: [AVAudioPlayer] = []
+    @State private var beatIndex = 0
 
     /// Beats in the pattern (one more than the number of gaps).
     private var beatsNeeded: Int { turn.gaps.count + 1 }
@@ -59,11 +64,11 @@ struct BeatTurnView: View {
     private var pad: some View {
         ZStack {
             Circle()
-                .fill(canTap ? Theme.cyan.opacity(0.18) : Theme.surface)
-                .overlay(Circle().stroke(pulse ? Theme.magenta : Theme.hairline, lineWidth: pulse ? 5 : 1))
+                .fill(pulse ? Theme.magenta.opacity(0.22) : (canTap ? Theme.cyan.opacity(0.18) : Theme.surface))
+                .overlay(Circle().stroke(pulse ? Theme.magenta : Theme.hairline, lineWidth: pulse ? 8 : 1))
                 .frame(width: 200, height: 200)
-                .scaleEffect(pulse ? 1.08 : 1.0)
-                .animation(.easeOut(duration: 0.12), value: pulse)
+                .scaleEffect(pulse ? 1.16 : 1.0)
+                .animation(.easeOut(duration: 0.1), value: pulse)
             Image(systemName: canTap ? "hand.tap.fill" : "waveform.path")
                 .font(.system(size: 64))
                 .foregroundStyle(canTap ? Theme.cyan : .secondary)
@@ -87,6 +92,7 @@ struct BeatTurnView: View {
     // MARK: - Playback + tapping
 
     private func run() async {
+        prepareBeatSound()
         let wait = turn.startAt.timeIntervalSinceNow
         if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
 
@@ -130,17 +136,44 @@ struct BeatTurnView: View {
         }
     }
 
-    /// One beat: haptic + soft tick, and a visual pulse when help is on.
+    /// One beat: a strong haptic thump and a punchy drum hit, plus a visual
+    /// pulse when help is on.
     private func beat(_ generator: UIImpactFeedbackGenerator?, visible: Bool) {
-        generator?.impactOccurred()
-        SoundPlayer.shared.play(.tick)
+        generator?.impactOccurred(intensity: 1.0)
+        playBeatSound()
         if visible { flash() }
+    }
+
+    /// Builds the drum-beat players: a short, low, loud tone that reads as a
+    /// thump. Falls back to the tick effect if audio can't be built.
+    private func prepareBeatSound() {
+        // A mic game earlier in the session may have left the audio session
+        // in a record/measurement category that mutes playback — put it back
+        // to the app's ambient playback session so the drum is heard.
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.ambient, options: [.mixWithOthers])
+        try? session.setActive(true)
+        let data = ToneWAV.data(frequency: 90, seconds: 0.13)
+        beatPlayers = (0..<3).compactMap { _ in
+            let player = try? AVAudioPlayer(data: data)
+            player?.volume = 1.0
+            player?.prepareToPlay()
+            return player
+        }
+    }
+
+    private func playBeatSound() {
+        guard !beatPlayers.isEmpty else { SoundPlayer.shared.play(.tick); return }
+        let player = beatPlayers[beatIndex % beatPlayers.count]
+        beatIndex += 1
+        player.currentTime = 0
+        player.play()
     }
 
     private func flash() {
         pulse = true
         Task {
-            try? await Task.sleep(for: .milliseconds(110))
+            try? await Task.sleep(for: .milliseconds(130))
             pulse = false
         }
     }
@@ -148,7 +181,7 @@ struct BeatTurnView: View {
     private func registerTap() {
         guard canTap, !submitted else { return }
         taps.append(Date())
-        SoundPlayer.shared.play(.tick)
+        playBeatSound()
         flash()
         if taps.count >= beatsNeeded { submit() }
     }

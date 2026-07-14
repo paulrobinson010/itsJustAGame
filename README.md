@@ -387,13 +387,14 @@ pass it.
 
 ### Feel the Beat
 
-A short rhythm buzzes through the phone (haptic + a soft tick — no beat is
-shown), then you tap it straight back. The device compares your tap gaps
-to the pattern and reports the average error in ms; closest wins. Only the
-error leaves the phone. Works on iPad too (audible ticks stand in for the
-haptics). Simplify: level 1 plays the pattern twice; level 2 adds a visual
-pulse on each beat; level 3 keeps a visual metronome looping so you can tap
-along.
+A short rhythm thumps through the phone — a full-strength haptic and a
+punchy low drum beat (a synthesized tone, played loud), no beat shown —
+then you tap it straight back. The device compares your tap gaps to the
+pattern and reports the average error in ms; closest wins. Only the error
+leaves the phone. Works on iPad too (the drum hits carry it where there's
+no haptics). Simplify: level 1 plays the pattern twice; level 2 adds a
+visual pulse on each beat; level 3 keeps a visual metronome looping so you
+can tap along.
 
 ### Steady Hand
 
