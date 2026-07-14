@@ -199,7 +199,7 @@ final class HostEngine {
                 game = await waitForChoice(round: round, chooser: chooser, spinSeconds: spinSeconds)
             }
             await send(.roundStart(round: round, game: game))
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(GameTiming.roundIntroSeconds))
             let winners: [Int]
             switch game {
             case .senseOfDirection:
@@ -384,7 +384,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 target: target,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 introSeconds: GameTiming.introSeconds,
                 aimSeconds: GameTiming.aimSeconds
             )
@@ -494,7 +494,7 @@ final class HostEngine {
         let hideStart = HideStart(
             round: round,
             gridSize: gridSize,
-            startAt: Date().addingTimeInterval(2),
+            startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
             hideSeconds: GameTiming.hideSeconds
         )
         await send(.hideStart(hideStart))
@@ -512,7 +512,7 @@ final class HostEngine {
                 seeker: seeker,
                 order: order,
                 gridSize: gridSize,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 seekSeconds: GameTiming.seekSeconds,
                 searched: searched,
                 found: found,
@@ -717,7 +717,7 @@ final class HostEngine {
                 card: current,
                 alive: alive,
                 points: pointsBefore,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 guessSeconds: GameTiming.guessSeconds,
                 assistCorrect: assistCorrect
             )
@@ -855,7 +855,7 @@ final class HostEngine {
                 sequence: sequence,
                 alive: alive,
                 points: pointsBefore,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 watchSeconds: watchSeconds,
                 answerSeconds: answerSeconds
             )
@@ -1060,7 +1060,7 @@ final class HostEngine {
                 regionSpanLon: region.spanLon,
                 placeName: place.name,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 guessSeconds: GameTiming.fingerGuessSeconds,
                 assistHints: assistHints.isEmpty ? nil : assistHints
             )
@@ -1171,7 +1171,7 @@ final class HostEngine {
                 landmark: landmark.name,
                 continent: landmark.continent,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 guessSeconds: GameTiming.globeGuessSeconds,
                 assistHints: assistHints.isEmpty ? nil : assistHints
             )
@@ -1257,7 +1257,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 targetSeconds: target,
                 visibleSeconds: GameTiming.clockVisibleSeconds,
                 maxSeconds: target + 8
@@ -1404,7 +1404,7 @@ final class HostEngine {
                 pot: pot,
                 riders: riders,
                 banks: banks,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 chooseSeconds: GameTiming.diceChooseSeconds,
                 assistPeek: assistPeek,
                 autoBanked: autoBanked.isEmpty ? nil : autoBanked
@@ -1510,7 +1510,7 @@ final class HostEngine {
                 gridSize: 5,
                 coins: Self.makeGoldBoard(),
                 totals: totals,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 pickSeconds: GameTiming.goldPickSeconds
             )
             await send(.goldTurn(turnMessage))
@@ -1616,7 +1616,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 count: count,
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 visibleSeconds: GameTiming.eyeballVisibleSeconds,
@@ -1714,7 +1714,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 drawSeconds: GameTiming.circleDrawSeconds
             )
             await send(.circleTurn(turnMessage))
@@ -1799,7 +1799,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 tileCount: 9,
                 maxSeconds: GameTiming.sortMaxSeconds
@@ -1881,7 +1881,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 promptCount: GameTiming.clashPromptCount,
                 maxSeconds: GameTiming.clashMaxSeconds
@@ -1966,7 +1966,7 @@ final class HostEngine {
                 points: points,
                 // Matches the device-local run-up so the collection window
                 // (deadline + grace) fully covers everyone's play.
-                startAt: Date().addingTimeInterval(GameTiming.tiltCountdownSeconds),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 maxSeconds: GameTiming.levelMaxSeconds
             )
@@ -2046,7 +2046,7 @@ final class HostEngine {
                 points: points,
                 // Matches the device-local run-up so the collection window
                 // (deadline + grace) fully covers everyone's play.
-                startAt: Date().addingTimeInterval(GameTiming.tiltCountdownSeconds),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 targetPercent: target,
                 pourSeconds: GameTiming.pourSeconds
             )
@@ -2135,7 +2135,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 size: GameTiming.mazeSize,
                 maxSeconds: GameTiming.mazeMaxSeconds
@@ -2212,7 +2212,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 shoutSeconds: GameTiming.loudShoutSeconds
             )
             await send(.loudTurn(turnMessage))
@@ -2254,7 +2254,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 blowSeconds: GameTiming.blowSeconds,
                 candles: GameTiming.blowCandles
             )
@@ -2301,7 +2301,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 targetHz: notes.randomElement() ?? 220.0,
                 listenSeconds: GameTiming.humListenSeconds,
                 humSeconds: GameTiming.humSeconds
@@ -2372,7 +2372,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 combo: combo,
                 maxSeconds: GameTiming.safeMaxSeconds
             )
@@ -2418,7 +2418,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 gaps: gaps,
                 leadSeconds: GameTiming.beatListenLeadSeconds,
                 tapSeconds: GameTiming.beatTapSeconds
@@ -2468,7 +2468,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 shape: shape,
                 targetSize: target,
                 showSeconds: GameTiming.sizeShowSeconds,
@@ -2520,7 +2520,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 seed: UInt64.random(in: UInt64.min...UInt64.max),
                 maxSeconds: GameTiming.steadyMaxSeconds
             )
@@ -2600,7 +2600,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 totals: totals,
-                startAt: Date().addingTimeInterval(2),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 throwSeconds: GameTiming.showdownThrowSeconds
             )
             await send(.showdownTurn(turnMessage))
@@ -2697,7 +2697,7 @@ final class HostEngine {
                 round: round,
                 turn: turn,
                 points: points,
-                startAt: Date().addingTimeInterval(3),
+                startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
                 tapSeconds: GameTiming.frenzyTapSeconds
             )
             await send(.frenzyTurn(turnMessage))

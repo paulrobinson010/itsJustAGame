@@ -10,8 +10,6 @@ struct SizeTurnView: View {
 
     @State private var points: [CGPoint] = []
     @State private var submitted = false
-    @State private var showUntil: Date?
-    @State private var drawUntil: Date?
     @State private var canvasSide: Double = 300
 
     var body: some View {
@@ -55,37 +53,28 @@ struct SizeTurnView: View {
         .task {
             submitted = session.hasSubmittedSize(for: turn)
             if submitted { return }
-            let wait = turn.startAt.timeIntervalSinceNow
-            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
-            // Time the flash from the moment it actually appears on this
-            // phone, so everyone gets the same look regardless of latency.
-            let start = Date()
-            showUntil = start.addingTimeInterval(turn.showSeconds)
-            drawUntil = start.addingTimeInterval(turn.showSeconds + turn.drawSeconds)
             await autoSubmit()
         }
     }
 
     private func phaseIsMemorize(now: Date) -> Bool {
-        guard let show = showUntil else { return false }
-        return now < show
+        now >= turn.startAt && now < turn.drawStart
     }
 
     private func phaseIsDraw(now: Date) -> Bool {
-        guard let show = showUntil, let end = drawUntil, !submitted else { return false }
-        return now >= show && now < end
+        !submitted && now >= turn.drawStart && now < turn.deadline
     }
 
     @ViewBuilder
     private func header(now: Date, memorizing: Bool, drawing: Bool) -> some View {
         if submitted {
             Text("Locked in — waiting…").font(Theme.display(20))
-        } else if showUntil == nil {
+        } else if now < turn.startAt {
             Text("Get ready…").font(Theme.display(24))
         } else if memorizing {
             Text("Memorise the size! 👀").font(Theme.display(24)).foregroundStyle(Theme.magenta)
-        } else if drawing, let end = drawUntil {
-            let remaining = Int(max(0, end.timeIntervalSince(now)).rounded(.up))
+        } else if drawing {
+            let remaining = Int(max(0, turn.deadline.timeIntervalSince(now)).rounded(.up))
             Text("Draw it — same size! · \(remaining)s").font(Theme.display(22)).foregroundStyle(Theme.cyan)
         } else {
             Text("Time's up — waiting…").font(Theme.headline)
@@ -183,8 +172,7 @@ struct SizeTurnView: View {
     }
 
     private func autoSubmit() async {
-        guard let end = drawUntil else { return }
-        let interval = end.timeIntervalSinceNow
+        let interval = turn.deadline.timeIntervalSinceNow
         if interval > 0 { try? await Task.sleep(for: .seconds(interval)) }
         guard !Task.isCancelled, !submitted else { return }
         submit()

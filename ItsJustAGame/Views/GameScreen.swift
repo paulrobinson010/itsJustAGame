@@ -28,6 +28,12 @@ struct GameScreen: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     // Comfortable column on iPad instead of edge-to-edge.
                     .frame(maxWidth: 700)
+                // Shared 3-2-1 before every turn. Muted during the initial
+                // replay (buffered turns have a start time in the past, so it
+                // renders nothing anyway).
+                if session.caughtUp, let start = session.phase.turnStartAt {
+                    CountdownOverlay(startAt: start)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.background)

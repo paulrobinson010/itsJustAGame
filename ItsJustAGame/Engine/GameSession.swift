@@ -88,6 +88,42 @@ enum GamePhase: Hashable {
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
+
+    /// When this phase's play begins, if it's a turn with a scheduled start.
+    /// The shared 3-2-1 countdown overlay runs from here backwards; reveals,
+    /// the lobby, the wheel and the endings return nil (no countdown).
+    var turnStartAt: Date? {
+        switch self {
+        case .turn(let t): return t.startAt
+        case .hiding(let t): return t.startAt
+        case .seekTurn(let t): return t.startAt
+        case .cardGuess(let t): return t.startAt
+        case .sequenceTurn(let t): return t.startAt
+        case .flashTurn(let t): return t.startAt
+        case .fingerTurn(let t): return t.startAt
+        case .clockTurn(let t): return t.startAt
+        case .diceStep(let t): return t.startAt
+        case .goldTurn(let t): return t.startAt
+        case .eyeballTurn(let t): return t.startAt
+        case .circleTurn(let t): return t.startAt
+        case .sortTurn(let t): return t.startAt
+        case .steadyTurn(let t): return t.startAt
+        case .showdownTurn(let t): return t.startAt
+        case .frenzyTurn(let t): return t.startAt
+        case .globeTurn(let t): return t.startAt
+        case .clashTurn(let t): return t.startAt
+        case .levelTurn(let t): return t.startAt
+        case .pourTurn(let t): return t.startAt
+        case .mazeTurn(let t): return t.startAt
+        case .loudTurn(let t): return t.startAt
+        case .blowTurn(let t): return t.startAt
+        case .humTurn(let t): return t.startAt
+        case .safeTurn(let t): return t.startAt
+        case .beatTurn(let t): return t.startAt
+        case .sizeTurn(let t): return t.startAt
+        default: return nil
+        }
+    }
 }
 
 /// Every device — the host included — runs a session. It replays the host's

@@ -36,8 +36,6 @@ struct LevelTurnView: View {
 
     @State private var submitted = false
     @State private var heldMs = 0
-    /// Device-local "GO" moment, so the run-up is timed on this phone.
-    @State private var goAt: Date?
     /// When the current hold began (nil = not currently holding).
     @State private var holdStartAt: Date?
     /// When the bubble left the zone mid-hold (nil = inside). A brief dip is
@@ -53,10 +51,6 @@ struct LevelTurnView: View {
     }
 
     private var motion: MotionService { MotionService.shared }
-
-    private var playEndsAt: Date? {
-        goAt?.addingTimeInterval(turn.maxSeconds)
-    }
 
     private let slipGrace: Double = 0.3
 
@@ -89,21 +83,18 @@ struct LevelTurnView: View {
         .task {
             submitted = session.hasSubmittedLevel(for: turn)
             motion.start()
-            goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
             await autoFinish()
         }
         .onDisappear { motion.stop() }
     }
 
     private func isPlaying(now: Date) -> Bool {
-        guard let go = goAt, let end = playEndsAt, !submitted else { return false }
-        return now >= go && now < end
+        !submitted && now >= turn.startAt && now < turn.deadline
     }
 
     /// Where the level zone's centre sits right now, in degrees.
     private func zoneCenter(now: Date) -> Double {
-        guard let go = goAt else { return 0 }
-        return drift.center(at: max(0, now.timeIntervalSince(go)))
+        drift.center(at: max(0, now.timeIntervalSince(turn.startAt)))
     }
 
     /// The hold time to show right now: the live streak while holding, else
@@ -124,15 +115,9 @@ struct LevelTurnView: View {
             Text("This game needs a real device")
                 .font(Theme.subheadline)
                 .foregroundStyle(Theme.magenta)
-        } else if goAt == nil {
+        } else if now < turn.startAt {
             Text("Get ready…")
                 .font(Theme.display(24))
-        } else if let go = goAt, now < go {
-            let count = Int(go.timeIntervalSince(now).rounded(.up))
-            Text(count > 0 ? "\(count)" : "GO!")
-                .font(Theme.display(count > 0 ? 64 : 40))
-                .foregroundStyle(Theme.magenta)
-                .contentTransition(.numericText())
         } else if playing {
             if holdStartAt == nil {
                 Text("Catch the zone to start the clock")
@@ -197,13 +182,13 @@ struct LevelTurnView: View {
     // MARK: - Hold logic
 
     private func advance(now: Date, roll: Double) {
-        guard let go = goAt, let end = playEndsAt, !submitted else { return }
-        guard now >= go else { return }
+        guard !submitted, now >= turn.startAt else { return }
+        let end = turn.deadline
         if now >= end {
             finish(ms: holdStartAt.map { Int(end.timeIntervalSince($0) * 1000) } ?? heldMs)
             return
         }
-        let center = drift.center(at: now.timeIntervalSince(go))
+        let center = drift.center(at: now.timeIntervalSince(turn.startAt))
         let inZone = abs(roll - center) <= zoneHalfWidth
         if inZone {
             leftAt = nil
@@ -227,7 +212,7 @@ struct LevelTurnView: View {
     }
 
     private func autoFinish() async {
-        let end = playEndsAt ?? Date().addingTimeInterval(GameTiming.tiltCountdownSeconds + turn.maxSeconds)
+        let end = turn.deadline
         let interval = end.timeIntervalSinceNow
         if interval > 0 { try? await Task.sleep(for: .seconds(interval)) }
         guard !Task.isCancelled, !submitted else { return }

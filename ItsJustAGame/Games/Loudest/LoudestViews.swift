@@ -48,8 +48,7 @@ struct LoudTurnView: View {
             Text("Microphone needed for this one")
                 .font(Theme.subheadline).foregroundStyle(Theme.magenta)
         } else if now < turn.startAt {
-            let count = Int(turn.startAt.timeIntervalSince(now).rounded(.up))
-            Text(count > 0 ? "Get ready… \(count)" : "GO!").font(Theme.display(30))
+            Text("Get ready…").font(Theme.display(30))
         } else if live {
             Text("GO — SHOUT! 🗣️").font(Theme.display(34)).foregroundStyle(Theme.cyan)
         } else {

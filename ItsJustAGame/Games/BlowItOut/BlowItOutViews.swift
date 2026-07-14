@@ -50,8 +50,7 @@ struct BlowTurnView: View {
             Text("Microphone needed for this one")
                 .font(Theme.subheadline).foregroundStyle(Theme.magenta)
         } else if now < turn.startAt {
-            let count = Int(turn.startAt.timeIntervalSince(now).rounded(.up))
-            Text("Get ready… \(count)").font(Theme.display(26))
+            Text("Get ready…").font(Theme.display(26))
         } else {
             let remaining = Int(max(0, turn.deadline.timeIntervalSince(now)).rounded(.up))
             Text("BLOW! 💨 · \(remaining)s").font(Theme.display(28)).foregroundStyle(Theme.cyan)

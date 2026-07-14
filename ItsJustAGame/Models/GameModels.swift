@@ -327,10 +327,20 @@ struct GameSummary: Codable, Hashable {
 }
 
 enum GameTiming {
-    static let introSeconds: Double = 4
+    /// Every turn begins with the same 3-2-1 "get ready" countdown, shown
+    /// dead-centre over the game. Host turns are scheduled this far ahead so
+    /// the shared overlay has a full run to count down.
+    static let countdownSeconds: Double = 3
+    /// Every results / reveal screen is shown for the same length.
+    static let resultsSeconds: Double = 5
+
+    /// The brief "here comes <game>" announcement before a round's first
+    /// turn (the 3-2-1 countdown then runs before the turn itself).
+    static let roundIntroSeconds: Double = 3
+    static let introSeconds: Double = 4          // Sense of Direction's own reveal-the-place window
     static let aimSeconds: Double = 15
-    static let revealSeconds: Double = 9
-    static let betweenRoundsSeconds: Double = 7
+    static let revealSeconds: Double = 5
+    static let betweenRoundsSeconds: Double = 5
     static let answerGraceSeconds: Double = 6
     static let pointsToWinRound = 3
     static let maxTurnsPerRound = 10
@@ -343,30 +353,30 @@ enum GameTiming {
     // Hide & Seek
     static let hideSeconds: Double = 15
     static let seekSeconds: Double = 15
-    static let seekRevealSeconds: Double = 6
+    static let seekRevealSeconds: Double = 5
 
     // Higher or Lower
     static let guessSeconds: Double = 10
-    static let cardRevealSeconds: Double = 6
+    static let cardRevealSeconds: Double = 5
 
     // Repeat After Me
     static let sequenceStartLength = 3
     static let sequenceFlashSeconds: Double = 0.65
-    static let sequenceRevealSeconds: Double = 6
+    static let sequenceRevealSeconds: Double = 5
 
     // Lightning
     static let flashWaitMinSeconds: Double = 2
     static let flashWaitMaxSeconds: Double = 7
     static let tapWindowSeconds: Double = 4
-    static let flashRevealSeconds: Double = 6
+    static let flashRevealSeconds: Double = 5
 
     // Put Your Finger On It
     static let fingerGuessSeconds: Double = 15
-    static let fingerRevealSeconds: Double = 8
+    static let fingerRevealSeconds: Double = 5
 
     // Ten Seconds
     static let clockVisibleSeconds: Double = 3
-    static let clockRevealSeconds: Double = 6
+    static let clockRevealSeconds: Double = 5
 
     // Push Your Luck
     static let diceChooseSeconds: Double = 8
@@ -378,14 +388,14 @@ enum GameTiming {
 
     // Gold Rush
     static let goldPickSeconds: Double = 12
-    static let goldRevealSeconds: Double = 6
+    static let goldRevealSeconds: Double = 5
     static let goldTarget = 30
     static let goldMaxTurns = 15
 
     // Eyeball It
     static let eyeballVisibleSeconds: Double = 2
     static let eyeballGuessSeconds: Double = 12
-    static let eyeballRevealSeconds: Double = 6
+    static let eyeballRevealSeconds: Double = 5
     static let eyeballMinCount = 15
     static let eyeballMaxCount = 250
     /// Consecutive clouds must differ by at least this many dots — uniform
@@ -397,78 +407,73 @@ enum GameTiming {
 
     // Perfect Circle
     static let circleDrawSeconds: Double = 10
-    static let circleRevealSeconds: Double = 8
+    static let circleRevealSeconds: Double = 5
 
     // Sort Circuit
     static let sortMaxSeconds: Double = 30
     static let sortPenaltyMs = 1000
-    static let sortRevealSeconds: Double = 6
+    static let sortRevealSeconds: Double = 5
 
     // Steady Hand
     static let steadyMaxSeconds: Double = 40
-    static let steadyRevealSeconds: Double = 6
+    static let steadyRevealSeconds: Double = 5
 
     // Showdown
     static let showdownThrowSeconds: Double = 8
-    static let showdownRevealSeconds: Double = 7
+    static let showdownRevealSeconds: Double = 5
     static let showdownTarget = 5
     static let showdownMaxTurns = 12
 
     // Tap Frenzy
     static let frenzyTapSeconds: Double = 5
-    static let frenzyRevealSeconds: Double = 6
+    static let frenzyRevealSeconds: Double = 5
     /// The biggest extra window Simplify can add, so the host waits for it.
     static let frenzyMaxAssistExtraSeconds: Double = 5
 
     // Globetrotter
     static let globeGuessSeconds: Double = 15
-    static let globeRevealSeconds: Double = 9
+    static let globeRevealSeconds: Double = 5
 
     // Colour Clash
     static let clashPromptCount = 8
     static let clashPenaltyMs = 1000
     static let clashMaxSeconds: Double = 20
-    static let clashRevealSeconds: Double = 6
-
-    // Tilt games (Spirit Level, Pour It) share a device-local "get ready"
-    // countdown before play begins — timed on each phone, not the host, so
-    // a late-arriving turn still gives everyone the full run-up.
-    static let tiltCountdownSeconds: Double = 5
+    static let clashRevealSeconds: Double = 5
 
     // Spirit Level — hold the bubble between the markers as long as you can.
     static let levelMaxSeconds: Double = 20
     /// Half-width of the "level" zone in degrees (the gap between the two
     /// markers is twice this). Simplify widens it on the assisted device.
     static let levelZoneDegrees: Double = 5
-    static let levelRevealSeconds: Double = 7
+    static let levelRevealSeconds: Double = 5
 
     // Pour It
     static let pourSeconds: Double = 12
-    static let pourRevealSeconds: Double = 7
+    static let pourRevealSeconds: Double = 5
 
     // Marble Maze
     static let mazeSize = 6
     static let mazeMaxSeconds: Double = 45
-    static let mazeRevealSeconds: Double = 6
+    static let mazeRevealSeconds: Double = 5
 
     // Loudest
     static let loudShoutSeconds: Double = 4
-    static let loudRevealSeconds: Double = 6
+    static let loudRevealSeconds: Double = 5
 
     // Blow It Out
     static let blowSeconds: Double = 6
     static let blowCandles = 20
-    static let blowRevealSeconds: Double = 6
+    static let blowRevealSeconds: Double = 5
 
     // Hum It
     static let humListenSeconds: Double = 2
     static let humSeconds: Double = 5
-    static let humRevealSeconds: Double = 7
+    static let humRevealSeconds: Double = 5
 
     // Crack the Safe
     static let safeDigits = 3
     static let safeMaxSeconds: Double = 30
-    static let safeRevealSeconds: Double = 6
+    static let safeRevealSeconds: Double = 5
 
     // Feel the Beat
     static let beatCount = 4          // taps in the pattern (so 3 gaps)
@@ -476,12 +481,12 @@ enum GameTiming {
     static let beatLongMs = 700
     static let beatListenLeadSeconds: Double = 1.5
     static let beatTapSeconds: Double = 8
-    static let beatRevealSeconds: Double = 7
+    static let beatRevealSeconds: Double = 5
 
     // Size It Up
     static let sizeShowSeconds: Double = 2      // how long the shape flashes
     static let sizeDrawSeconds: Double = 10     // time to draw it back
-    static let sizeRevealSeconds: Double = 7
+    static let sizeRevealSeconds: Double = 5
     /// Target size range, as a fraction of the square canvas's side.
     static let sizeMinFraction: Double = 0.2
     static let sizeMaxFraction: Double = 0.85

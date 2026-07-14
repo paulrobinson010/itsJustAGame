@@ -39,7 +39,13 @@ Everything the game sends between devices is **end-to-end encrypted**.
 5. **Round** — a *game* is made of *rounds* (first to N rounds wins the
    game). Each round is one mini game. Within Sense of Direction, each
    *turn* is one target place; the turn winner gets a point, and the first
-   player to 3 points takes the round.
+   player to 3 points takes the round. Every turn opens with the same
+   3-2-1 "get ready" countdown, shown dead-centre over the game (a shared
+   `CountdownOverlay` keyed off the turn's start time), and every results
+   screen is shown for the same 5 seconds — one rhythm across all games.
+   Turns are host-scheduled `GameTiming.countdownSeconds` ahead so the
+   overlay has a full run; the game-specific timings (how long the dots
+   flash, the reaction wait, the draw window) are untouched.
 6. **Rematch without links** — only the host can start one. When a game
    ends the host taps "Rematch": a fresh game (new ID, fresh key) is
    announced over the old game's encrypted stream, and every other player

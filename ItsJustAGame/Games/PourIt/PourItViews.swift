@@ -10,21 +10,12 @@ struct PourTurnView: View {
     @State private var fill: Double = 0
     @State private var overflowed = false
     @State private var submitted = false
-    /// Device-local "GO" moment: set when the view appears, so the run-up is
-    /// timed on this phone rather than the host's clock.
-    @State private var goAt: Date?
-    /// The phone's resting roll captured at GO — pouring is measured relative
-    /// to it, so you can hold the phone however feels natural and tip either
-    /// way.
+    /// The phone's resting roll captured at the start — pouring is measured
+    /// relative to it, so you can hold the phone however feels natural and
+    /// tip either way.
     @State private var referenceRoll: Double = 0
 
     private var motion: MotionService { MotionService.shared }
-
-    /// Play ends this long after GO (device-local, well inside the host's
-    /// collection window).
-    private var playEndsAt: Date? {
-        goAt?.addingTimeInterval(GameTiming.pourSeconds)
-    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.05)) { context in
@@ -60,11 +51,10 @@ struct PourTurnView: View {
             submitted = session.hasSubmittedPour(for: turn)
             if submitted { return }
             motion.start()
-            // Let device motion warm up, then capture the resting pose so the
-            // glass already responds to tilt during the countdown.
+            // Warm up device motion and capture a resting pose so the glass
+            // sits level during the (overlaid) countdown.
             try? await Task.sleep(for: .milliseconds(250))
             referenceRoll = motion.rollDegrees
-            goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
             await pourLoop()
         }
         .onDisappear { motion.stop() }
@@ -72,8 +62,7 @@ struct PourTurnView: View {
 
     /// Whether the phone is actively pouring right now.
     private func pouring(now: Date) -> Bool {
-        guard let go = goAt, let end = playEndsAt, !submitted else { return false }
-        return now >= go && now < end
+        !submitted && now >= turn.startAt && now < turn.deadline
     }
 
     @ViewBuilder
@@ -88,19 +77,13 @@ struct PourTurnView: View {
             Text("This game needs a real device")
                 .font(Theme.subheadline)
                 .foregroundStyle(Theme.magenta)
-        } else if let go = goAt, now < go {
-            let count = Int(go.timeIntervalSince(now).rounded(.up))
-            Text(count > 0 ? "\(count)" : "GO!")
-                .font(Theme.display(count > 0 ? 64 : 40))
-                .foregroundStyle(Theme.magenta)
-                .contentTransition(.numericText())
-        } else if let end = playEndsAt {
-            let remaining = Int(max(0, end.timeIntervalSince(now)).rounded(.up))
-            Text("Tilt to pour · \(remaining)s")
-                .font(Theme.display(22))
-        } else {
+        } else if now < turn.startAt {
             Text("Get ready…")
                 .font(Theme.display(24))
+        } else {
+            let remaining = Int(max(0, turn.deadline.timeIntervalSince(now)).rounded(.up))
+            Text("Tilt to pour · \(remaining)s")
+                .font(Theme.display(22))
         }
     }
 
@@ -171,12 +154,12 @@ struct PourTurnView: View {
     // MARK: - Pour loop
 
     private func pourLoop() async {
-        let go = goAt ?? Date()
-        while Date() < go && !Task.isCancelled { try? await Task.sleep(for: .seconds(0.02)) }
-        // Capture the resting pose so pouring is a tilt from here, whatever
-        // way the phone is being held.
+        let wait = turn.startAt.timeIntervalSinceNow
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        // Re-capture the resting pose right as pouring begins, so a tilt is
+        // measured from here whatever way the phone is being held.
         referenceRoll = motion.rollDegrees
-        let end = playEndsAt ?? go.addingTimeInterval(GameTiming.pourSeconds)
+        let end = turn.deadline
         var last = Date()
         let slow = session.myAssist == .little || session.myAssist == .big
         let rateScale = slow ? 0.6 : 1.0
