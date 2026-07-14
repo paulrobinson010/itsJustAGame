@@ -502,21 +502,42 @@ struct FinishedGameView: View {
                         .font(Theme.subheadline)
                         .lineLimit(1)
                     Spacer()
-                    let won = summary.roundsWon[player.slot, default: 0]
-                    let total = max(summary.roundsToWin, won)
-                    HStack(spacing: 5) {
-                        ForEach(0..<total, id: \.self) { index in
-                            Circle()
-                                .fill(index < won ? player.color : Theme.quietFill)
-                                .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
-                                .frame(width: 8, height: 8)
-                        }
-                    }
+                    RoundTally(
+                        color: player.color,
+                        won: summary.roundsWon[player.slot, default: 0],
+                        target: summary.roundsToWin
+                    )
                 }
             }
         }
         .card()
         .padding(.horizontal, 24)
+    }
+}
+
+/// One player's round-win tally: filled dots up to the target, or a plain
+/// count when the target is effectively endless (practice mode uses 999,
+/// where a row of dots would run off the screen).
+struct RoundTally: View {
+    let color: Color
+    let won: Int
+    let target: Int
+
+    var body: some View {
+        if target > 12 {
+            Text("\(won)")
+                .font(Theme.subheadline.weight(.bold).monospacedDigit())
+                .foregroundStyle(color)
+        } else {
+            HStack(spacing: 5) {
+                ForEach(0..<max(target, won), id: \.self) { index in
+                    Circle()
+                        .fill(index < won ? color : Theme.quietFill)
+                        .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
+                        .frame(width: 8, height: 8)
+                }
+            }
+        }
     }
 }
 
@@ -601,16 +622,11 @@ struct RoundStandingsView: View {
                         .font(Theme.subheadline)
                         .lineLimit(1)
                     Spacer()
-                    let won = session.roundsWon[player.slot, default: 0]
-                    let total = max(session.config?.roundsToWin ?? 1, won)
-                    HStack(spacing: 5) {
-                        ForEach(0..<total, id: \.self) { index in
-                            Circle()
-                                .fill(index < won ? player.color : Theme.quietFill)
-                                .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
-                                .frame(width: 8, height: 8)
-                        }
-                    }
+                    RoundTally(
+                        color: player.color,
+                        won: session.roundsWon[player.slot, default: 0],
+                        target: session.config?.roundsToWin ?? 1
+                    )
                 }
             }
         }
