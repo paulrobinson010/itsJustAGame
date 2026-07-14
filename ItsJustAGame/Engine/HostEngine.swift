@@ -218,6 +218,10 @@ final class HostEngine {
                 winners = await runGlobeRound(round: round)
             case .colourClash:
                 winners = await runClashRound(round: round)
+            case .spiritLevel:
+                winners = await runLevelRound(round: round)
+            case .pourIt:
+                winners = await runPourRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -1910,6 +1914,175 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return times
+    }
+
+    // MARK: - Spirit Level
+
+    /// A target tilt each turn; everyone lines up the bubble by eye and
+    /// locks in. Closest angular error wins — measured on each device, so
+    /// latency never matters.
+    private func runLevelRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let target = Double(Int.random(in: -35...35))
+            let turnMessage = LevelTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                targetDegrees: target,
+                holdSeconds: GameTiming.levelHoldSeconds
+            )
+            await send(.levelTurn(turnMessage))
+            let errors = await collectLevelErrors(for: turnMessage, players: players)
+
+            var results: [LevelResult] = []
+            for slot in players {
+                results.append(LevelResult(slot: slot, errorMilliDeg: errors[slot]))
+            }
+            let best = results.compactMap(\.errorMilliDeg).min()
+            let winners = best.map { closest in
+                results.filter { $0.errorMilliDeg == closest }.map(\.slot).sorted()
+            } ?? []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = LevelReveal(
+                round: round,
+                turn: turn,
+                targetDegrees: target,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.levelRevealSeconds + 2) : nil
+            )
+            await send(.levelReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.levelRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectLevelErrors(for turn: LevelTurn, players: [Int]) async -> [Int: Int] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var errors: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { errors[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.levelError(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .levelError(_, _, let slot, let errorMilliDeg) = message else { continue }
+                    errors[slot] = max(0, errorMilliDeg)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return errors
+    }
+
+    // MARK: - Pour It
+
+    /// A target fill each turn; tilt to pour, level off to stop. Closest to
+    /// the line without spilling wins; a spill always loses to a clean pour.
+    private func runPourRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let target = Int.random(in: 55...88)
+            let turnMessage = PourTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(2),
+                targetPercent: target,
+                pourSeconds: GameTiming.pourSeconds
+            )
+            await send(.pourTurn(turnMessage))
+            let fills = await collectPourFills(for: turnMessage, players: players)
+
+            var results: [PourResult] = []
+            for slot in players {
+                if let (fill, overflowed) = fills[slot] {
+                    results.append(PourResult(slot: slot, fillPercent: fill, overflowed: overflowed))
+                } else {
+                    results.append(PourResult(slot: slot, fillPercent: nil, overflowed: false))
+                }
+            }
+            // A clean pour always beats a spill; among clean pours, closest
+            // to the line wins.
+            func error(_ r: PourResult) -> Int {
+                guard let fill = r.fillPercent else { return Int.max }
+                return r.overflowed ? 100_000 + fill : abs(fill - target)
+            }
+            let best = results.map(error).min()
+            let winners = (best.map { $0 < Int.max } == true)
+                ? results.filter { error($0) == best }.map(\.slot).sorted()
+                : []
+            for winner in winners {
+                points[winner, default: 0] += 1
+            }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = PourReveal(
+                round: round,
+                turn: turn,
+                targetPercent: target,
+                results: results,
+                winners: winners,
+                points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.pourRevealSeconds + 2) : nil
+            )
+            await send(.pourReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.pourRevealSeconds))
+            if !roundWinners.isEmpty {
+                return roundWinners
+            }
+            if turn >= GameTiming.maxTurnsPerRound {
+                return pointLeaders(points: points, players: players)
+            }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    private func collectPourFills(for turn: PourTurn, players: [Int]) async -> [Int: (Int, Bool)] {
+        let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var fills: [Int: (Int, Bool)] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { fills[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map {
+                RecordName.pourFill(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+            }
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          case .pourFill(_, _, let slot, let fillPercent, let overflowed) = message else { continue }
+                    fills[slot] = (max(0, min(100, fillPercent)), overflowed)
+                }
+            }
+            if Date() > deadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return fills
     }
 
     // MARK: - Steady Hand

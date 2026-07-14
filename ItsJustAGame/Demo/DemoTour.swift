@@ -437,6 +437,34 @@ enum Demo {
             ))
         },
 
+        // Spirit Level — reveal (turn needs a real device)
+        Step(points: [3: 1, 1: 1]) {
+            .levelReveal(LevelReveal(
+                round: 2, turn: 2, targetDegrees: 22,
+                results: [
+                    LevelResult(slot: 1, errorMilliDeg: 2100),
+                    LevelResult(slot: 2, errorMilliDeg: 7400),
+                    LevelResult(slot: 3, errorMilliDeg: 900),
+                    LevelResult(slot: 4, errorMilliDeg: 4300),
+                ],
+                winners: [3], points: [3: 2, 1: 1], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
+        // Pour It — reveal
+        Step(points: [2: 1, 4: 1]) {
+            .pourReveal(PourReveal(
+                round: 2, turn: 2, targetPercent: 72,
+                results: [
+                    PourResult(slot: 1, fillPercent: 64, overflowed: false),
+                    PourResult(slot: 2, fillPercent: 70, overflowed: false),
+                    PourResult(slot: 3, fillPercent: 100, overflowed: true),
+                    PourResult(slot: 4, fillPercent: 78, overflowed: false),
+                ],
+                winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -560,6 +588,14 @@ struct DemoTourView: View {
             ClashTurnView(session: session, turn: turn)
         case .clashReveal(let reveal):
             ClashRevealView(session: session, reveal: reveal)
+        case .levelTurn(let turn):
+            LevelTurnView(session: session, turn: turn)
+        case .levelReveal(let reveal):
+            LevelRevealView(session: session, reveal: reveal)
+        case .pourTurn(let turn):
+            PourTurnView(session: session, turn: turn)
+        case .pourReveal(let reveal):
+            PourRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

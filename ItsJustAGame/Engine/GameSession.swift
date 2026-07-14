@@ -58,6 +58,12 @@ enum GamePhase: Hashable {
     // Colour Clash
     case clashTurn(ClashTurn)
     case clashReveal(ClashReveal)
+    // Spirit Level
+    case levelTurn(LevelTurn)
+    case levelReveal(LevelReveal)
+    // Pour It
+    case pourTurn(PourTurn)
+    case pourReveal(PourReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -504,6 +510,46 @@ final class GameSession {
         )
     }
 
+    // MARK: - Spirit Level input
+
+    func submitLevel(errorMilliDeg: Int, for turn: LevelTurn) {
+        let id = RecordName.levelError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.levelError(round: turn.round, turn: turn.turn, slot: mySlot, errorMilliDeg: errorMilliDeg),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedLevel(for turn: LevelTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.levelError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Pour It input
+
+    func submitPour(fillPercent: Int, overflowed: Bool, for turn: PourTurn) {
+        let id = RecordName.pourFill(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.pourFill(round: turn.round, turn: turn.turn, slot: mySlot, fillPercent: fillPercent, overflowed: overflowed),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedPour(for turn: PourTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.pourFill(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -681,6 +727,18 @@ final class GameSession {
         case .clashReveal(let reveal):
             points = reveal.points
             phase = .clashReveal(reveal)
+        case .levelTurn(let turn):
+            points = turn.points
+            phase = .levelTurn(turn)
+        case .levelReveal(let reveal):
+            points = reveal.points
+            phase = .levelReveal(reveal)
+        case .pourTurn(let turn):
+            points = turn.points
+            phase = .pourTurn(turn)
+        case .pourReveal(let reveal):
+            points = reveal.points
+            phase = .pourReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

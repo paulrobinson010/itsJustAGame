@@ -62,6 +62,12 @@ enum HostMessage: Codable {
     // Colour Clash
     case clashTurn(ClashTurn)
     case clashReveal(ClashReveal)
+    // Spirit Level
+    case levelTurn(LevelTurn)
+    case levelReveal(LevelReveal)
+    // Pour It
+    case pourTurn(PourTurn)
+    case pourReveal(PourReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -103,6 +109,8 @@ enum PlayerMessage: Codable {
     case frenzyTaps(round: Int, turn: Int, slot: Int, taps: Int)
     case globeGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
     case clashTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
+    case levelError(round: Int, turn: Int, slot: Int, errorMilliDeg: Int)
+    case pourFill(round: Int, turn: Int, slot: Int, fillPercent: Int, overflowed: Bool)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -735,6 +743,72 @@ struct GlobeReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Spirit Level
+
+struct LevelTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// The roll angle (degrees) to line the bubble up with.
+    var targetDegrees: Double
+    var holdSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(holdSeconds) }
+}
+
+struct LevelResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Angular error at lock-in, in thousandths of a degree; nil = no lock.
+    var errorMilliDeg: Int?
+    var id: Int { slot }
+}
+
+struct LevelReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var targetDegrees: Double
+    var results: [LevelResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Pour It
+
+struct PourTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Fill line to stop at, as a percentage of the glass.
+    var targetPercent: Int
+    var pourSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(pourSeconds) }
+}
+
+struct PourResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Final fill (0–100); nil = never poured.
+    var fillPercent: Int?
+    /// Spilled over the top.
+    var overflowed: Bool
+    var id: Int { slot }
+}
+
+struct PourReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var targetPercent: Int
+    var results: [PourResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -893,5 +967,13 @@ enum RecordName {
 
     static func clashTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-cc\(turn)-clc\(slot)"
+    }
+
+    static func levelError(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sl\(turn)-lvl\(slot)"
+    }
+
+    static func pourFill(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-po\(turn)-pur\(slot)"
     }
 }

@@ -296,6 +296,29 @@ one-second penalty. Timing runs locally against the shared start
 timestamp, so latency never matters. Fastest penalty-inclusive time
 takes the point; first to 3 wins the round.
 
+### Spirit Level
+
+Tilt the phone (left–right roll, read from CoreMotion device attitude) to
+slide a bubble onto a target mark on a level gauge — no numeric readout,
+just your eye, like a real spirit level. Lock in (or auto-lock at the
+deadline); the angular error is measured locally and hidden until the
+reveal, so latency never matters. Closest to the mark takes the point;
+first to 3 wins the round. Needs a real device (the Simulator has no
+motion). Simplify: a wide green tolerance band round the mark (level 1),
+a tighter band with the bubble glowing when close (level 2), a live
+"X.X° off" readout (level 3).
+
+### Pour It
+
+Tilt the phone forward (pitch) to pour, level off to stop, and hit a
+target fill line without spilling. Fill is integrated locally from the
+tilt each frame (pour rate ∝ how far past ~12° you tip), so it's
+latency-free; overflowing past the top spills, and a clean pour always
+beats a spill. Closest to the line takes the point; first to 3 wins the
+round. Needs a real device. Simplify: slower pour and a green band round
+the line (level 1), plus a live fill % (level 2), and at the top level it
+simply won't overflow past the line (level 3).
+
 ### Steady Hand
 
 Endurance. A glowing ring drifts around the board and slowly shrinks —
@@ -391,6 +414,8 @@ Every game implements all three levels:
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
+| Spirit Level | wide tolerance band round the mark | tighter band + bubble glows when close | live "X.X° off" readout |
+| Pour It | slower pour + green band round the line | + live fill % | + can't overflow past the line |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
 | Showdown | what-beats-what reminder | others' throws appear live | + told which throw beats the most right now |
 | Tap Frenzy | your window quietly runs 1.5s longer | 3s longer | 5s longer |
@@ -431,7 +456,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all seventeen games
+button. It steps through every screen — lobby, wheel, all nineteen games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

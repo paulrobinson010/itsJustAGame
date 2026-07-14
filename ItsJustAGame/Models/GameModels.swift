@@ -66,6 +66,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case tapFrenzy
     case globetrotter
     case colourClash
+    case spiritLevel
+    case pourIt
 
     var displayName: String {
         switch self {
@@ -86,6 +88,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tapFrenzy: return "Tap Frenzy"
         case .globetrotter: return "Globetrotter"
         case .colourClash: return "Colour Clash"
+        case .spiritLevel: return "Spirit Level"
+        case .pourIt: return "Pour It"
         }
     }
 
@@ -109,6 +113,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tapFrenzy: return 2
         case .globetrotter: return 2
         case .colourClash: return 2
+        case .spiritLevel: return 2
+        case .pourIt: return 2
         }
     }
 
@@ -131,6 +137,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .tapFrenzy: return "hand.tap.fill"
         case .globetrotter: return "globe.europe.africa.fill"
         case .colourClash: return "paintpalette.fill"
+        case .spiritLevel: return "gyroscope"
+        case .pourIt: return "drop.fill"
         }
     }
 
@@ -170,6 +178,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "A famous landmark, a world map, \(Int(GameTiming.globeGuessSeconds)) seconds. Drop your pin where on Earth you think it is — closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .colourClash:
             return "The name of a colour, printed in a different colour. Tap the colour it's PRINTED in — not the word — as fast as you can through them all. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .spiritLevel:
+            return "Tilt your phone to line the bubble up with the mark, then lock it in — no numbers to help you. Closest to the mark wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .pourIt:
+            return "Tilt to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -331,4 +343,12 @@ enum GameTiming {
     static let clashPenaltyMs = 1000
     static let clashMaxSeconds: Double = 20
     static let clashRevealSeconds: Double = 6
+
+    // Spirit Level
+    static let levelHoldSeconds: Double = 9
+    static let levelRevealSeconds: Double = 7
+
+    // Pour It
+    static let pourSeconds: Double = 12
+    static let pourRevealSeconds: Double = 7
 }
