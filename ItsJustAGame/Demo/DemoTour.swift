@@ -485,6 +485,48 @@ enum Demo {
             ))
         },
 
+        // Loudest — reveal
+        Step(points: [4: 1, 1: 1]) {
+            .loudReveal(LoudReveal(
+                round: 2, turn: 2,
+                results: [
+                    LoudResult(slot: 1, level: 720),
+                    LoudResult(slot: 2, level: 610),
+                    LoudResult(slot: 3, level: 540),
+                    LoudResult(slot: 4, level: 880),
+                ],
+                winners: [4], points: [4: 2, 1: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Blow It Out — reveal
+        Step(points: [2: 1, 3: 1]) {
+            .blowReveal(BlowReveal(
+                round: 2, turn: 2, candleCount: 10,
+                results: [
+                    BlowResult(slot: 1, candles: 6),
+                    BlowResult(slot: 2, candles: 9),
+                    BlowResult(slot: 3, candles: 4),
+                    BlowResult(slot: 4, candles: 7),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Hum It — reveal
+        Step(points: [1: 1, 3: 1]) {
+            .humReveal(HumReveal(
+                round: 2, turn: 2,
+                results: [
+                    HumResult(slot: 1, errorCents: 22),
+                    HumResult(slot: 2, errorCents: 140),
+                    HumResult(slot: 3, errorCents: 8),
+                    HumResult(slot: 4, errorCents: 65),
+                ],
+                winners: [3], points: [1: 1, 3: 2], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -620,6 +662,18 @@ struct DemoTourView: View {
             MazeTurnView(session: session, turn: turn)
         case .mazeReveal(let reveal):
             MazeRevealView(session: session, reveal: reveal)
+        case .loudTurn(let turn):
+            LoudTurnView(session: session, turn: turn)
+        case .loudReveal(let reveal):
+            LoudRevealView(session: session, reveal: reveal)
+        case .blowTurn(let turn):
+            BlowTurnView(session: session, turn: turn)
+        case .blowReveal(let reveal):
+            BlowRevealView(session: session, reveal: reveal)
+        case .humTurn(let turn):
+            HumTurnView(session: session, turn: turn)
+        case .humReveal(let reveal):
+            HumRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

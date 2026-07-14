@@ -71,6 +71,15 @@ enum HostMessage: Codable {
     // Marble Maze
     case mazeTurn(MazeTurn)
     case mazeReveal(MazeReveal)
+    // Loudest
+    case loudTurn(LoudTurn)
+    case loudReveal(LoudReveal)
+    // Blow It Out
+    case blowTurn(BlowTurn)
+    case blowReveal(BlowReveal)
+    // Hum It
+    case humTurn(HumTurn)
+    case humReveal(HumReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -115,6 +124,9 @@ enum PlayerMessage: Codable {
     case levelError(round: Int, turn: Int, slot: Int, errorMilliDeg: Int)
     case pourFill(round: Int, turn: Int, slot: Int, fillPercent: Int, overflowed: Bool)
     case mazeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
+    case loudLevel(round: Int, turn: Int, slot: Int, level: Int)
+    case blowCandles(round: Int, turn: Int, slot: Int, candles: Int)
+    case humPitch(round: Int, turn: Int, slot: Int, errorCents: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -845,6 +857,100 @@ struct MazeReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Loudest
+
+struct LoudTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var shoutSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(shoutSeconds) }
+}
+
+struct LoudResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Peak loudness 0–1000; nil = never shouted / no mic.
+    var level: Int?
+    var id: Int { slot }
+}
+
+struct LoudReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [LoudResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Blow It Out
+
+struct BlowTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var blowSeconds: Double
+    var candles: Int
+
+    var deadline: Date { startAt.addingTimeInterval(blowSeconds) }
+}
+
+struct BlowResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Candles blown out; nil = no mic.
+    var candles: Int?
+    var id: Int { slot }
+}
+
+struct BlowReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var candleCount: Int
+    var results: [BlowResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Hum It
+
+struct HumTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// The reference note to hum, in Hz.
+    var targetHz: Double
+    var listenSeconds: Double
+    var humSeconds: Double
+
+    /// Humming begins after the note has played.
+    var humStart: Date { startAt.addingTimeInterval(listenSeconds) }
+    var deadline: Date { humStart.addingTimeInterval(humSeconds) }
+}
+
+struct HumResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Pitch error in cents (100 = a semitone); nil = never hummed.
+    var errorCents: Int?
+    var id: Int { slot }
+}
+
+struct HumReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [HumResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -1015,5 +1121,17 @@ enum RecordName {
 
     static func mazeTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-mz\(turn)-maz\(slot)"
+    }
+
+    static func loudLevel(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-ld\(turn)-lod\(slot)"
+    }
+
+    static func blowCandles(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-bl\(turn)-blw\(slot)"
+    }
+
+    static func humPitch(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-hm\(turn)-hum\(slot)"
     }
 }

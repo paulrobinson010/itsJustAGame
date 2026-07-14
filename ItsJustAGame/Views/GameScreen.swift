@@ -161,6 +161,12 @@ struct GameScreen: View {
         case .pourReveal(let reveal): return "pourreveal\(reveal.round)-\(reveal.turn)"
         case .mazeTurn(let turn): return "maze\(turn.round)-\(turn.turn)"
         case .mazeReveal(let reveal): return "mazereveal\(reveal.round)-\(reveal.turn)"
+        case .loudTurn(let turn): return "loud\(turn.round)-\(turn.turn)"
+        case .loudReveal(let reveal): return "loudreveal\(reveal.round)-\(reveal.turn)"
+        case .blowTurn(let turn): return "blow\(turn.round)-\(turn.turn)"
+        case .blowReveal(let reveal): return "blowreveal\(reveal.round)-\(reveal.turn)"
+        case .humTurn(let turn): return "hum\(turn.round)-\(turn.turn)"
+        case .humReveal(let reveal): return "humreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -258,6 +264,18 @@ struct GameScreen: View {
             MazeTurnView(session: session, turn: turn)
         case .mazeReveal(let reveal):
             MazeRevealView(session: session, reveal: reveal)
+        case .loudTurn(let turn):
+            LoudTurnView(session: session, turn: turn)
+        case .loudReveal(let reveal):
+            LoudRevealView(session: session, reveal: reveal)
+        case .blowTurn(let turn):
+            BlowTurnView(session: session, turn: turn)
+        case .blowReveal(let reveal):
+            BlowRevealView(session: session, reveal: reveal)
+        case .humTurn(let turn):
+            HumTurnView(session: session, turn: turn)
+        case .humReveal(let reveal):
+            HumRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -344,6 +362,12 @@ struct GameScreen: View {
         case .pourReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .mazeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .loudReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .blowReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .humReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)

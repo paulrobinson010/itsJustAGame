@@ -67,6 +67,15 @@ enum GamePhase: Hashable {
     // Marble Maze
     case mazeTurn(MazeTurn)
     case mazeReveal(MazeReveal)
+    // Loudest
+    case loudTurn(LoudTurn)
+    case loudReveal(LoudReveal)
+    // Blow It Out
+    case blowTurn(BlowTurn)
+    case blowReveal(BlowReveal)
+    // Hum It
+    case humTurn(HumTurn)
+    case humReveal(HumReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -573,6 +582,51 @@ final class GameSession {
         )
     }
 
+    // MARK: - Loudest input
+
+    func submitLoud(level: Int, for turn: LoudTurn) {
+        let id = RecordName.loudLevel(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.loudLevel(round: turn.round, turn: turn.turn, slot: mySlot, level: level), id: id)
+        }
+    }
+
+    func hasSubmittedLoud(for turn: LoudTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.loudLevel(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Blow It Out input
+
+    func submitBlow(candles: Int, for turn: BlowTurn) {
+        let id = RecordName.blowCandles(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.blowCandles(round: turn.round, turn: turn.turn, slot: mySlot, candles: candles), id: id)
+        }
+    }
+
+    func hasSubmittedBlow(for turn: BlowTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.blowCandles(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Hum It input
+
+    func submitHum(errorCents: Int, for turn: HumTurn) {
+        let id = RecordName.humPitch(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.humPitch(round: turn.round, turn: turn.turn, slot: mySlot, errorCents: errorCents), id: id)
+        }
+    }
+
+    func hasSubmittedHum(for turn: HumTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.humPitch(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -768,6 +822,24 @@ final class GameSession {
         case .mazeReveal(let reveal):
             points = reveal.points
             phase = .mazeReveal(reveal)
+        case .loudTurn(let turn):
+            points = turn.points
+            phase = .loudTurn(turn)
+        case .loudReveal(let reveal):
+            points = reveal.points
+            phase = .loudReveal(reveal)
+        case .blowTurn(let turn):
+            points = turn.points
+            phase = .blowTurn(turn)
+        case .blowReveal(let reveal):
+            points = reveal.points
+            phase = .blowReveal(reveal)
+        case .humTurn(let turn):
+            points = turn.points
+            phase = .humTurn(turn)
+        case .humReveal(let reveal):
+            points = reveal.points
+            phase = .humReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

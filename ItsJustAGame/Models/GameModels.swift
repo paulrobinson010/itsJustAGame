@@ -69,6 +69,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case spiritLevel
     case pourIt
     case marbleMaze
+    case loudest
+    case blowItOut
+    case humIt
 
     var displayName: String {
         switch self {
@@ -92,6 +95,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .spiritLevel: return "Spirit Level"
         case .pourIt: return "Pour It"
         case .marbleMaze: return "Marble Maze"
+        case .loudest: return "Loudest"
+        case .blowItOut: return "Blow It Out"
+        case .humIt: return "Hum It"
         }
     }
 
@@ -118,6 +124,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .spiritLevel: return 2
         case .pourIt: return 2
         case .marbleMaze: return 2
+        case .loudest: return 2
+        case .blowItOut: return 2
+        case .humIt: return 2
         }
     }
 
@@ -143,6 +152,9 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .spiritLevel: return "gyroscope"
         case .pourIt: return "drop.fill"
         case .marbleMaze: return "square.grid.3x3.fill"
+        case .loudest: return "speaker.wave.3.fill"
+        case .blowItOut: return "wind"
+        case .humIt: return "music.note"
         }
     }
 
@@ -188,6 +200,12 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Tilt to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .marbleMaze:
             return "Tilt your phone to roll the ball through the maze to the exit. Fastest to escape wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .loudest:
+            return "When it says GO, shout as loud as you can! Loudest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round. (Nothing is recorded — just how loud you are.)"
+        case .blowItOut:
+            return "Blow at your phone to blow out the candles. Most candles out wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .humIt:
+            return "Listen to the note, then hum it back. Closest to the pitch wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -362,4 +380,18 @@ enum GameTiming {
     static let mazeSize = 6
     static let mazeMaxSeconds: Double = 45
     static let mazeRevealSeconds: Double = 6
+
+    // Loudest
+    static let loudShoutSeconds: Double = 4
+    static let loudRevealSeconds: Double = 6
+
+    // Blow It Out
+    static let blowSeconds: Double = 6
+    static let blowCandles = 10
+    static let blowRevealSeconds: Double = 6
+
+    // Hum It
+    static let humListenSeconds: Double = 2
+    static let humSeconds: Double = 5
+    static let humRevealSeconds: Double = 7
 }

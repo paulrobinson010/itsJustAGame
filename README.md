@@ -333,6 +333,33 @@ round. Needs a real device. Simplify: slower pour and a green band round
 the line (level 1), plus a live fill % (level 2), and at the top level it
 simply won't overflow past the line (level 3).
 
+### Loudest
+
+On GO, everyone shouts; the loudest peak wins the point, first to 3 wins
+the round. A shared `MicService` (AVAudioEngine tap) reduces the mic to a
+0–1 loudness on the render thread — **raw audio is never recorded,
+stored, or transmitted**, only a peak number 0–1000. Measured on each
+device, so it's latency-free. Needs mic permission (and a real device).
+Simplify quietly scales your loudness up (×1.15 / ×1.3 / ×1.6) — invisible
+at the reveal.
+
+### Blow It Out
+
+Blow at the phone to snuff a row of birthday candles; the device
+integrates sustained loudness (above a threshold, so a shout won't do it)
+into a candle count, most out wins. First to 3 rounds. Same mic-to-number
+privacy as Loudest. Simplify makes the candles easier to blow out
+(×1.3 / ×1.6 / ×2).
+
+### Hum It
+
+The reference note plays (a sine tone built in memory — `ToneWAV`), then
+you hum it back. The device estimates your hum's pitch by autocorrelation,
+takes the median over the window, and reports the error in **cents**;
+closest wins. Only the cents error leaves the phone. Needs mic + a real
+device. Simplify: level 1 plays the note longer and shows a higher/lower
+arrow; levels 2–3 show a live cents readout.
+
 ### Steady Hand
 
 Endurance. A glowing ring drifts around the board and slowly shrinks —
@@ -429,6 +456,9 @@ Every game implements all three levels:
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
+| Loudest | your loudness ×1.15 | ×1.3 | ×1.6 |
+| Blow It Out | candles ×1.3 easier | ×1.6 | ×2 |
+| Hum It | note plays longer + higher/lower arrow | live cents readout | live cents readout |
 | Spirit Level | wide tolerance band round the mark | tighter band + bubble glows when close | live "X.X° off" readout |
 | Pour It | slower pour + green band round the line | + live fill % | + can't overflow past the line |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
@@ -471,7 +501,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all twenty games
+button. It steps through every screen — lobby, wheel, all twenty-three games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

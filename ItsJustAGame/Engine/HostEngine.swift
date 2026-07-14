@@ -224,6 +224,12 @@ final class HostEngine {
                 winners = await runPourRound(round: round)
             case .marbleMaze:
                 winners = await runMazeRound(round: round)
+            case .loudest:
+                winners = await runLoudRound(round: round)
+            case .blowItOut:
+                winners = await runBlowRound(round: round)
+            case .humIt:
+                winners = await runHumRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -2164,6 +2170,166 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return times
+    }
+
+    // MARK: - Loudest
+
+    /// Everyone shouts at once; loudest peak wins. Measured on each device.
+    private func runLoudRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = LoudTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                shoutSeconds: GameTiming.loudShoutSeconds
+            )
+            await send(.loudTurn(turnMessage))
+            let levels = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.loudLevel(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .loudLevel(_, _, let slot, let level) = $0 { return (slot, max(0, level)) }; return nil }
+            )
+            var results: [LoudResult] = []
+            for slot in players { results.append(LoudResult(slot: slot, level: levels[slot])) }
+            let best = results.compactMap(\.level).max()
+            let winners = best.map { top in results.filter { $0.level == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = LoudReveal(
+                round: round, turn: turn, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.loudRevealSeconds + 2) : nil
+            )
+            await send(.loudReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.loudRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Blow It Out
+
+    private func runBlowRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = BlowTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                blowSeconds: GameTiming.blowSeconds,
+                candles: GameTiming.blowCandles
+            )
+            await send(.blowTurn(turnMessage))
+            let blown = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.blowCandles(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .blowCandles(_, _, let slot, let candles) = $0 { return (slot, max(0, candles)) }; return nil }
+            )
+            var results: [BlowResult] = []
+            for slot in players { results.append(BlowResult(slot: slot, candles: blown[slot])) }
+            let best = results.compactMap(\.candles).max()
+            let winners = (best.map { $0 > 0 } == true)
+                ? results.filter { $0.candles == best }.map(\.slot).sorted()
+                : []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = BlowReveal(
+                round: round, turn: turn, candleCount: turnMessage.candles, results: results,
+                winners: winners, points: points, roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.blowRevealSeconds + 2) : nil
+            )
+            await send(.blowReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.blowRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Hum It
+
+    private func runHumRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        // Comfortable hum range, C3–E4.
+        let notes: [Double] = [130.8, 146.8, 164.8, 174.6, 196.0, 220.0, 246.9, 261.6, 293.7, 329.6]
+        var turn = 1
+        while !Task.isCancelled {
+            let turnMessage = HumTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                targetHz: notes.randomElement() ?? 220.0,
+                listenSeconds: GameTiming.humListenSeconds,
+                humSeconds: GameTiming.humSeconds
+            )
+            await send(.humTurn(turnMessage))
+            let errors = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.humPitch(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .humPitch(_, _, let slot, let cents) = $0 { return (slot, max(0, cents)) }; return nil }
+            )
+            var results: [HumResult] = []
+            for slot in players { results.append(HumResult(slot: slot, errorCents: errors[slot])) }
+            let best = results.compactMap(\.errorCents).min()
+            let winners = best.map { top in results.filter { $0.errorCents == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = HumReveal(
+                round: round, turn: turn, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.humRevealSeconds + 2) : nil
+            )
+            await send(.humReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.humRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    /// Shared single-int collector for the sensor games.
+    private func collectInts(
+        deadline: Date,
+        players: [Int],
+        id: (Int) -> String,
+        extract: (PlayerMessage) -> (Int, Int)?
+    ) async -> [Int: Int] {
+        let hardDeadline = deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
+        var values: [Int: Int] = [:]
+        while !Task.isCancelled {
+            let missing = players.filter { values[$0] == nil }
+            if missing.isEmpty { break }
+            let ids = missing.map(id)
+            if let found = try? await transport.get(ids: ids) {
+                for body in found.values {
+                    guard let message = try? crypto.open(PlayerMessage.self, from: body),
+                          let (slot, value) = extract(message) else { continue }
+                    values[slot] = value
+                }
+            }
+            if Date() > hardDeadline { break }
+            try? await Task.sleep(for: .seconds(0.75))
+        }
+        return values
     }
 
     // MARK: - Steady Hand
