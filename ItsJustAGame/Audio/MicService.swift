@@ -93,7 +93,9 @@ final class MicService: @unchecked Sendable {
         lock.lock()
         _level = level
         _peak = max(_peak, level)
-        if let pitch { _pitch = pitch }
+        // Clear the pitch when it's too quiet to be a hum — otherwise the
+        // last detected note lingers and silence reads as a perfect match.
+        _pitch = pitch ?? 0
         lock.unlock()
     }
 
