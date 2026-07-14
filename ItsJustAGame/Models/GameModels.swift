@@ -203,7 +203,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .colourClash:
             return "The name of a colour, printed in a different colour. Tap the colour it's PRINTED in — not the word — as fast as you can through them all. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .spiritLevel:
-            return "Hold your phone dead level to keep the bubble between the two markers — the clock runs as long as you can. Longest hold wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+            return "Tilt to keep the bubble between the two markers — but they drift faster and faster. The clock runs as long as you stay in. Longest hold wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .pourIt:
             return "Tilt to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .marbleMaze:

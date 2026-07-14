@@ -774,7 +774,9 @@ struct LevelTurn: Codable, Hashable {
     var turn: Int
     var points: [Int: Int]
     var startAt: Date
-    /// The most time anyone can bank holding the bubble steady.
+    /// Every device regenerates the identical drifting zone from this seed.
+    var seed: UInt64
+    /// The most time anyone can bank holding the bubble in the zone.
     var maxSeconds: Double
 
     var deadline: Date { startAt.addingTimeInterval(maxSeconds) }

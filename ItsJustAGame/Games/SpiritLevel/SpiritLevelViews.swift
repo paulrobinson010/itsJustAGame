@@ -1,9 +1,33 @@
 import SwiftUI
 
-/// One Spirit Level turn: hold the phone dead level to keep the bubble
-/// between the two markers. The clock runs as long as you can hold it; the
-/// moment you slip out, your time locks in. Longest hold wins. Measured on
-/// each device, so latency never matters.
+/// The target zone's drift, regenerated identically on every device from
+/// the turn's seed. The centre angle starts at 0 (so you can catch it) and
+/// wanders faster and faster, so holding gets harder the longer you last.
+struct LevelDrift {
+    private let a1, a2, w1, w2: Double
+
+    init(seed: UInt64) {
+        var generator = SeededGenerator(seed: seed)
+        func pick(_ range: ClosedRange<Double>) -> Double {
+            Double.random(in: range, using: &generator)
+        }
+        a1 = pick(14...20)   // degrees
+        a2 = pick(6...11)
+        w1 = pick(0.45...0.7)
+        w2 = pick(0.9...1.4)
+    }
+
+    /// Centre of the level zone, in degrees, at elapsed time `t` seconds.
+    func center(at t: Double) -> Double {
+        let s = t * (1 + t / 12)   // time accelerates → movement speeds up
+        return a1 * sin(w1 * s) + a2 * sin(w2 * s)
+    }
+}
+
+/// One Spirit Level turn: keep the bubble between the two markers — but the
+/// markers drift, faster and faster. The clock runs as long as you can
+/// stay inside; the moment you slip out, your time locks in. Longest hold
+/// wins. Measured on each device, so latency never matters.
 struct LevelTurnView: View {
     let session: GameSession
     let turn: LevelTurn
@@ -18,6 +42,14 @@ struct LevelTurnView: View {
     /// forgiven; staying out past the grace ends the hold.
     @State private var leftAt: Date?
 
+    private let drift: LevelDrift
+
+    init(session: GameSession, turn: LevelTurn) {
+        self.session = session
+        self.turn = turn
+        self.drift = LevelDrift(seed: turn.seed)
+    }
+
     private var motion: MotionService { MotionService.shared }
 
     private var playEndsAt: Date? {
@@ -30,18 +62,19 @@ struct LevelTurnView: View {
         TimelineView(.periodic(from: .now, by: 0.03)) { context in
             let now = context.date
             let roll = motion.rollDegrees
-            let inZone = abs(roll) <= zoneHalfWidth
+            let center = zoneCenter(now: now)
+            let inZone = abs(roll - center) <= zoneHalfWidth
             let playing = isPlaying(now: now)
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
-                Text("Turn \(turn.turn) · hold it level")
+                Text("Turn \(turn.turn) · stay in the zone")
                     .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(1.2)
                 header(now: now, playing: playing, inZone: inZone)
                 Spacer(minLength: 8)
-                gauge(roll: roll, inZone: inZone && playing)
+                gauge(roll: roll, center: center, inZone: inZone && playing)
                 Spacer(minLength: 8)
                 timer(now: now, playing: playing)
                 Spacer(minLength: 8)
@@ -63,6 +96,12 @@ struct LevelTurnView: View {
     private func isPlaying(now: Date) -> Bool {
         guard let go = goAt, let end = playEndsAt, !submitted else { return false }
         return now >= go && now < end
+    }
+
+    /// Where the level zone's centre sits right now, in degrees.
+    private func zoneCenter(now: Date) -> Double {
+        guard let go = goAt else { return 0 }
+        return drift.center(at: max(0, now.timeIntervalSince(go)))
     }
 
     /// The hold time to show right now: the live streak while holding, else
@@ -94,11 +133,11 @@ struct LevelTurnView: View {
                 .contentTransition(.numericText())
         } else if playing {
             if holdStartAt == nil {
-                Text("Level it to start the clock")
-                    .font(Theme.display(20))
+                Text("Catch the zone to start the clock")
+                    .font(Theme.display(18))
                     .foregroundStyle(.secondary)
             } else {
-                Text(inZone ? "Hold it steady!" : "Get it back!")
+                Text(inZone ? "Stay with it!" : "Chase it back!")
                     .font(Theme.display(22))
                     .foregroundStyle(inZone ? Color.green : Theme.magenta)
             }
@@ -108,13 +147,13 @@ struct LevelTurnView: View {
         }
     }
 
-    private func gauge(roll: Double, inZone: Bool) -> some View {
+    private func gauge(roll: Double, center: Double, inZone: Bool) -> some View {
         GeometryReader { proxy in
             let w = proxy.size.width
             let h = proxy.size.height
             let bubbleX = position(roll) * w
-            let leftX = position(-zoneHalfWidth) * w
-            let rightX = position(zoneHalfWidth) * w
+            let leftX = position(center - zoneHalfWidth) * w
+            let rightX = position(center + zoneHalfWidth) * w
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Theme.surface)
@@ -162,7 +201,8 @@ struct LevelTurnView: View {
             finish(ms: holdStartAt.map { Int(end.timeIntervalSince($0) * 1000) } ?? heldMs)
             return
         }
-        let inZone = abs(roll) <= zoneHalfWidth
+        let center = drift.center(at: now.timeIntervalSince(go))
+        let inZone = abs(roll - center) <= zoneHalfWidth
         if inZone {
             leftAt = nil
             if holdStartAt == nil { holdStartAt = now }

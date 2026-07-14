@@ -312,14 +312,17 @@ boldly, plus the gentler ball (level 3).
 
 ### Spirit Level
 
-Hold the phone dead level (left–right roll, read from CoreMotion device
-attitude) to keep the bubble between two markers — the clock runs as long
-as you can hold it, and the moment you slip out (past a short grace) your
-time locks in. A brief dip back inside is forgiven; a full 20 seconds
-caps it. Longest continuous hold takes the point; first to 3 wins the
-round. Timed locally, so latency never matters. Needs a real device (the
-Simulator has no motion). Simplify widens the gap between the markers, so
-the bubble is easier to keep inside (×1.8 / ×2.6 / ×3.6).
+Tilt the phone (left–right roll, read from CoreMotion device attitude) to
+keep the bubble between two markers — but the markers **drift, faster and
+faster**. The zone's path is two summed sinusoids on an accelerating time
+base, regenerated identically on every device from the turn's seed. The
+clock runs as long as you stay inside; the moment you slip out (past a
+short grace) your time locks in, capped at 20 seconds. A brief dip back
+inside is forgiven so hand jitter doesn't end the run. Longest hold takes
+the point; first to 3 wins the round. Timed locally, so latency never
+matters. Needs a real device (the Simulator has no motion). Simplify
+widens the gap between the markers, so the zone is easier to stay inside
+(×1.8 / ×2.6 / ×3.6).
 
 ### Pour It
 

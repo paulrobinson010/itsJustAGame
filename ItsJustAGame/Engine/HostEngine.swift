@@ -1945,6 +1945,7 @@ final class HostEngine {
                 // Matches the device-local run-up so the collection window
                 // (deadline + grace) fully covers everyone's play.
                 startAt: Date().addingTimeInterval(GameTiming.tiltCountdownSeconds),
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
                 maxSeconds: GameTiming.levelMaxSeconds
             )
             await send(.levelTurn(turnMessage))
