@@ -189,14 +189,15 @@ struct MazeTurnView: View {
                     .frame(width: side, height: side)
                 }
 
-                // Walls.
+                // Walls — white on the dark board for strong contrast.
                 Path { p in
                     for seg in maze.segments {
                         p.move(to: CGPoint(x: seg.0 * cell, y: seg.1 * cell))
                         p.addLine(to: CGPoint(x: seg.2 * cell, y: seg.3 * cell))
                     }
                 }
-                .stroke(Theme.ink.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(.white, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                .shadow(color: .black.opacity(0.55), radius: 1.5)
                 .frame(width: side, height: side)
 
                 // Exit flag.
