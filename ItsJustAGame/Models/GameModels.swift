@@ -72,6 +72,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case loudest
     case blowItOut
     case humIt
+    case crackTheSafe
+    case feelTheBeat
 
     var displayName: String {
         switch self {
@@ -98,6 +100,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .loudest: return "Loudest"
         case .blowItOut: return "Blow It Out"
         case .humIt: return "Hum It"
+        case .crackTheSafe: return "Crack the Safe"
+        case .feelTheBeat: return "Feel the Beat"
         }
     }
 
@@ -127,6 +131,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .loudest: return 2
         case .blowItOut: return 2
         case .humIt: return 2
+        case .crackTheSafe: return 2
+        case .feelTheBeat: return 2
         }
     }
 
@@ -155,6 +161,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .loudest: return "speaker.wave.3.fill"
         case .blowItOut: return "wind"
         case .humIt: return "music.note"
+        case .crackTheSafe: return "lock.rotation"
+        case .feelTheBeat: return "waveform.path"
         }
     }
 
@@ -206,6 +214,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Blow at your phone to blow out the candles. Most candles out wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .humIt:
             return "Listen to the note, then hum it back. Closest to the pitch wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .crackTheSafe:
+            return "Twist your phone like a safe dial to spin in the \(GameTiming.safeDigits)-digit combo. Fastest to crack it wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .feelTheBeat:
+            return "Feel the rhythm buzz through your phone, then tap it straight back. Closest to the beat wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -394,4 +406,17 @@ enum GameTiming {
     static let humListenSeconds: Double = 2
     static let humSeconds: Double = 5
     static let humRevealSeconds: Double = 7
+
+    // Crack the Safe
+    static let safeDigits = 3
+    static let safeMaxSeconds: Double = 30
+    static let safeRevealSeconds: Double = 6
+
+    // Feel the Beat
+    static let beatCount = 4          // taps in the pattern (so 3 gaps)
+    static let beatShortMs = 350      // the two possible gap lengths
+    static let beatLongMs = 700
+    static let beatListenLeadSeconds: Double = 1.5
+    static let beatTapSeconds: Double = 8
+    static let beatRevealSeconds: Double = 7
 }

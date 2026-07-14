@@ -360,6 +360,27 @@ closest wins. Only the cents error leaves the phone. Needs mic + a real
 device. Simplify: level 1 plays the note longer and shows a higher/lower
 arrow; levels 2–3 show a live cents readout.
 
+### Crack the Safe
+
+Twist the phone like a safe dial to spin each digit of the (shown) combo
+into place. The device integrates the twist rate (`MotionService`, gyro
+about the screen-normal) into a 0–9 dial and locks a digit once you settle
+on it; fastest to enter all three wins. Only the elapsed time leaves the
+phone, measured locally against the shared start — latency-free. Needs a
+real device. Simplify: level 1 is more forgiving about "settled"; level 2
+turns the dial green on the right digit; level 3 locks the instant you
+pass it.
+
+### Feel the Beat
+
+A short rhythm buzzes through the phone (haptic + a soft tick — no beat is
+shown), then you tap it straight back. The device compares your tap gaps
+to the pattern and reports the average error in ms; closest wins. Only the
+error leaves the phone. Works on iPad too (audible ticks stand in for the
+haptics). Simplify: level 1 plays the pattern twice; level 2 adds a visual
+pulse on each beat; level 3 keeps a visual metronome looping so you can tap
+along.
+
 ### Steady Hand
 
 Endurance. A glowing ring drifts around the board and slowly shrinks —
@@ -459,6 +480,8 @@ Every game implements all three levels:
 | Loudest | your loudness ×1.15 | ×1.3 | ×1.6 |
 | Blow It Out | candles ×1.3 easier | ×1.6 | ×2 |
 | Hum It | note plays longer + higher/lower arrow | live cents readout | live cents readout |
+| Crack the Safe | more forgiving "settled" | + dial goes green on the right digit | + locks the instant you pass it |
+| Feel the Beat | pattern plays twice | + a visual pulse on each beat | + a visual metronome to tap along to |
 | Spirit Level | wide tolerance band round the mark | tighter band + bubble glows when close | live "X.X° off" readout |
 | Pour It | slower pour + green band round the line | + live fill % | + can't overflow past the line |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
@@ -501,7 +524,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all twenty-three games
+button. It steps through every screen — lobby, wheel, all twenty-five games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

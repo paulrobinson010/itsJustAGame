@@ -80,6 +80,12 @@ enum HostMessage: Codable {
     // Hum It
     case humTurn(HumTurn)
     case humReveal(HumReveal)
+    // Crack the Safe
+    case safeTurn(SafeTurn)
+    case safeReveal(SafeReveal)
+    // Feel the Beat
+    case beatTurn(BeatTurn)
+    case beatReveal(BeatReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -127,6 +133,8 @@ enum PlayerMessage: Codable {
     case loudLevel(round: Int, turn: Int, slot: Int, level: Int)
     case blowCandles(round: Int, turn: Int, slot: Int, candles: Int)
     case humPitch(round: Int, turn: Int, slot: Int, errorCents: Int)
+    case safeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
+    case beatError(round: Int, turn: Int, slot: Int, errorMs: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -951,6 +959,73 @@ struct HumReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Crack the Safe
+
+struct SafeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// The combination every device must dial in, e.g. [4, 9, 1].
+    var combo: [Int]
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct SafeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to crack the safe in ms; nil = never opened it in time.
+    var elapsedMs: Int?
+    var id: Int { slot }
+}
+
+struct SafeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var combo: [Int]
+    var results: [SafeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Feel the Beat
+
+struct BeatTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Gaps between successive beats, in ms (one fewer than the beat count).
+    var gaps: [Int]
+    var leadSeconds: Double
+    var tapSeconds: Double
+
+    /// The pattern plays first; tapping is scored once it has finished.
+    var patternMs: Int { gaps.reduce(0, +) }
+    var tapStart: Date { startAt.addingTimeInterval(leadSeconds + Double(patternMs) / 1000) }
+    var deadline: Date { tapStart.addingTimeInterval(tapSeconds) }
+}
+
+struct BeatResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Mean per-gap timing error in ms; nil = didn't tap the pattern back.
+    var errorMs: Int?
+    var id: Int { slot }
+}
+
+struct BeatReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [BeatResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Colour Clash
 
 /// The Stroop game: a colour name printed in a clashing ink. The prompt
@@ -1133,5 +1208,13 @@ enum RecordName {
 
     static func humPitch(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-hm\(turn)-hum\(slot)"
+    }
+
+    static func safeTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sf\(turn)-saf\(slot)"
+    }
+
+    static func beatError(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-bt\(turn)-bet\(slot)"
     }
 }

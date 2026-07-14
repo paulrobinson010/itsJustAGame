@@ -230,6 +230,10 @@ final class HostEngine {
                 winners = await runBlowRound(round: round)
             case .humIt:
                 winners = await runHumRound(round: round)
+            case .crackTheSafe:
+                winners = await runSafeRound(round: round)
+            case .feelTheBeat:
+                winners = await runBeatRound(round: round)
             }
             for winner in winners {
                 roundsWon[winner, default: 0] += 1
@@ -2330,6 +2334,97 @@ final class HostEngine {
             try? await Task.sleep(for: .seconds(0.75))
         }
         return values
+    }
+
+    // MARK: - Crack the Safe
+
+    private func runSafeRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let combo = (0..<GameTiming.safeDigits).map { _ in Int.random(in: 0...9) }
+            let turnMessage = SafeTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                combo: combo,
+                maxSeconds: GameTiming.safeMaxSeconds
+            )
+            await send(.safeTurn(turnMessage))
+            let times = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.safeTime(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .safeTime(_, _, let slot, let ms) = $0 { return (slot, max(0, ms)) }; return nil }
+            )
+            var results: [SafeResult] = []
+            for slot in players { results.append(SafeResult(slot: slot, elapsedMs: times[slot])) }
+            let best = results.compactMap(\.elapsedMs).min()
+            let winners = best.map { top in results.filter { $0.elapsedMs == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = SafeReveal(
+                round: round, turn: turn, combo: combo, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.safeRevealSeconds + 2) : nil
+            )
+            await send(.safeReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.safeRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
+    }
+
+    // MARK: - Feel the Beat
+
+    private func runBeatRound(round: Int) async -> [Int] {
+        let players = joined.sorted()
+        var points: [Int: Int] = [:]
+        var turn = 1
+        while !Task.isCancelled {
+            let gaps = (0..<(GameTiming.beatCount - 1)).map { _ in
+                Bool.random() ? GameTiming.beatShortMs : GameTiming.beatLongMs
+            }
+            let turnMessage = BeatTurn(
+                round: round,
+                turn: turn,
+                points: points,
+                startAt: Date().addingTimeInterval(3),
+                gaps: gaps,
+                leadSeconds: GameTiming.beatListenLeadSeconds,
+                tapSeconds: GameTiming.beatTapSeconds
+            )
+            await send(.beatTurn(turnMessage))
+            let errors = await collectInts(
+                deadline: turnMessage.deadline,
+                players: players,
+                id: { RecordName.beatError(config.gameID, round: round, turn: turn, slot: $0) },
+                extract: { if case .beatError(_, _, let slot, let ms) = $0 { return (slot, max(0, ms)) }; return nil }
+            )
+            var results: [BeatResult] = []
+            for slot in players { results.append(BeatResult(slot: slot, errorMs: errors[slot])) }
+            let best = results.compactMap(\.errorMs).min()
+            let winners = best.map { top in results.filter { $0.errorMs == top }.map(\.slot).sorted() } ?? []
+            for winner in winners { points[winner, default: 0] += 1 }
+            let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
+
+            let reveal = BeatReveal(
+                round: round, turn: turn, results: results, winners: winners, points: points,
+                roundWinners: roundWinners,
+                nextAt: roundWinners.isEmpty ? Date().addingTimeInterval(GameTiming.beatRevealSeconds + 2) : nil
+            )
+            await send(.beatReveal(reveal))
+            try? await Task.sleep(for: .seconds(GameTiming.beatRevealSeconds))
+            if !roundWinners.isEmpty { return roundWinners }
+            if turn >= GameTiming.maxTurnsPerRound { return pointLeaders(points: points, players: players) }
+            turn += 1
+        }
+        return [players.first ?? 1]
     }
 
     // MARK: - Steady Hand

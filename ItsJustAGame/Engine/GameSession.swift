@@ -76,6 +76,12 @@ enum GamePhase: Hashable {
     // Hum It
     case humTurn(HumTurn)
     case humReveal(HumReveal)
+    // Crack the Safe
+    case safeTurn(SafeTurn)
+    case safeReveal(SafeReveal)
+    // Feel the Beat
+    case beatTurn(BeatTurn)
+    case beatReveal(BeatReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -627,6 +633,36 @@ final class GameSession {
         submittedAnswerIDs.contains(RecordName.humPitch(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
     }
 
+    // MARK: - Crack the Safe input
+
+    func submitSafe(elapsedMs: Int, for turn: SafeTurn) {
+        let id = RecordName.safeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.safeTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs), id: id)
+        }
+    }
+
+    func hasSubmittedSafe(for turn: SafeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.safeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Feel the Beat input
+
+    func submitBeat(errorMs: Int, for turn: BeatTurn) {
+        let id = RecordName.beatError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.beatError(round: turn.round, turn: turn.turn, slot: mySlot, errorMs: errorMs), id: id)
+        }
+    }
+
+    func hasSubmittedBeat(for turn: BeatTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.beatError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -840,6 +876,18 @@ final class GameSession {
         case .humReveal(let reveal):
             points = reveal.points
             phase = .humReveal(reveal)
+        case .safeTurn(let turn):
+            points = turn.points
+            phase = .safeTurn(turn)
+        case .safeReveal(let reveal):
+            points = reveal.points
+            phase = .safeReveal(reveal)
+        case .beatTurn(let turn):
+            points = turn.points
+            phase = .beatTurn(turn)
+        case .beatReveal(let reveal):
+            points = reveal.points
+            phase = .beatReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

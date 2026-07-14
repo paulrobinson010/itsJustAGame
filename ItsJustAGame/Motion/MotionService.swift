@@ -36,4 +36,10 @@ final class MotionService {
     var pitchDegrees: Double {
         (manager.deviceMotion?.attitude.pitch ?? 0) * 180 / .pi
     }
+
+    /// Twist rate about the screen-normal axis, in degrees/second — the
+    /// "turn the safe dial" motion for Crack the Safe.
+    var twistRateDegrees: Double {
+        (manager.deviceMotion?.rotationRate.z ?? 0) * 180 / .pi
+    }
 }

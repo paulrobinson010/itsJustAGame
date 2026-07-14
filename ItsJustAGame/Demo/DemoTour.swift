@@ -527,6 +527,34 @@ enum Demo {
             ))
         },
 
+        // Crack the Safe — reveal
+        Step(points: [2: 1, 4: 1]) {
+            .safeReveal(SafeReveal(
+                round: 2, turn: 2, combo: [4, 9, 1],
+                results: [
+                    SafeResult(slot: 1, elapsedMs: 9_200),
+                    SafeResult(slot: 2, elapsedMs: 6_400),
+                    SafeResult(slot: 3, elapsedMs: nil),
+                    SafeResult(slot: 4, elapsedMs: 7_800),
+                ],
+                winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Feel the Beat — reveal
+        Step(points: [1: 1, 2: 1]) {
+            .beatReveal(BeatReveal(
+                round: 2, turn: 2,
+                results: [
+                    BeatResult(slot: 1, errorMs: 48),
+                    BeatResult(slot: 2, errorMs: 120),
+                    BeatResult(slot: 3, errorMs: 31),
+                    BeatResult(slot: 4, errorMs: nil),
+                ],
+                winners: [3], points: [1: 1, 3: 1], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -674,6 +702,14 @@ struct DemoTourView: View {
             HumTurnView(session: session, turn: turn)
         case .humReveal(let reveal):
             HumRevealView(session: session, reveal: reveal)
+        case .safeTurn(let turn):
+            SafeTurnView(session: session, turn: turn)
+        case .safeReveal(let reveal):
+            SafeRevealView(session: session, reveal: reveal)
+        case .beatTurn(let turn):
+            BeatTurnView(session: session, turn: turn)
+        case .beatReveal(let reveal):
+            BeatRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
