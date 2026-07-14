@@ -530,13 +530,13 @@ final class GameSession {
 
     // MARK: - Spirit Level input
 
-    func submitLevel(errorMilliDeg: Int, for turn: LevelTurn) {
-        let id = RecordName.levelError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+    func submitLevel(heldMs: Int, for turn: LevelTurn) {
+        let id = RecordName.levelHeld(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
         guard !submittedAnswerIDs.contains(id) else { return }
         submittedAnswerIDs.insert(id)
         Task {
             await publish(
-                PlayerMessage.levelError(round: turn.round, turn: turn.turn, slot: mySlot, errorMilliDeg: errorMilliDeg),
+                PlayerMessage.levelHeld(round: turn.round, turn: turn.turn, slot: mySlot, heldMs: heldMs),
                 id: id
             )
         }
@@ -544,7 +544,7 @@ final class GameSession {
 
     func hasSubmittedLevel(for turn: LevelTurn) -> Bool {
         submittedAnswerIDs.contains(
-            RecordName.levelError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+            RecordName.levelHeld(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
         )
     }
 

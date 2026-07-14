@@ -1930,15 +1930,14 @@ final class HostEngine {
 
     // MARK: - Spirit Level
 
-    /// A target tilt each turn; everyone lines up the bubble by eye and
-    /// locks in. Closest angular error wins — measured on each device, so
+    /// Each turn everyone holds the phone level to keep the bubble between
+    /// the markers; longest continuous hold wins. Timed on each device, so
     /// latency never matters.
     private func runLevelRound(round: Int) async -> [Int] {
         let players = joined.sorted()
         var points: [Int: Int] = [:]
         var turn = 1
         while !Task.isCancelled {
-            let target = Double(Int.random(in: -35...35))
             let turnMessage = LevelTurn(
                 round: round,
                 turn: turn,
@@ -1946,19 +1945,18 @@ final class HostEngine {
                 // Matches the device-local run-up so the collection window
                 // (deadline + grace) fully covers everyone's play.
                 startAt: Date().addingTimeInterval(GameTiming.tiltCountdownSeconds),
-                targetDegrees: target,
-                holdSeconds: GameTiming.levelHoldSeconds
+                maxSeconds: GameTiming.levelMaxSeconds
             )
             await send(.levelTurn(turnMessage))
-            let errors = await collectLevelErrors(for: turnMessage, players: players)
+            let held = await collectLevelHeld(for: turnMessage, players: players)
 
             var results: [LevelResult] = []
             for slot in players {
-                results.append(LevelResult(slot: slot, errorMilliDeg: errors[slot]))
+                results.append(LevelResult(slot: slot, heldMs: held[slot]))
             }
-            let best = results.compactMap(\.errorMilliDeg).min()
-            let winners = best.map { closest in
-                results.filter { $0.errorMilliDeg == closest }.map(\.slot).sorted()
+            let best = results.compactMap(\.heldMs).max()
+            let winners = best.map { longest in
+                results.filter { $0.heldMs == longest }.map(\.slot).sorted()
             } ?? []
             for winner in winners {
                 points[winner, default: 0] += 1
@@ -1968,7 +1966,6 @@ final class HostEngine {
             let reveal = LevelReveal(
                 round: round,
                 turn: turn,
-                targetDegrees: target,
                 results: results,
                 winners: winners,
                 points: points,
@@ -1988,26 +1985,26 @@ final class HostEngine {
         return [players.first ?? 1]
     }
 
-    private func collectLevelErrors(for turn: LevelTurn, players: [Int]) async -> [Int: Int] {
+    private func collectLevelHeld(for turn: LevelTurn, players: [Int]) async -> [Int: Int] {
         let deadline = turn.deadline.addingTimeInterval(GameTiming.answerGraceSeconds)
-        var errors: [Int: Int] = [:]
+        var held: [Int: Int] = [:]
         while !Task.isCancelled {
-            let missing = players.filter { errors[$0] == nil }
+            let missing = players.filter { held[$0] == nil }
             if missing.isEmpty { break }
             let ids = missing.map {
-                RecordName.levelError(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
+                RecordName.levelHeld(config.gameID, round: turn.round, turn: turn.turn, slot: $0)
             }
             if let found = try? await transport.get(ids: ids) {
                 for body in found.values {
                     guard let message = try? crypto.open(PlayerMessage.self, from: body),
-                          case .levelError(_, _, let slot, let errorMilliDeg) = message else { continue }
-                    errors[slot] = max(0, errorMilliDeg)
+                          case .levelHeld(_, _, let slot, let heldMs) = message else { continue }
+                    held[slot] = max(0, heldMs)
                 }
             }
             if Date() > deadline { break }
             try? await Task.sleep(for: .seconds(0.75))
         }
-        return errors
+        return held
     }
 
     // MARK: - Pour It

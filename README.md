@@ -312,15 +312,14 @@ boldly, plus the gentler ball (level 3).
 
 ### Spirit Level
 
-Tilt the phone (left–right roll, read from CoreMotion device attitude) to
-slide a bubble onto a target mark on a level gauge — no numeric readout,
-just your eye, like a real spirit level. Lock in (or auto-lock at the
-deadline); the angular error is measured locally and hidden until the
-reveal, so latency never matters. Closest to the mark takes the point;
-first to 3 wins the round. Needs a real device (the Simulator has no
-motion). Simplify: a wide green tolerance band round the mark (level 1),
-a tighter band with the bubble glowing when close (level 2), a live
-"X.X° off" readout (level 3).
+Hold the phone dead level (left–right roll, read from CoreMotion device
+attitude) to keep the bubble between two markers — the clock runs as long
+as you can hold it, and the moment you slip out (past a short grace) your
+time locks in. A brief dip back inside is forgiven; a full 20 seconds
+caps it. Longest continuous hold takes the point; first to 3 wins the
+round. Timed locally, so latency never matters. Needs a real device (the
+Simulator has no motion). Simplify widens the gap between the markers, so
+the bubble is easier to keep inside (×1.8 / ×2.6 / ×3.6).
 
 ### Pour It
 
@@ -482,7 +481,7 @@ Every game implements all three levels:
 | Hum It | note plays longer + higher/lower arrow | live cents readout | live cents readout |
 | Crack the Safe | more forgiving "settled" | + dial goes green on the right digit | + locks the instant you pass it |
 | Feel the Beat | pattern plays twice | + a visual pulse on each beat | + a visual metronome to tap along to |
-| Spirit Level | wide tolerance band round the mark | tighter band + bubble glows when close | live "X.X° off" readout |
+| Spirit Level | wider gap between the markers (×1.8) | ×2.6 | ×3.6 |
 | Pour It | slower pour + green band round the line | + live fill % | + can't overflow past the line |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
 | Showdown | what-beats-what reminder | others' throws appear live | + told which throw beats the most right now |

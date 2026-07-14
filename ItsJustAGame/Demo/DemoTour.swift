@@ -440,12 +440,12 @@ enum Demo {
         // Spirit Level — reveal (turn needs a real device)
         Step(points: [3: 1, 1: 1]) {
             .levelReveal(LevelReveal(
-                round: 2, turn: 2, targetDegrees: 22,
+                round: 2, turn: 2,
                 results: [
-                    LevelResult(slot: 1, errorMilliDeg: 2100),
-                    LevelResult(slot: 2, errorMilliDeg: 7400),
-                    LevelResult(slot: 3, errorMilliDeg: 900),
-                    LevelResult(slot: 4, errorMilliDeg: 4300),
+                    LevelResult(slot: 1, heldMs: 8_400),
+                    LevelResult(slot: 2, heldMs: 3_100),
+                    LevelResult(slot: 3, heldMs: 14_600),
+                    LevelResult(slot: 4, heldMs: 6_900),
                 ],
                 winners: [3], points: [3: 2, 1: 1], roundWinners: [], nextAt: now(7)
             ))

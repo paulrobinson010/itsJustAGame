@@ -1,129 +1,142 @@
 import SwiftUI
 
-/// One Spirit Level turn: tilt the phone (roll) to slide the bubble onto
-/// the target mark, then lock it in — no numbers, just your eye. Angular
-/// error is measured locally, hidden until the reveal.
+/// One Spirit Level turn: hold the phone dead level to keep the bubble
+/// between the two markers. The clock runs as long as you can hold it; the
+/// moment you slip out, your time locks in. Longest hold wins. Measured on
+/// each device, so latency never matters.
 struct LevelTurnView: View {
     let session: GameSession
     let turn: LevelTurn
 
     @State private var submitted = false
-    @State private var lockedError: Double?
+    @State private var heldMs = 0
     /// Device-local "GO" moment, so the run-up is timed on this phone.
     @State private var goAt: Date?
+    /// When the current hold began (nil = not currently holding).
+    @State private var holdStartAt: Date?
+    /// When the bubble left the zone mid-hold (nil = inside). A brief dip is
+    /// forgiven; staying out past the grace ends the hold.
+    @State private var leftAt: Date?
 
     private var motion: MotionService { MotionService.shared }
 
     private var playEndsAt: Date? {
-        goAt?.addingTimeInterval(GameTiming.levelHoldSeconds)
+        goAt?.addingTimeInterval(turn.maxSeconds)
     }
+
+    private let slipGrace: Double = 0.3
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.03)) { context in
             let now = context.date
             let roll = motion.rollDegrees
-            let live = leveling(now: now)
+            let inZone = abs(roll) <= zoneHalfWidth
+            let playing = isPlaying(now: now)
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
-                Text("Turn \(turn.turn) · line up the bubble")
+                Text("Turn \(turn.turn) · hold it level")
                     .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                     .kerning(1.2)
-                header(now: now, roll: roll)
+                header(now: now, playing: playing, inZone: inZone)
                 Spacer(minLength: 8)
-                gauge(roll: roll)
-                if session.myAssist == .cheating, live {
-                    Text(String(format: "%.1f° off", abs(roll - turn.targetDegrees)))
-                        .font(Theme.subheadline.monospacedDigit())
-                        .foregroundStyle(Theme.cyan)
-                }
+                gauge(roll: roll, inZone: inZone && playing)
                 Spacer(minLength: 8)
-                if live {
-                    Button {
-                        lockIn(roll: roll)
-                    } label: {
-                        Label("Lock it in", systemImage: "checkmark.circle.fill")
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                }
+                timer(now: now, playing: playing)
                 Spacer(minLength: 8)
             }
             .padding(.top, 8)
+            .onChange(of: context.date) { _, newDate in
+                advance(now: newDate, roll: motion.rollDegrees)
+            }
         }
         .task {
             submitted = session.hasSubmittedLevel(for: turn)
             motion.start()
             goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
-            await autoLock()
+            await autoFinish()
         }
         .onDisappear { motion.stop() }
     }
 
-    /// Whether the bubble is live to tilt and lock right now.
-    private func leveling(now: Date) -> Bool {
+    private func isPlaying(now: Date) -> Bool {
         guard let go = goAt, let end = playEndsAt, !submitted else { return false }
         return now >= go && now < end
     }
 
+    /// The hold time to show right now: the live streak while holding, else
+    /// the value locked in.
+    private func currentMs(now: Date) -> Int {
+        if submitted { return heldMs }
+        if let start = holdStartAt { return Int(max(0, now.timeIntervalSince(start)) * 1000) }
+        return 0
+    }
+
     @ViewBuilder
-    private func header(now: Date, roll: Double) -> some View {
+    private func header(now: Date, playing: Bool, inZone: Bool) -> some View {
         if submitted {
-            Text("Locked in — waiting…")
+            Text("Held \(secondsText(heldMs)) — waiting…")
                 .font(Theme.display(22))
+                .foregroundStyle(heldMs > 0 ? .white : Theme.magenta)
         } else if !motion.isAvailable {
             Text("This game needs a real device")
                 .font(Theme.subheadline)
                 .foregroundStyle(Theme.magenta)
+        } else if goAt == nil {
+            Text("Get ready…")
+                .font(Theme.display(24))
         } else if let go = goAt, now < go {
             let count = Int(go.timeIntervalSince(now).rounded(.up))
             Text(count > 0 ? "\(count)" : "GO!")
                 .font(Theme.display(count > 0 ? 64 : 40))
                 .foregroundStyle(Theme.magenta)
                 .contentTransition(.numericText())
-        } else if let end = playEndsAt, now >= end {
+        } else if playing {
+            if holdStartAt == nil {
+                Text("Level it to start the clock")
+                    .font(Theme.display(20))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(inZone ? "Hold it steady!" : "Get it back!")
+                    .font(Theme.display(22))
+                    .foregroundStyle(inZone ? Color.green : Theme.magenta)
+            }
+        } else {
             Text("Time's up — waiting for the reveal…")
                 .font(Theme.headline)
-        } else if let end = playEndsAt {
-            let remaining = Int(max(0, end.timeIntervalSince(now)).rounded(.up))
-            Text("Tilt to the mark · \(remaining)s")
-                .font(Theme.display(22))
-        } else {
-            Text("Get ready…")
-                .font(Theme.display(24))
         }
     }
 
-    private func gauge(roll: Double) -> some View {
+    private func gauge(roll: Double, inZone: Bool) -> some View {
         GeometryReader { proxy in
             let w = proxy.size.width
             let h = proxy.size.height
-            let targetX = position(turn.targetDegrees) * w
             let bubbleX = position(roll) * w
-            let inZone = abs(roll - turn.targetDegrees) <= toleranceDegrees
+            let leftX = position(-zoneHalfWidth) * w
+            let rightX = position(zoneHalfWidth) * w
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Theme.surface)
                     .frame(height: 56)
                     .overlay(Capsule().stroke(Theme.hairline, lineWidth: 1))
-                // Simplify tolerance band.
-                if let band = bandDegrees {
-                    let bandW = (band * 2 / 90) * w
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Theme.cyan.opacity(0.16))
-                        .frame(width: bandW, height: 52)
-                        .position(x: targetX, y: h / 2)
+                // The level zone between the two markers.
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill((inZone ? Color.green : Theme.cyan).opacity(0.16))
+                    .frame(width: max(0, rightX - leftX), height: 52)
+                    .position(x: (leftX + rightX) / 2, y: h / 2)
+                // The two markers.
+                ForEach([leftX, rightX], id: \.self) { markX in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Theme.magenta)
+                        .frame(width: 3, height: 64)
+                        .position(x: markX, y: h / 2)
                 }
-                // Target mark.
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Theme.magenta)
-                    .frame(width: 3, height: 64)
-                    .position(x: targetX, y: h / 2)
                 // The bubble.
                 Circle()
-                    .fill(bubbleShowsGood && inZone ? Color.green : Theme.cyan)
+                    .fill(inZone ? Color.green : Theme.cyan)
                     .frame(width: 40, height: 40)
-                    .shadow(color: (bubbleShowsGood && inZone ? Color.green : Theme.cyan).opacity(0.6), radius: 8)
+                    .shadow(color: (inZone ? Color.green : Theme.cyan).opacity(0.6), radius: 8)
                     .position(x: min(max(bubbleX, 20), w - 20), y: h / 2)
             }
             .frame(height: h)
@@ -132,130 +145,102 @@ struct LevelTurnView: View {
         .padding(.horizontal, 24)
     }
 
-    // MARK: - Simplify
+    private func timer(now: Date, playing: Bool) -> some View {
+        let ms = currentMs(now: now)
+        let holding = holdStartAt != nil && !submitted && playing
+        return Text(secondsText(ms))
+            .font(Theme.display(48)).monospacedDigit()
+            .foregroundStyle(holding ? Color.green : .primary)
+    }
 
-    /// Degrees each side of the target the highlight band spans (nil = off).
-    private var bandDegrees: Double? {
-        switch session.myAssist {
-        case .little: return 10
-        case .big: return 5
-        default: return nil
+    // MARK: - Hold logic
+
+    private func advance(now: Date, roll: Double) {
+        guard let go = goAt, let end = playEndsAt, !submitted else { return }
+        guard now >= go else { return }
+        if now >= end {
+            finish(ms: holdStartAt.map { Int(end.timeIntervalSince($0) * 1000) } ?? heldMs)
+            return
+        }
+        let inZone = abs(roll) <= zoneHalfWidth
+        if inZone {
+            leftAt = nil
+            if holdStartAt == nil { holdStartAt = now }
+        } else if let start = holdStartAt {
+            if leftAt == nil {
+                leftAt = now
+            } else if now.timeIntervalSince(leftAt!) > slipGrace {
+                // Slipped out for good — lock the time at the moment we left.
+                finish(ms: Int(leftAt!.timeIntervalSince(start) * 1000))
+            }
         }
     }
 
-    /// Whether the bubble turns green when close (levels 2–3).
-    private var bubbleShowsGood: Bool {
-        session.myAssist == .big || session.myAssist == .cheating
+    private func finish(ms: Int) {
+        guard !submitted else { return }
+        submitted = true
+        heldMs = max(0, ms)
+        SoundPlayer.shared.play(heldMs > 0 ? .lockin : .lose)
+        session.submitLevel(heldMs: heldMs, for: turn)
     }
 
-    private var toleranceDegrees: Double { 4 }
+    private func autoFinish() async {
+        let end = playEndsAt ?? Date().addingTimeInterval(GameTiming.tiltCountdownSeconds + turn.maxSeconds)
+        let interval = end.timeIntervalSinceNow
+        if interval > 0 { try? await Task.sleep(for: .seconds(interval)) }
+        guard !Task.isCancelled, !submitted else { return }
+        finish(ms: holdStartAt.map { Int(end.timeIntervalSince($0) * 1000) } ?? 0)
+    }
 
+    // MARK: - Display helpers
+
+    private func secondsText(_ ms: Int) -> String {
+        String(format: "%.1fs", Double(ms) / 1000)
+    }
+
+    /// Maps a roll angle onto the 0…1 bar (±45° full scale).
     private func position(_ deg: Double) -> Double {
         min(max((deg + 45) / 90, 0), 1)
     }
 
-    private func lockIn(roll: Double) {
-        guard !submitted else { return }
-        let error = abs(roll - turn.targetDegrees)
-        lockedError = error
-        submitted = true
-        SoundPlayer.shared.play(.lockin)
-        session.submitLevel(errorMilliDeg: Int(error * 1000), for: turn)
-    }
+    // MARK: - Simplify
 
-    private func autoLock() async {
-        let end = playEndsAt ?? Date().addingTimeInterval(GameTiming.tiltCountdownSeconds + GameTiming.levelHoldSeconds)
-        let interval = end.timeIntervalSinceNow
-        if interval > 0 {
-            try? await Task.sleep(for: .seconds(interval))
+    /// Half the gap between the markers, in degrees. Simplify widens it, so
+    /// an assisted player finds it easier to keep the bubble inside.
+    private var zoneHalfWidth: Double {
+        let base = GameTiming.levelZoneDegrees
+        switch session.myAssist {
+        case .little: return base * 1.8
+        case .big: return base * 2.6
+        case .cheating: return base * 3.6
+        default: return base
         }
-        guard !Task.isCancelled, !submitted else { return }
-        lockIn(roll: motion.rollDegrees)
     }
 }
 
-/// Closest to the mark takes the point.
+/// Longest hold takes the point.
 struct LevelRevealView: View {
     let session: GameSession
     let reveal: LevelReveal
 
     var body: some View {
-        VStack(spacing: 14) {
-            HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: reveal.points)
-            Text("Target: \(Int(reveal.targetDegrees))°")
-                .font(Theme.kicker)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .kerning(1.5)
-            Text(headline)
-                .font(Theme.title)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            resultsList
-            footer
-            Spacer()
-        }
-        .padding(.top, 8)
-    }
-
-    private var headline: String {
-        if reveal.winners.isEmpty {
-            return "Nobody locked one in…"
-        }
-        return "🫧 \(session.names(reveal.winners)) \(reveal.winners.count == 1 ? "was" : "were") closest!"
-    }
-
-    private var sortedResults: [LevelResult] {
-        reveal.results.sorted { ($0.errorMilliDeg ?? .max) < ($1.errorMilliDeg ?? .max) }
-    }
-
-    private var resultsList: some View {
-        VStack(spacing: 8) {
-            ForEach(sortedResults) { result in
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(session.color(result.slot))
-                        .frame(width: 8, height: 8)
-                    Text(session.name(result.slot))
-                        .font(Theme.subheadline)
-                        .lineLimit(1)
-                    if reveal.winners.contains(result.slot) {
-                        Text("🫧")
-                    }
-                    Spacer()
-                    if let error = result.errorMilliDeg {
-                        Text(String(format: "%.1f° off", Double(error) / 1000))
-                            .font(Theme.subheadline.weight(.semibold))
-                            .monospacedDigit()
-                    } else {
-                        Text("no lock")
-                            .font(Theme.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .card()
-        .padding(.horizontal, 24)
-    }
-
-    private var footer: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Group {
-                if !reveal.roundWinners.isEmpty {
-                    Text("🏆 \(session.names(reveal.roundWinners)) \(reveal.roundWinners.count == 1 ? "wins" : "win") the round!")
-                        .font(Theme.headline)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                } else if let next = reveal.nextAt {
-                    let remaining = Int(max(0, next.timeIntervalSince(context.date)).rounded(.up))
-                    Text("Next mark in \(remaining)s")
-                        .font(Theme.subheadline)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text(" ")
-                }
-            }
-        }
+        SensorResultList(
+            session: session,
+            points: reveal.points,
+            kicker: "Turn \(reveal.turn)",
+            headline: reveal.winners.isEmpty
+                ? "Nobody held it…"
+                : "🫧 \(session.names(reveal.winners)) held on longest!",
+            rows: reveal.results
+                .sorted { ($0.heldMs ?? -1) > ($1.heldMs ?? -1) }
+                .map { r in
+                    SensorRow(slot: r.slot, winner: reveal.winners.contains(r.slot), badge: "🫧",
+                              value: r.heldMs.map { String(format: "%.1fs", Double($0) / 1000) },
+                              empty: "never levelled")
+                },
+            roundWinners: reveal.roundWinners,
+            nextAt: reveal.nextAt,
+            nextLabel: "Next hold"
+        )
     }
 }

@@ -127,7 +127,7 @@ enum PlayerMessage: Codable {
     case frenzyTaps(round: Int, turn: Int, slot: Int, taps: Int)
     case globeGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
     case clashTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
-    case levelError(round: Int, turn: Int, slot: Int, errorMilliDeg: Int)
+    case levelHeld(round: Int, turn: Int, slot: Int, heldMs: Int)
     case pourFill(round: Int, turn: Int, slot: Int, fillPercent: Int, overflowed: Bool)
     case mazeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
     case loudLevel(round: Int, turn: Int, slot: Int, level: Int)
@@ -774,24 +774,23 @@ struct LevelTurn: Codable, Hashable {
     var turn: Int
     var points: [Int: Int]
     var startAt: Date
-    /// The roll angle (degrees) to line the bubble up with.
-    var targetDegrees: Double
-    var holdSeconds: Double
+    /// The most time anyone can bank holding the bubble steady.
+    var maxSeconds: Double
 
-    var deadline: Date { startAt.addingTimeInterval(holdSeconds) }
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
 }
 
 struct LevelResult: Codable, Hashable, Identifiable {
     var slot: Int
-    /// Angular error at lock-in, in thousandths of a degree; nil = no lock.
-    var errorMilliDeg: Int?
+    /// Longest continuous time the bubble stayed between the markers, in ms;
+    /// nil = never played.
+    var heldMs: Int?
     var id: Int { slot }
 }
 
 struct LevelReveal: Codable, Hashable {
     var round: Int
     var turn: Int
-    var targetDegrees: Double
     var results: [LevelResult]
     var winners: [Int]
     var points: [Int: Int]
@@ -1186,7 +1185,7 @@ enum RecordName {
         "g\(gameID)-r\(round)-cc\(turn)-clc\(slot)"
     }
 
-    static func levelError(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+    static func levelHeld(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-sl\(turn)-lvl\(slot)"
     }
 

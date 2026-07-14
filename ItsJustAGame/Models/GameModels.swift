@@ -203,7 +203,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .colourClash:
             return "The name of a colour, printed in a different colour. Tap the colour it's PRINTED in — not the word — as fast as you can through them all. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .spiritLevel:
-            return "Tilt your phone to line the bubble up with the mark, then lock it in — no numbers to help you. Closest to the mark wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+            return "Hold your phone dead level to keep the bubble between the two markers — the clock runs as long as you can. Longest hold wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .pourIt:
             return "Tilt to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .marbleMaze:
@@ -385,8 +385,11 @@ enum GameTiming {
     // a late-arriving turn still gives everyone the full run-up.
     static let tiltCountdownSeconds: Double = 5
 
-    // Spirit Level
-    static let levelHoldSeconds: Double = 9
+    // Spirit Level — hold the bubble between the markers as long as you can.
+    static let levelMaxSeconds: Double = 20
+    /// Half-width of the "level" zone in degrees (the gap between the two
+    /// markers is twice this). Simplify widens it on the assisted device.
+    static let levelZoneDegrees: Double = 5
     static let levelRevealSeconds: Double = 7
 
     // Pour It
