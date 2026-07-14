@@ -59,6 +59,10 @@ struct PourTurnView: View {
             submitted = session.hasSubmittedPour(for: turn)
             if submitted { return }
             motion.start()
+            // Let device motion warm up, then capture the resting pose so the
+            // glass already responds to tilt during the countdown.
+            try? await Task.sleep(for: .milliseconds(250))
+            referencePitch = motion.pitchDegrees
             goAt = Date().addingTimeInterval(GameTiming.tiltCountdownSeconds)
             await pourLoop()
         }
@@ -110,11 +114,12 @@ struct PourTurnView: View {
             let liquidH = glassH * (fill / 100)
             let targetY = 10 + glassH * (1 - Double(turn.targetPercent) / 100)
             ZStack(alignment: .top) {
-                // A plain glass that tips with the phone (relative to the
-                // resting pose captured at GO) — no built-in pouring liquid.
+                // A plain glass that tips as you tilt the phone forward from
+                // its resting pose — live from the countdown on, so you can
+                // find the feel before it counts.
                 Text("🥛")
                     .font(.system(size: 40))
-                    .rotationEffect(.degrees(submitted ? 0 : min(max(referencePitch - motion.pitchDegrees, 0), 60)))
+                    .rotationEffect(.degrees(submitted ? 0 : -min(max(referencePitch - motion.pitchDegrees, 0), 70)))
                     .position(x: x, y: 6)
 
                 // Glass outline.
