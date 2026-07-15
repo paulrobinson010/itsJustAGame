@@ -29,7 +29,6 @@ struct SafeTurnView: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.03)) { context in
             let now = context.date
-            let live = now >= turn.startAt && now < turn.deadline && !submitted
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
                 Text("Turn \(turn.turn) · crack the safe")

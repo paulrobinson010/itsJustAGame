@@ -36,7 +36,7 @@ final class MicService: @unchecked Sendable {
     /// dialog never interrupts the start of a mic mini game. No-op once the
     /// user has already answered.
     func prewarmPermission() {
-        guard AVAudioSession.sharedInstance().recordPermission == .undetermined else { return }
+        guard AVAudioApplication.shared.recordPermission == .undetermined else { return }
         Task { _ = await requestPermission() }
     }
 
@@ -80,11 +80,7 @@ final class MicService: @unchecked Sendable {
     }
 
     private func requestPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                continuation.resume(returning: granted)
-            }
-        }
+        await AVAudioApplication.requestRecordPermission()
     }
 
     private func process(_ buffer: AVAudioPCMBuffer) {

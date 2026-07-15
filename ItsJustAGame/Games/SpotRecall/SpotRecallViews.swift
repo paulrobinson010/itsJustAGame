@@ -128,11 +128,17 @@ struct SpotTurnView: View {
     /// the canvas. Lower is better; missing taps read as far away.
     private func meanError() -> Double {
         guard canvasSide > 0, !taps.isEmpty else { return 1.0 }
-        let tapFractions = taps.map { CGPoint(x: $0.x / canvasSide, y: $0.y / canvasSide) }
+        let tapFractions: [CGPoint] = taps.map { CGPoint(x: Double($0.x) / canvasSide, y: Double($0.y) / canvasSide) }
         var total = 0.0
         for dot in dots {
-            let nearest = tapFractions.map { hypot($0.x - dot.x, $0.y - dot.y) }.min() ?? 1.0
-            total += nearest
+            var best = Double.greatestFiniteMagnitude
+            for tap in tapFractions {
+                let dx = Double(tap.x - dot.x)
+                let dy = Double(tap.y - dot.y)
+                let d = (dx * dx + dy * dy).squareRoot()
+                if d < best { best = d }
+            }
+            total += (best == .greatestFiniteMagnitude ? 1.0 : best)
         }
         return total / Double(dots.count)
     }

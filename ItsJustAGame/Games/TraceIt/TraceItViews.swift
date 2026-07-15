@@ -133,9 +133,25 @@ struct TraceTurnView: View {
     /// distance both ways), as a fraction of the canvas. Lower is better.
     private func meanError() -> Double {
         guard canvasSide > 0, stroke.count >= 3 else { return 1.0 }
-        let mine = stroke.map { CGPoint(x: $0.x / canvasSide, y: $0.y / canvasSide) }
-        let toLine = path.map { t in mine.map { hypot($0.x - t.x, $0.y - t.y) }.min() ?? 1 }.reduce(0, +) / Double(path.count)
-        let toMine = mine.map { m in path.map { hypot($0.x - m.x, $0.y - m.y) }.min() ?? 1 }.reduce(0, +) / Double(mine.count)
+        let mine: [CGPoint] = stroke.map { CGPoint(x: Double($0.x) / canvasSide, y: Double($0.y) / canvasSide) }
+
+        func nearest(_ p: CGPoint, in pts: [CGPoint]) -> Double {
+            var best = Double.greatestFiniteMagnitude
+            for q in pts {
+                let dx = Double(p.x - q.x)
+                let dy = Double(p.y - q.y)
+                let d = (dx * dx + dy * dy).squareRoot()
+                if d < best { best = d }
+            }
+            return best == .greatestFiniteMagnitude ? 1.0 : best
+        }
+
+        var sumToLine = 0.0
+        for t in path { sumToLine += nearest(t, in: mine) }
+        var sumToMine = 0.0
+        for m in mine { sumToMine += nearest(m, in: path) }
+        let toLine = sumToLine / Double(path.count)
+        let toMine = sumToMine / Double(mine.count)
         return (toLine + toMine) / 2 * assistScale
     }
 
@@ -199,11 +215,18 @@ struct TraceTurnView: View {
     }
 
     private static func catmullRom(_ p0: CGPoint, _ p1: CGPoint, _ p2: CGPoint, _ p3: CGPoint, _ t: Double) -> CGPoint {
-        let t2 = t * t, t3 = t2 * t
+        let t2 = t * t
+        let t3 = t2 * t
         func axis(_ a0: Double, _ a1: Double, _ a2: Double, _ a3: Double) -> Double {
-            0.5 * ((2 * a1) + (-a0 + a2) * t + (2 * a0 - 5 * a1 + 4 * a2 - a3) * t2 + (-a0 + 3 * a1 - 3 * a2 + a3) * t3)
+            let c0 = 2 * a1
+            let c1 = (-a0 + a2) * t
+            let c2 = (2 * a0 - 5 * a1 + 4 * a2 - a3) * t2
+            let c3 = (-a0 + 3 * a1 - 3 * a2 + a3) * t3
+            return 0.5 * (c0 + c1 + c2 + c3)
         }
-        return CGPoint(x: axis(p0.x, p1.x, p2.x, p3.x), y: axis(p0.y, p1.y, p2.y, p3.y))
+        let x = axis(Double(p0.x), Double(p1.x), Double(p2.x), Double(p3.x))
+        let y = axis(Double(p0.y), Double(p1.y), Double(p2.y), Double(p3.y))
+        return CGPoint(x: x, y: y)
     }
 }
 
