@@ -343,12 +343,15 @@ so it's invisible.
 
 A winding line — a smooth Catmull-Rom curve through seeded control points,
 the same on every device — appears on a square canvas. Trace along it with
-one finger. The device scores the **Chamfer distance** between your stroke
-and the line (mean nearest-point distance both ways, so you're rewarded
-for both staying on the line and covering all of it), and submits that
-number; closest wins. Measured locally, latency never matters. First to 3
-wins the round. Simplify quietly forgives some of your error and draws a
-fatter line to follow (×0.8 / ×0.65 / ×0.5).
+one finger. The device scores your accuracy against the line and submits a
+single number; closest wins. Scoring is deliberately unforgiving: it blends
+the **Chamfer distance** (mean nearest-point distance both ways, so you're
+rewarded for both staying on the line and covering all of it) with your
+single **worst stray** — one careless excursion can't be averaged away —
+then multiplies by a gain, so even a tidy trace shows real error. Measured
+locally, latency never matters. First to 3 wins the round. Simplify fattens
+the line into a visible tolerance band: anything your finger draws inside
+the paint counts as dead-on, and the band gets wider each level.
 
 ### Traffic Light
 
@@ -357,9 +360,11 @@ green→amber→red over 30 seconds — the exact same seeded sequence on every
 device — and you rack up as many taps as you can while it's green. Amber
 is the warning: taps don't count. Tap once on red and you're out for the
 turn. Taps are counted **locally**, so latency never matters — most green
-taps wins, first to 3 takes the round. Simplify stretches the amber
-warning and shortens the reds (×1.6 / ×2.0 / ×2.5 amber, down to ×0.5
-red), and at the top level a red tap is forgiven entirely.
+taps wins, first to 3 takes the round. Simplify graduates around the one
+thing that hurts, the bust: everyone gets a longer amber warning (×1.6 /
+×2.0 / ×2.5), the middle tier forgives one red slip, and the top tier
+never busts you at all. The green and red spells stay identical for
+everyone, so the lights always read the same.
 
 ### Sort Circuit
 
@@ -558,8 +563,8 @@ Every game implements all three levels:
 | Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
 | Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
 | Odd One Out | 4 colours ×6 (not 12 pairs) | 2 colours ×12 | 1 colour ×24 |
-| Trace It | error forgiven ×0.8 + fatter line | ×0.65 | ×0.5 |
-| Traffic Light | longer amber ×1.6 | ×2.0 amber + shorter reds | ×2.5 amber + red taps forgiven |
+| Trace It | fatter line = wider tolerance band | thicker still | thickest — almost anywhere on it counts |
+| Traffic Light | longer amber warning ×1.6 | ×2.0 amber + one red slip forgiven | ×2.5 amber + reds never bust you |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |

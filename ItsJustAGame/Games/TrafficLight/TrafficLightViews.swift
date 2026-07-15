@@ -3,13 +3,14 @@ import SwiftUI
 enum TrafficPhase { case green, amber, red }
 
 /// The green→amber→red light sequence for a Traffic Light turn, built from
-/// the seed so every device runs the identical lights (Simplify stretches
-/// the amber and shortens the red on the assisted phone).
+/// the seed so every device runs the identical lights. The one per-device
+/// variation is Simplify's longer amber warning; the green and red spells
+/// stay identical for everyone so the lights read the same.
 struct TrafficSequence {
     /// Each segment's phase and the elapsed second it ends at.
     private let segments: [(phase: TrafficPhase, end: Double)]
 
-    init(seed: UInt64, maxSeconds: Double, amberScale: Double, redScale: Double) {
+    init(seed: UInt64, maxSeconds: Double, amberScale: Double) {
         var generator = SeededGenerator(seed: seed)
         var segs: [(TrafficPhase, Double)] = []
         var t = 0.0
@@ -18,7 +19,7 @@ struct TrafficSequence {
             segs.append((.green, t))
             t += GameTiming.trafficAmberSeconds * amberScale
             segs.append((.amber, t))
-            t += Double.random(in: GameTiming.trafficRedMinSeconds...GameTiming.trafficRedMaxSeconds, using: &generator) * redScale
+            t += Double.random(in: GameTiming.trafficRedMinSeconds...GameTiming.trafficRedMaxSeconds, using: &generator)
             segs.append((.red, t))
         }
         segments = segs
@@ -41,6 +42,8 @@ struct TrafficTurnView: View {
     @State private var submitted = false
     @State private var busted = false
     @State private var taps = 0
+    @State private var redSlipsUsed = 0
+    @State private var slipFlash = false
     @State private var pop = false
 
     private let sequence: TrafficSequence
@@ -48,9 +51,8 @@ struct TrafficTurnView: View {
     init(session: GameSession, turn: TrafficTurn) {
         self.session = session
         self.turn = turn
-        let scales = TrafficTurnView.scales(for: session.myAssist)
         self.sequence = TrafficSequence(seed: turn.seed, maxSeconds: turn.maxSeconds,
-                                        amberScale: scales.amber, redScale: scales.red)
+                                        amberScale: TrafficTurnView.assist(for: session.myAssist).amber)
     }
 
     var body: some View {
@@ -73,6 +75,11 @@ struct TrafficTurnView: View {
                     .font(Theme.display(48)).monospacedDigit()
                     .foregroundStyle(busted ? Theme.magenta : Theme.cyan)
                 Text("taps").font(Theme.caption).foregroundStyle(.secondary)
+                if slipsRemaining > 0 && !submitted {
+                    Label(slipsRemaining == .max ? "reds won't bust you" : "\(slipsRemaining) red slip\(slipsRemaining == 1 ? "" : "s") left",
+                          systemImage: "shield.lefthalf.filled")
+                        .font(Theme.caption).foregroundStyle(Theme.cyan.opacity(0.8))
+                }
                 Spacer(minLength: 8)
             }
             .padding(.top, 8)
@@ -96,6 +103,8 @@ struct TrafficTurnView: View {
             Text("Get ready…").font(Theme.display(24))
         } else if !live {
             Text("Time! — waiting…").font(Theme.headline)
+        } else if slipFlash {
+            Text("Close one! 😅").font(Theme.display(26)).foregroundStyle(.orange)
         } else {
             switch phase {
             case .green: Text("GO — tap! 🟢").font(Theme.display(28)).foregroundStyle(.green)
@@ -128,7 +137,13 @@ struct TrafficTurnView: View {
         case .amber:
             break   // the warning — no count, no harm
         case .red:
-            if bustForgiven { return }   // top-level Simplify never busts
+            if redSlipsUsed < freeRedSlips {   // Simplify forgives a few reds
+                redSlipsUsed += 1
+                slipFlash = true
+                SoundPlayer.shared.play(.tick)
+                Task { try? await Task.sleep(for: .milliseconds(500)); slipFlash = false }
+                return
+            }
             busted = true
             submitted = true
             SoundPlayer.shared.play(.lose)
@@ -147,19 +162,26 @@ struct TrafficTurnView: View {
 
     // MARK: - Simplify
 
-    /// A longer amber warning and shorter reds make it easier to bank taps
-    /// without busting; the top tier also forgives a red tap entirely. All
-    /// on your own phone, invisible to everyone else.
-    private static func scales(for assist: AssistLevel?) -> (amber: Double, red: Double) {
-        switch assist {
-        case .little: return (1.6, 1.0)
-        case .big: return (2.0, 0.7)
-        case .cheating: return (2.5, 0.5)
-        default: return (1.0, 1.0)
+    /// The ladder graduates around the one thing that hurts — busting on red.
+    /// Everyone gets a longer amber warning; the higher tiers also forgive a
+    /// slip or two on red, and the top tier never busts at all. `amber` is how
+    /// much the amber warning is stretched; `freeReds` is how many red taps are
+    /// forgiven before you're out. All on your own phone, invisible to others.
+    private static func assist(for level: AssistLevel?) -> (amber: Double, freeReds: Int) {
+        switch level {
+        case .little: return (1.6, 0)
+        case .big: return (2.0, 1)
+        case .cheating: return (2.5, .max)
+        default: return (1.0, 0)
         }
     }
 
-    private var bustForgiven: Bool { session.myAssist == .cheating }
+    private var freeRedSlips: Int { TrafficTurnView.assist(for: session.myAssist).freeReds }
+
+    /// Slips still in hand (`.max` = unlimited), for the on-screen hint.
+    private var slipsRemaining: Int {
+        freeRedSlips == .max ? .max : max(0, freeRedSlips - redSlipsUsed)
+    }
 }
 
 /// Most green taps takes the point; anyone who tapped red is out.

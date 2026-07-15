@@ -87,10 +87,12 @@ struct TraceTurnView: View {
                     .fill(Theme.surface)
                     .overlay(RoundedRectangle(cornerRadius: Theme.corner, style: .continuous).stroke(Theme.hairline, lineWidth: 1))
 
-                // The line to trace.
+                // The line to trace. With Simplify it fattens into a visible
+                // tolerance band — anywhere on the paint counts as on the line.
                 linePath(side: side)
-                    .stroke(Theme.magenta.opacity(0.9),
-                            style: StrokeStyle(lineWidth: guideWidth, lineCap: .round, lineJoin: .round, dash: [2, 10]))
+                    .stroke(Theme.magenta.opacity(scoreTolerance > 0 ? 0.28 : 0.9),
+                            style: StrokeStyle(lineWidth: guideWidth(side: side), lineCap: .round, lineJoin: .round,
+                                               dash: scoreTolerance > 0 ? [] : [2, 10]))
 
                 // Your trace.
                 strokePath
@@ -129,11 +131,20 @@ struct TraceTurnView: View {
         return p
     }
 
-    /// Chamfer distance between the trace and the line (mean nearest-point
-    /// distance both ways), as a fraction of the canvas. Lower is better.
+    /// How much bigger the reported error is than the raw canvas distance —
+    /// a precise trace should still cost you, so scoring bites.
+    private static let harshGain = 3.0
+
+    /// Error between the trace and the line, as a fraction of the canvas.
+    /// It blends the average deviation (both ways, a Chamfer distance) with
+    /// your single worst stray — so one careless excursion can't be averaged
+    /// away — then multiplies by a gain so scoring is unforgiving. Simplify
+    /// widens the tolerance band (see `scoreTolerance`): anything within the
+    /// painted line reads as zero error. Lower is better.
     private func meanError() -> Double {
         guard canvasSide > 0, stroke.count >= 3 else { return 1.0 }
         let mine: [CGPoint] = stroke.map { CGPoint(x: Double($0.x) / canvasSide, y: Double($0.y) / canvasSide) }
+        let tol = scoreTolerance
 
         func nearest(_ p: CGPoint, in pts: [CGPoint]) -> Double {
             var best = Double.greatestFiniteMagnitude
@@ -143,16 +154,28 @@ struct TraceTurnView: View {
                 let d = (dx * dx + dy * dy).squareRoot()
                 if d < best { best = d }
             }
-            return best == .greatestFiniteMagnitude ? 1.0 : best
+            if best == .greatestFiniteMagnitude { return 1.0 }
+            return max(0, best - tol)   // within the painted line = on the line
         }
 
         var sumToLine = 0.0
-        for t in path { sumToLine += nearest(t, in: mine) }
+        var maxToLine = 0.0
+        for t in path {
+            let d = nearest(t, in: mine)
+            sumToLine += d
+            if d > maxToLine { maxToLine = d }
+        }
         var sumToMine = 0.0
-        for m in mine { sumToMine += nearest(m, in: path) }
-        let toLine = sumToLine / Double(path.count)
-        let toMine = sumToMine / Double(mine.count)
-        return (toLine + toMine) / 2 * assistScale
+        var maxToMine = 0.0
+        for m in mine {
+            let d = nearest(m, in: path)
+            sumToMine += d
+            if d > maxToMine { maxToMine = d }
+        }
+        let meanTerm = (sumToLine / Double(path.count) + sumToMine / Double(mine.count)) / 2
+        let tailTerm = max(maxToLine, maxToMine)   // your single worst stray
+        let raw = meanTerm * 0.6 + tailTerm * 0.4
+        return min(1.0, raw * TraceTurnView.harshGain)
     }
 
     private func submit() {
@@ -172,22 +195,24 @@ struct TraceTurnView: View {
 
     // MARK: - Simplify
 
-    /// Quietly forgives some of your error, and draws a fatter line to trace.
-    private var assistScale: Double {
+    /// Simplify fattens the line into a tolerance band: any part of your
+    /// trace within `scoreTolerance` of the line (a canvas fraction) counts
+    /// as dead-on. The band is drawn at exactly this width, so what you see
+    /// is what forgives you. Entirely on your own phone.
+    private var scoreTolerance: Double {
         switch session.myAssist {
-        case .little: return 0.8
-        case .big: return 0.65
-        case .cheating: return 0.5
-        default: return 1.0
+        case .little: return 0.022
+        case .big: return 0.045
+        case .cheating: return 0.075
+        default: return 0.0
         }
     }
 
-    private var guideWidth: Double {
-        switch session.myAssist {
-        case .big: return 10
-        case .cheating: return 16
-        default: return 5
-        }
+    /// The painted guide width in points — the base line stays thin; an
+    /// assisted band is drawn at twice the tolerance so it matches the zone
+    /// that actually scores.
+    private func guideWidth(side: Double) -> Double {
+        max(6, scoreTolerance * 2 * side)
     }
 
     /// A smooth winding line through seeded control points (Catmull-Rom),
