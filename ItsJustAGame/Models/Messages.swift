@@ -157,7 +157,7 @@ enum PlayerMessage: Codable {
     case spotGuess(round: Int, turn: Int, slot: Int, errorPerMille: Int)
     case oddTap(round: Int, turn: Int, slot: Int, timeMs: Int)
     case traceDraw(round: Int, turn: Int, slot: Int, errorPerMille: Int)
-    case trafficTap(round: Int, turn: Int, slot: Int, reactionMs: Int?, falseStart: Bool)
+    case trafficTap(round: Int, turn: Int, slot: Int, taps: Int?, busted: Bool)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -1210,20 +1210,20 @@ struct TrafficTurn: Codable, Hashable {
     var turn: Int
     var points: [Int: Int]
     var startAt: Date
-    /// Seconds of red before the light turns green (host-rolled, same for
-    /// everyone). Tapping before green is a false start.
-    var redSeconds: Double
-    var tapSeconds: Double
+    /// Every device builds the identical green/amber/red light sequence from
+    /// this seed (from the shared start), so it's fair.
+    var seed: UInt64
+    var maxSeconds: Double
 
-    var greenAt: Date { startAt.addingTimeInterval(redSeconds) }
-    var deadline: Date { greenAt.addingTimeInterval(tapSeconds) }
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
 }
 
 struct TrafficResult: Codable, Hashable, Identifiable {
     var slot: Int
-    /// Reaction after green, in ms; nil = never tapped in time.
-    var reactionMs: Int?
-    var falseStart: Bool
+    /// Green taps banked; nil = never played.
+    var taps: Int?
+    /// Tapped on red — out for the turn.
+    var busted: Bool
     var id: Int { slot }
 }
 

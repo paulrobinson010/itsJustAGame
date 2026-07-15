@@ -626,17 +626,17 @@ enum Demo {
         Step(points: [4: 1, 2: 1], duration: 2.6) {
             .trafficTurn(TrafficTurn(
                 round: 2, turn: 2, points: [4: 1, 2: 1],
-                startAt: now(-1), redSeconds: 8, tapSeconds: 4
+                startAt: now(-1), seed: 20260715, maxSeconds: 30
             ))
         },
         Step(points: [4: 1, 2: 1]) {
             .trafficReveal(TrafficReveal(
                 round: 2, turn: 2,
                 results: [
-                    TrafficResult(slot: 1, reactionMs: 320, falseStart: false),
-                    TrafficResult(slot: 2, reactionMs: 240, falseStart: false),
-                    TrafficResult(slot: 3, reactionMs: nil, falseStart: true),
-                    TrafficResult(slot: 4, reactionMs: 410, falseStart: false),
+                    TrafficResult(slot: 1, taps: 14, busted: false),
+                    TrafficResult(slot: 2, taps: 21, busted: false),
+                    TrafficResult(slot: 3, taps: nil, busted: true),
+                    TrafficResult(slot: 4, taps: 12, busted: false),
                 ],
                 winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(6)
             ))

@@ -201,7 +201,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .spotRecall: return "sparkle.magnifyingglass"
         case .oddOneOut: return "circle.grid.3x3.fill"
         case .traceIt: return "scribble.variable"
-        case .trafficLight: return "trafficlight"
+        case .trafficLight: return "hand.tap.fill"
         }
     }
 
@@ -266,7 +266,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .traceIt:
             return "A winding line appears. Trace along it with your finger as accurately as you can. Closest to the line wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .trafficLight:
-            return "Wait on red — tap the instant it turns green. Jump early and you're out for the turn. Fastest off the mark wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+            return "Tap like mad on green, stop the moment it turns amber. Tap on red and you're out. \(Int(GameTiming.trafficMaxSeconds)) seconds — most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -531,9 +531,12 @@ enum GameTiming {
     static let traceSeconds: Double = 10        // time to trace the line
     static let traceRevealSeconds: Double = 5
 
-    // Traffic Light
-    static let trafficRedMinSeconds: Double = 2 // random red wait before green
-    static let trafficRedMaxSeconds: Double = 7
-    static let trafficTapSeconds: Double = 4    // window to react after green
+    // Traffic Light — tap on green, stop on amber, out if you tap red.
+    static let trafficMaxSeconds: Double = 30
+    static let trafficGreenMinSeconds: Double = 1.2
+    static let trafficGreenMaxSeconds: Double = 3.5
+    static let trafficAmberSeconds: Double = 0.7    // warning window before red
+    static let trafficRedMinSeconds: Double = 0.9
+    static let trafficRedMaxSeconds: Double = 2.2
     static let trafficRevealSeconds: Double = 5
 }

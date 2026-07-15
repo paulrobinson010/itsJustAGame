@@ -2656,29 +2656,28 @@ final class HostEngine {
 
     // MARK: - Traffic Light
 
-    /// Wait on red, tap on green. Reaction is timed on each device against
-    /// the shared green moment; a tap before green is a false start.
+    /// Tap on green, stop on amber, out if you tap red — over 30 seconds.
+    /// Everyone runs the same seeded light sequence; most green taps wins.
     private func runTrafficRound(round: Int) async -> [Int] {
         let players = joined.sorted()
         var points: [Int: Int] = [:]
         var turn = 1
         while !Task.isCancelled {
-            let red = Double.random(in: GameTiming.trafficRedMinSeconds...GameTiming.trafficRedMaxSeconds)
             let turnMessage = TrafficTurn(
                 round: round,
                 turn: turn,
                 points: points,
                 startAt: Date().addingTimeInterval(GameTiming.countdownSeconds),
-                redSeconds: red,
-                tapSeconds: GameTiming.trafficTapSeconds
+                seed: UInt64.random(in: UInt64.min...UInt64.max),
+                maxSeconds: GameTiming.trafficMaxSeconds
             )
             await send(.trafficTurn(turnMessage))
             let results = await collectTraffic(for: turnMessage, players: players)
 
-            let valid = results.values.filter { !$0.falseStart && $0.reactionMs != nil }
-            let best = valid.compactMap(\.reactionMs).min()
-            let winners = best.map { fastest in
-                valid.filter { $0.reactionMs == fastest }.map(\.slot).sorted()
+            let valid = results.values.filter { !$0.busted && $0.taps != nil }
+            let best = valid.compactMap(\.taps).max()
+            let winners = best.map { most in
+                valid.filter { $0.taps == most }.map(\.slot).sorted()
             } ?? []
             for winner in winners { points[winner, default: 0] += 1 }
             let roundWinners = players.filter { points[$0, default: 0] >= GameTiming.pointsToWinRound }
@@ -2708,15 +2707,15 @@ final class HostEngine {
             if let found = try? await transport.get(ids: ids) {
                 for body in found.values {
                     guard let message = try? crypto.open(PlayerMessage.self, from: body),
-                          case .trafficTap(_, _, let slot, let reactionMs, let falseStart) = message else { continue }
-                    results[slot] = TrafficResult(slot: slot, reactionMs: reactionMs, falseStart: falseStart)
+                          case .trafficTap(_, _, let slot, let taps, let busted) = message else { continue }
+                    results[slot] = TrafficResult(slot: slot, taps: taps, busted: busted)
                 }
             }
             if Date() > deadline { break }
             try? await Task.sleep(for: .seconds(0.75))
         }
         for slot in players where results[slot] == nil {
-            results[slot] = TrafficResult(slot: slot, reactionMs: nil, falseStart: false)
+            results[slot] = TrafficResult(slot: slot, taps: nil, busted: false)
         }
         return results
     }

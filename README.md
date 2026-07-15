@@ -352,13 +352,14 @@ fatter line to follow (×0.8 / ×0.65 / ×0.5).
 
 ### Traffic Light
 
-The light holds red for a random spell (host-rolled, same for everyone),
-then turns green — tap the instant it does. Tap on red and you've jumped
-the light: out for the turn. Your reaction is timed **locally** against
-the shared green moment, so latency never matters — fastest off the mark
-wins, first to 3 takes the round. Simplify shaves your reaction time
-invisibly (×0.85 / ×0.7 / ×0.55), stretches the amber warning, and at the
-top levels shows a live countdown to green.
+Go on green, stop on amber, and never tap on red. The light cycles
+green→amber→red over 30 seconds — the exact same seeded sequence on every
+device — and you rack up as many taps as you can while it's green. Amber
+is the warning: taps don't count. Tap once on red and you're out for the
+turn. Taps are counted **locally**, so latency never matters — most green
+taps wins, first to 3 takes the round. Simplify stretches the amber
+warning and shortens the reds (×1.6 / ×2.0 / ×2.5 amber, down to ×0.5
+red), and at the top level a red tap is forgiven entirely.
 
 ### Sort Circuit
 
@@ -558,7 +559,7 @@ Every game implements all three levels:
 | Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
 | Odd One Out | 4 colours ×6 (not 12 pairs) | 2 colours ×12 | 1 colour ×24 |
 | Trace It | error forgiven ×0.8 + fatter line | ×0.65 | ×0.5 |
-| Traffic Light | reaction ×0.85 + longer amber | ×0.7 + countdown to green | ×0.55 + countdown |
+| Traffic Light | longer amber ×1.6 | ×2.0 amber + shorter reds | ×2.5 amber + red taps forgiven |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |

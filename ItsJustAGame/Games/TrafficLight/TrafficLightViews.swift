@@ -1,33 +1,79 @@
 import SwiftUI
 
-/// One Traffic Light turn: the light holds red for a random spell, then turns
-/// green — tap the instant it does. Tapping on red is a false start (out for
-/// the turn). Reaction is timed locally against the shared green moment, so
-/// latency never matters.
+enum TrafficPhase { case green, amber, red }
+
+/// The green→amber→red light sequence for a Traffic Light turn, built from
+/// the seed so every device runs the identical lights (Simplify stretches
+/// the amber and shortens the red on the assisted phone).
+struct TrafficSequence {
+    /// Each segment's phase and the elapsed second it ends at.
+    private let segments: [(phase: TrafficPhase, end: Double)]
+
+    init(seed: UInt64, maxSeconds: Double, amberScale: Double, redScale: Double) {
+        var generator = SeededGenerator(seed: seed)
+        var segs: [(TrafficPhase, Double)] = []
+        var t = 0.0
+        while t < maxSeconds {
+            t += Double.random(in: GameTiming.trafficGreenMinSeconds...GameTiming.trafficGreenMaxSeconds, using: &generator)
+            segs.append((.green, t))
+            t += GameTiming.trafficAmberSeconds * amberScale
+            segs.append((.amber, t))
+            t += Double.random(in: GameTiming.trafficRedMinSeconds...GameTiming.trafficRedMaxSeconds, using: &generator) * redScale
+            segs.append((.red, t))
+        }
+        segments = segs
+    }
+
+    func phase(at elapsed: Double) -> TrafficPhase {
+        for seg in segments where elapsed < seg.end { return seg.phase }
+        return .green
+    }
+}
+
+/// One Traffic Light turn: tap like mad on green, stop the instant it turns
+/// amber, and never tap on red — a tap on red is out. Most green taps over
+/// 30 seconds wins. Everyone runs the same seeded lights; taps are counted
+/// locally, so latency never matters.
 struct TrafficTurnView: View {
     let session: GameSession
     let turn: TrafficTurn
 
     @State private var submitted = false
-    @State private var falseStart = false
-    @State private var reactionMs: Int?
+    @State private var busted = false
+    @State private var taps = 0
+    @State private var pop = false
+
+    private let sequence: TrafficSequence
+
+    init(session: GameSession, turn: TrafficTurn) {
+        self.session = session
+        self.turn = turn
+        let scales = TrafficTurnView.scales(for: session.myAssist)
+        self.sequence = TrafficSequence(seed: turn.seed, maxSeconds: turn.maxSeconds,
+                                        amberScale: scales.amber, redScale: scales.red)
+    }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.03)) { context in
+        TimelineView(.periodic(from: .now, by: 0.05)) { context in
             let now = context.date
             let live = !submitted && now >= turn.startAt && now < turn.deadline
-            let green = now >= turn.greenAt
+            let phase = live ? sequence.phase(at: now.timeIntervalSince(turn.startAt)) : .red
             VStack(spacing: 16) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
-                Text("Turn \(turn.turn) · go on green")
+                Text("Turn \(turn.turn) · go on green, stop on amber")
                     .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
-                    .kerning(1.3)
-                header(now: now, green: green)
+                    .kerning(1.2)
+                header(now: now, phase: phase, live: live)
                 Spacer()
-                light(now: now, green: green, live: live)
+                light(phase: phase, live: live)
                 Spacer()
+                Text("\(taps)")
+                    .font(Theme.display(48)).monospacedDigit()
+                    .foregroundStyle(busted ? Theme.magenta : Theme.cyan)
+                Text("taps").font(Theme.caption).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
             }
             .padding(.top, 8)
             .contentShape(Rectangle())
@@ -41,95 +87,82 @@ struct TrafficTurnView: View {
     }
 
     @ViewBuilder
-    private func header(now: Date, green: Bool) -> some View {
-        if submitted {
-            if falseStart {
-                Text("Jumped the light! — waiting…").font(Theme.display(20)).foregroundStyle(Theme.magenta)
-            } else if let ms = reactionMs {
-                Text("\(ms) ms! — waiting…").font(Theme.display(22)).foregroundStyle(Theme.cyan)
-            } else {
-                Text("Too slow — waiting…").font(Theme.headline)
-            }
+    private func header(now: Date, phase: TrafficPhase, live: Bool) -> some View {
+        if busted {
+            Text("Tapped red — out! waiting…").font(Theme.display(20)).foregroundStyle(Theme.magenta)
+        } else if submitted {
+            Text("\(taps) taps — waiting…").font(Theme.display(22)).foregroundStyle(Theme.cyan)
         } else if now < turn.startAt {
             Text("Get ready…").font(Theme.display(24))
-        } else if green {
-            Text("GO! 🟢 tap!").font(Theme.display(30)).foregroundStyle(.green)
+        } else if !live {
+            Text("Time! — waiting…").font(Theme.headline)
         } else {
-            Text("Wait for green…").font(Theme.display(22)).foregroundStyle(Theme.magenta)
+            switch phase {
+            case .green: Text("GO — tap! 🟢").font(Theme.display(28)).foregroundStyle(.green)
+            case .amber: Text("STOP! 🟡").font(Theme.display(28)).foregroundStyle(.orange)
+            case .red: Text("RED — hands off! 🔴").font(Theme.display(26)).foregroundStyle(.red)
+            }
         }
     }
 
-    private func light(now: Date, green: Bool, live: Bool) -> some View {
-        // Amber warning in the run-up to green (longer for the gentlest
-        // Simplify tier); tapping on amber still counts as jumping.
-        let amber = !green && now >= turn.greenAt.addingTimeInterval(-amberLead)
-        let colour: Color = green ? .green : (amber ? .orange : .red)
-        let countdown: Int? = showsCountdown && !green ? Int(max(0, turn.greenAt.timeIntervalSince(now)).rounded(.up)) : nil
-        return ZStack {
-            Circle()
-                .fill(colour.opacity(submitted ? 0.4 : 1))
-                .frame(width: 220, height: 220)
-                .shadow(color: colour.opacity(0.7), radius: green ? 30 : 8)
-            if let countdown, countdown > 0 {
-                Text("\(countdown)")
-                    .font(.system(size: 90, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .monospacedDigit()
-            }
-        }
+    private func light(phase: TrafficPhase, live: Bool) -> some View {
+        let colour: Color = !live ? .gray : (phase == .green ? .green : (phase == .amber ? .orange : .red))
+        return Circle()
+            .fill(colour.opacity(submitted && !busted ? 0.4 : 1))
+            .frame(width: 220, height: 220)
+            .shadow(color: colour.opacity(0.7), radius: phase == .green && live ? 26 : 8)
+            .scaleEffect(pop ? 1.06 : 1.0)
+            .animation(.easeOut(duration: 0.08), value: pop)
     }
 
     private func tap() {
-        guard !submitted else { return }
+        guard !submitted, !busted else { return }
         let now = Date()
         guard now >= turn.startAt, now < turn.deadline else { return }
-        submitted = true
-        if now < turn.greenAt {
-            falseStart = true
+        switch sequence.phase(at: now.timeIntervalSince(turn.startAt)) {
+        case .green:
+            taps += 1
+            SoundPlayer.shared.play(.tick)
+            pop = true
+            Task { try? await Task.sleep(for: .milliseconds(80)); pop = false }
+        case .amber:
+            break   // the warning — no count, no harm
+        case .red:
+            if bustForgiven { return }   // top-level Simplify never busts
+            busted = true
+            submitted = true
             SoundPlayer.shared.play(.lose)
-            session.submitTraffic(reactionMs: nil, falseStart: true, for: turn)
-        } else {
-            let raw = now.timeIntervalSince(turn.greenAt) * 1000
-            let ms = max(0, Int((raw * assistScale).rounded()))
-            reactionMs = ms
-            SoundPlayer.shared.play(.point)
-            session.submitTraffic(reactionMs: ms, falseStart: false, for: turn)
+            session.submitTraffic(taps: nil, busted: true)
         }
     }
 
     private func autoFinish() async {
         let interval = turn.deadline.timeIntervalSinceNow
         if interval > 0 { try? await Task.sleep(for: .seconds(interval)) }
-        // Never tapped — stop; the host records "too slow" for us.
         guard !Task.isCancelled, !submitted else { return }
         submitted = true
+        SoundPlayer.shared.play(.lockin)
+        session.submitTraffic(taps: taps, busted: false)
     }
 
     // MARK: - Simplify
 
-    /// Quietly shaves your reaction time — invisible at the reveal.
-    private var assistScale: Double {
-        switch session.myAssist {
-        case .little: return 0.85
-        case .big: return 0.7
-        case .cheating: return 0.55
-        default: return 1.0
+    /// A longer amber warning and shorter reds make it easier to bank taps
+    /// without busting; the top tier also forgives a red tap entirely. All
+    /// on your own phone, invisible to everyone else.
+    private static func scales(for assist: AssistLevel?) -> (amber: Double, red: Double) {
+        switch assist {
+        case .little: return (1.6, 1.0)
+        case .big: return (2.0, 0.7)
+        case .cheating: return (2.5, 0.5)
+        default: return (1.0, 1.0)
         }
     }
 
-    /// How long the amber warning shows before green.
-    private var amberLead: Double {
-        session.myAssist == nil ? 0.4 : 0.8
-    }
-
-    /// Levels 2–3 show a live countdown to green.
-    private var showsCountdown: Bool {
-        guard let level = session.myAssist else { return false }
-        return level >= .big
-    }
+    private var bustForgiven: Bool { session.myAssist == .cheating }
 }
 
-/// Fastest off the mark takes the point; jumpers don't count.
+/// Most green taps takes the point; anyone who tapped red is out.
 struct TrafficRevealView: View {
     let session: GameSession
     let reveal: TrafficReveal
@@ -140,24 +173,24 @@ struct TrafficRevealView: View {
             points: reveal.points,
             kicker: "Turn \(reveal.turn)",
             headline: reveal.winners.isEmpty
-                ? "Nobody made it…"
-                : "🚦 \(session.names(reveal.winners)) \(reveal.winners.count == 1 ? "was" : "were") quickest!",
+                ? "Everyone jumped a red…"
+                : "🖐️ \(session.names(reveal.winners)) tapped the most!",
             rows: reveal.results
-                .sorted { sortKey($0) < sortKey($1) }
+                .sorted { sortKey($0) > sortKey($1) }
                 .map { r in
-                    SensorRow(slot: r.slot, winner: reveal.winners.contains(r.slot), badge: "🚦",
-                              value: r.falseStart ? nil : r.reactionMs.map { "\($0) ms" },
-                              empty: r.falseStart ? "jumped" : "too slow")
+                    SensorRow(slot: r.slot, winner: reveal.winners.contains(r.slot), badge: "🖐️",
+                              value: r.busted ? nil : r.taps.map { "\($0) taps" },
+                              empty: r.busted ? "tapped red" : "sat it out")
                 },
             roundWinners: reveal.roundWinners,
             nextAt: reveal.nextAt,
-            nextLabel: "Next light"
+            nextLabel: "Next lights"
         )
     }
 
-    /// Valid reactions first (fastest up), then jumps/misses.
+    /// Most taps up top; busts and no-shows sink to the bottom.
     private func sortKey(_ r: TrafficResult) -> Int {
-        if r.falseStart { return 1_000_000 }
-        return r.reactionMs ?? 999_999
+        if r.busted { return -1 }
+        return r.taps ?? -1
     }
 }

@@ -780,12 +780,12 @@ final class GameSession {
 
     // MARK: - Traffic Light input
 
-    func submitTraffic(reactionMs: Int?, falseStart: Bool, for turn: TrafficTurn) {
+    func submitTraffic(taps: Int?, busted: Bool, for turn: TrafficTurn) {
         let id = RecordName.trafficTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
         guard !submittedAnswerIDs.contains(id) else { return }
         submittedAnswerIDs.insert(id)
         Task {
-            await publish(PlayerMessage.trafficTap(round: turn.round, turn: turn.turn, slot: mySlot, reactionMs: reactionMs, falseStart: falseStart), id: id)
+            await publish(PlayerMessage.trafficTap(round: turn.round, turn: turn.turn, slot: mySlot, taps: taps, busted: busted), id: id)
         }
     }
 
