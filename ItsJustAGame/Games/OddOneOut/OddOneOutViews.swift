@@ -23,14 +23,29 @@ struct OddTurnView: View {
         self.session = session
         self.turn = turn
         var generator = SeededGenerator(seed: turn.seed)
-        let cells = turn.gridSize * turn.gridSize
-        let pairs = (cells - 1) / 2                       // 12 for a 5×5
+        let cells = turn.gridSize * turn.gridSize          // 25 for a 5×5
+        let others = cells - 1                             // 24 non-loner tiles
 
-        // Pick (pairs + 1) clearly-distinct colours: one loner + the pairs.
-        let chosen = Array(OddTurnView.palette.shuffled(using: &generator).prefix(pairs + 1))
-        // Tokens into `chosen`: 0 = the loner (once), 1…pairs twice each.
+        // Simplify makes the puzzle simpler by using fewer, more-repeated
+        // colours — so the loner stands out — instead of the full spread of
+        // pairs. Each device builds its own grid, so it's invisible to
+        // everyone else. base: 12 pairs · little: 4×6 · big: 2×12 · cheat: 1×24.
+        let groups: Int
+        switch session.myAssist {
+        case .little: groups = 4
+        case .big: groups = 2
+        case .cheating: groups = 1
+        default: groups = others / 2                       // 12 pairs
+        }
+        let repeatCount = others / groups
+
+        // Pick (groups + 1) clearly-distinct colours: one loner + the groups.
+        let chosen = Array(OddTurnView.palette.shuffled(using: &generator).prefix(groups + 1))
+        // Tokens into `chosen`: 0 = the loner (once), 1…groups repeated.
         var tokens = [0]
-        for i in 1...pairs { tokens.append(i); tokens.append(i) }
+        for i in 1...groups {
+            for _ in 0..<repeatCount { tokens.append(i) }
+        }
         tokens.shuffle(using: &generator)
 
         self.cellColors = tokens.map { chosen[$0] }
@@ -113,15 +128,11 @@ struct OddTurnView: View {
     }
 
     private func strokeColor(for i: Int) -> Color {
-        if wrongFlash == i { return .white }
-        if oddRingWidth > 0 && i == oddIndex { return .white }
-        return .clear
+        wrongFlash == i ? .white : .clear
     }
 
     private func strokeWidth(for i: Int) -> Double {
-        if wrongFlash == i { return 4 }
-        if i == oddIndex { return oddRingWidth }
-        return 0
+        wrongFlash == i ? 4 : 0
     }
 
     // MARK: - Tapping
@@ -153,18 +164,7 @@ struct OddTurnView: View {
         submitted = true
     }
 
-    // MARK: - Simplify
-
-    /// A ring on the loner — a faint hint at level 1, growing to a bold
-    /// outline at level 3. Invisible to everyone else.
-    private var oddRingWidth: Double {
-        switch session.myAssist {
-        case .cheating: return 4
-        case .big: return 2.5
-        case .little: return 1.5
-        default: return 0
-        }
-    }
+    // MARK: - Colours
 
     /// Twelve-plus clearly-distinct colours — all bright enough to read on
     /// the dark board and far enough apart that a pair is never in doubt.

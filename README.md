@@ -333,8 +333,11 @@ rebuilt identically on every device from the seed (colours drawn from a
 palette of sixteen well-separated tones, so a pair is never in doubt). Tap
 fast; a wrong tap adds a time penalty. Your find is **timed locally** from
 when the grid appears, so latency never matters — fastest wins, first to 3
-takes the round. Simplify rings the loner on your phone, faint at level 1
-up to a bold outline at level 3 (invisible to everyone else).
+takes the round. Simplify makes your own grid simpler by using fewer,
+more-repeated colours so the loner stands out — 4 colours × 6 (level 1),
+2 × 12 (level 2), then a single colour × 24 (level 3) — while everyone
+else still faces the full twelve pairs. Each device builds its own grid,
+so it's invisible.
 
 ### Trace It
 
@@ -553,7 +556,7 @@ Every game implements all three levels:
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
 | Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
-| Odd One Out | faint ring on the loner | clearer ring | bold outline |
+| Odd One Out | 4 colours ×6 (not 12 pairs) | 2 colours ×12 | 1 colour ×24 |
 | Trace It | error forgiven ×0.8 + fatter line | ×0.65 | ×0.5 |
 | Traffic Light | reaction ×0.85 + longer amber | ×0.7 + countdown to green | ×0.55 + countdown |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
