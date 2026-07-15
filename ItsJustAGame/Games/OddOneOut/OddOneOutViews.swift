@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// One Odd One Out turn: a grid of identical shapes with a single off-colour
-/// cell (built identically everywhere from the seed; the gap shrinks as the
-/// turn climbs). Tap it as fast as you can — wrong taps cost time. The find
-/// is timed locally from when the grid appears, so latency never matters.
+/// One Odd One Out turn: a 5×5 grid where every colour appears as a pair,
+/// except one that appears alone — tap the unpaired one. The colours (which
+/// twelve pairs, which loner, and where everything lands) are built
+/// identically on every device from the seed. Wrong taps cost time, and the
+/// find is timed locally, so latency never matters.
 struct OddTurnView: View {
     let session: GameSession
     let turn: OddTurn
@@ -14,31 +15,26 @@ struct OddTurnView: View {
     @State private var wrongFlash: Int?
     @State private var found = false
 
+    /// The colour of each tile, and the index of the one with no pair.
+    private let cellColors: [Color]
     private let oddIndex: Int
-    private let baseHue: Double
-    private let baseSat: Double
-    private let baseBright: Double
-    /// Which channel the odd cell differs in (0 = brightness, 1 = saturation)
-    /// and in which direction — so you never know whether to hunt for a
-    /// lighter, darker, richer or paler tile.
-    private let channel: Int
-    private let sign: Double
-    /// Base colour gap for this turn before Simplify widens it.
-    private let baseGap: Double
 
     init(session: GameSession, turn: OddTurn) {
         self.session = session
         self.turn = turn
         var generator = SeededGenerator(seed: turn.seed)
-        self.oddIndex = Int.random(in: 0..<(turn.gridSize * turn.gridSize), using: &generator)
-        self.baseHue = Double.random(in: 0...1, using: &generator)
-        // Kept away from the extremes so the gap can't clip against 0 or 1.
-        self.baseSat = Double.random(in: 0.5...0.72, using: &generator)
-        self.baseBright = Double.random(in: 0.58...0.78, using: &generator)
-        self.channel = Int.random(in: 0...1, using: &generator)
-        self.sign = Bool.random(using: &generator) ? 1 : -1
-        // Starts subtle and gets subtler: ~0.09 down to ~0.02.
-        self.baseGap = max(0.02, 0.09 - Double(turn.turn - 1) * 0.012)
+        let cells = turn.gridSize * turn.gridSize
+        let pairs = (cells - 1) / 2                       // 12 for a 5×5
+
+        // Pick (pairs + 1) clearly-distinct colours: one loner + the pairs.
+        let chosen = Array(OddTurnView.palette.shuffled(using: &generator).prefix(pairs + 1))
+        // Tokens into `chosen`: 0 = the loner (once), 1…pairs twice each.
+        var tokens = [0]
+        for i in 1...pairs { tokens.append(i); tokens.append(i) }
+        tokens.shuffle(using: &generator)
+
+        self.cellColors = tokens.map { chosen[$0] }
+        self.oddIndex = tokens.firstIndex(of: 0) ?? 0
     }
 
     var body: some View {
@@ -47,7 +43,7 @@ struct OddTurnView: View {
             let playing = appearedAt != nil && !submitted && now < turn.deadline
             VStack(spacing: 14) {
                 HigherLowerStatusBar(session: session, alive: session.joinedSlots.sorted(), points: turn.points)
-                Text("Turn \(turn.turn) · spot the odd one")
+                Text("Turn \(turn.turn) · find the loner")
                     .font(Theme.kicker)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -78,7 +74,7 @@ struct OddTurnView: View {
             Text("Get ready…").font(Theme.display(24))
         } else {
             let remaining = Int(max(0, turn.deadline.timeIntervalSince(now)).rounded(.up))
-            Text("Find it! · \(remaining)s").font(Theme.display(24)).foregroundStyle(Theme.magenta)
+            Text("Which has no pair? · \(remaining)s").font(Theme.display(22)).foregroundStyle(Theme.magenta)
         }
     }
 
@@ -94,7 +90,7 @@ struct OddTurnView: View {
                         ForEach(0..<n, id: \.self) { col in
                             let i = row * n + col
                             RoundedRectangle(cornerRadius: cell * 0.22, style: .continuous)
-                                .fill(i == oddIndex ? oddColor : baseColor)
+                                .fill(colour(at: i))
                                 .frame(width: cell, height: cell)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: cell * 0.22, style: .continuous)
@@ -112,33 +108,21 @@ struct OddTurnView: View {
         .padding(.horizontal, 20)
     }
 
+    private func colour(at i: Int) -> Color {
+        i < cellColors.count ? cellColors[i] : .gray
+    }
+
     private func strokeColor(for i: Int) -> Color {
-        if wrongFlash == i { return Theme.magenta }
-        if oddRingWidth > 0 && i == oddIndex {
-            return session.myAssist == .cheating ? .white : .white.opacity(0.5)
-        }
+        if wrongFlash == i { return .white }
+        if oddRingWidth > 0 && i == oddIndex { return .white }
         return .clear
     }
 
     private func strokeWidth(for i: Int) -> Double {
-        if wrongFlash == i { return 3 }
+        if wrongFlash == i { return 4 }
         if i == oddIndex { return oddRingWidth }
         return 0
     }
-
-    // MARK: - Colours
-
-    private var effectiveGap: Double { min(0.5, baseGap + assistBonus) }
-    private var baseColor: Color { Color(hue: baseHue, saturation: baseSat, brightness: baseBright) }
-    private var oddColor: Color {
-        let g = effectiveGap * sign
-        if channel == 1 {
-            return Color(hue: baseHue, saturation: clampChannel(baseSat + g), brightness: baseBright)
-        }
-        return Color(hue: baseHue, saturation: baseSat, brightness: clampChannel(baseBright + g))
-    }
-
-    private func clampChannel(_ v: Double) -> Double { min(0.98, max(0.06, v)) }
 
     // MARK: - Tapping
 
@@ -171,29 +155,40 @@ struct OddTurnView: View {
 
     // MARK: - Simplify
 
-    /// Widens the colour gap locally, so the odd one pops more on the
-    /// assisted phone — invisible to everyone else.
-    private var assistBonus: Double {
-        switch session.myAssist {
-        case .little: return 0.12
-        case .big: return 0.22
-        case .cheating: return 0.34
-        default: return 0
-        }
-    }
-
-    /// A ring drawn on the odd cell — a hint at level 2, a bold outline at
-    /// level 3, off otherwise.
+    /// A ring on the loner — a faint hint at level 1, growing to a bold
+    /// outline at level 3. Invisible to everyone else.
     private var oddRingWidth: Double {
         switch session.myAssist {
-        case .cheating: return 3
-        case .big: return 2
+        case .cheating: return 4
+        case .big: return 2.5
+        case .little: return 1.5
         default: return 0
         }
     }
+
+    /// Twelve-plus clearly-distinct colours — all bright enough to read on
+    /// the dark board and far enough apart that a pair is never in doubt.
+    static let palette: [Color] = [
+        Color(red: 0.92, green: 0.24, blue: 0.24),   // red
+        Color(red: 0.98, green: 0.56, blue: 0.13),   // orange
+        Color(red: 0.98, green: 0.85, blue: 0.24),   // yellow
+        Color(red: 0.66, green: 0.84, blue: 0.22),   // lime
+        Color(red: 0.29, green: 0.75, blue: 0.34),   // green
+        Color(red: 0.13, green: 0.72, blue: 0.60),   // teal
+        Color(red: 0.20, green: 0.78, blue: 0.90),   // cyan
+        Color(red: 0.26, green: 0.53, blue: 0.96),   // blue
+        Color(red: 0.40, green: 0.36, blue: 0.86),   // indigo
+        Color(red: 0.62, green: 0.36, blue: 0.90),   // purple
+        Color(red: 0.90, green: 0.32, blue: 0.80),   // magenta
+        Color(red: 0.98, green: 0.52, blue: 0.66),   // pink
+        Color(red: 0.62, green: 0.44, blue: 0.28),   // brown
+        Color(red: 0.80, green: 0.80, blue: 0.84),   // silver
+        Color(red: 0.55, green: 0.78, blue: 0.98),   // sky
+        Color(red: 0.96, green: 0.74, blue: 0.52),   // sand
+    ]
 }
 
-/// Fastest to find the odd one takes the point.
+/// Fastest to find the loner takes the point.
 struct OddRevealView: View {
     let session: GameSession
     let reveal: OddReveal

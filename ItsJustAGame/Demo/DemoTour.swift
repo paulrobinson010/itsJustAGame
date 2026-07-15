@@ -586,7 +586,7 @@ enum Demo {
         Step(points: [2: 1, 3: 1], duration: 2.6) {
             .oddTurn(OddTurn(
                 round: 2, turn: 2, points: [2: 1, 3: 1],
-                startAt: now(-1), seed: 7, gridSize: 6, maxSeconds: 15
+                startAt: now(-1), seed: 7, gridSize: 5, maxSeconds: 15
             ))
         },
         Step(points: [2: 1, 3: 1]) {

@@ -326,14 +326,15 @@ the real dots up while you tap (fainter to clearer across the levels).
 
 ### Odd One Out
 
-A grid of shapes, all the same colour bar one — and the odd one gets
-closer in shade every turn. The grid (which cell is odd, the colours, the
-shrinking gap) is rebuilt identically everywhere from the seed. Tap the
-odd one fast; a wrong tap adds a time penalty. Your find is **timed
-locally** from when the grid appears, so latency never matters — fastest
-wins, first to 3 takes the round. Simplify widens the colour gap on your
-phone (invisible to everyone else), then rings the odd cell faintly
-(level 2) and outlines it boldly (level 3).
+A 5×5 grid of 25 tiles: twelve clearly-distinct colours each appear as a
+matching pair, and one colour appears alone. Find the loner. Which twelve
+pairs, which colour is the odd one, and where everything lands are all
+rebuilt identically on every device from the seed (colours drawn from a
+palette of sixteen well-separated tones, so a pair is never in doubt). Tap
+fast; a wrong tap adds a time penalty. Your find is **timed locally** from
+when the grid appears, so latency never matters — fastest wins, first to 3
+takes the round. Simplify rings the loner on your phone, faint at level 1
+up to a bold outline at level 3 (invisible to everyone else).
 
 ### Trace It
 
@@ -552,7 +553,7 @@ Every game implements all three levels:
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
 | Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
 | Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
-| Odd One Out | wider colour gap | + a faint ring on the odd cell | + a bold outline |
+| Odd One Out | faint ring on the loner | clearer ring | bold outline |
 | Trace It | error forgiven ×0.8 + fatter line | ×0.65 | ×0.5 |
 | Traffic Light | reaction ×0.85 + longer amber | ×0.7 + countdown to green | ×0.55 + countdown |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |

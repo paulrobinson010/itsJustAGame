@@ -262,7 +262,7 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .spotRecall:
             return "A handful of dots flash on screen, then vanish. Tap where each one was. Closest to the real spots wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .oddOneOut:
-            return "A grid of shapes, one a slightly different colour. Tap the odd one out as fast as you can — it gets harder each turn. Quickest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+            return "A grid of colours, every one in a matching pair — except one. Find the colour that stands alone, fast. Quickest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .traceIt:
             return "A winding line appears. Trace along it with your finger as accurately as you can. Closest to the line wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .trafficLight:
@@ -521,8 +521,8 @@ enum GameTiming {
     static let spotRecallSeconds: Double = 12   // time to place your taps
     static let spotRevealSeconds: Double = 5
 
-    // Odd One Out
-    static let oddGridSize = 6                  // 6×6 grid of shapes
+    // Odd One Out — 5×5 = 25 tiles: 12 colour pairs + 1 unpaired.
+    static let oddGridSize = 5
     static let oddMaxSeconds: Double = 15       // time to find it
     static let oddWrongPenaltyMs = 2000         // added per wrong tap
     static let oddRevealSeconds: Double = 5
