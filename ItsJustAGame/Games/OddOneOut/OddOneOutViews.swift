@@ -16,7 +16,14 @@ struct OddTurnView: View {
 
     private let oddIndex: Int
     private let baseHue: Double
-    /// Base brightness gap for this turn before Simplify widens it.
+    private let baseSat: Double
+    private let baseBright: Double
+    /// Which channel the odd cell differs in (0 = brightness, 1 = saturation)
+    /// and in which direction — so you never know whether to hunt for a
+    /// lighter, darker, richer or paler tile.
+    private let channel: Int
+    private let sign: Double
+    /// Base colour gap for this turn before Simplify widens it.
     private let baseGap: Double
 
     init(session: GameSession, turn: OddTurn) {
@@ -25,7 +32,13 @@ struct OddTurnView: View {
         var generator = SeededGenerator(seed: turn.seed)
         self.oddIndex = Int.random(in: 0..<(turn.gridSize * turn.gridSize), using: &generator)
         self.baseHue = Double.random(in: 0...1, using: &generator)
-        self.baseGap = max(0.06, 0.30 - Double(turn.turn - 1) * 0.035)
+        // Kept away from the extremes so the gap can't clip against 0 or 1.
+        self.baseSat = Double.random(in: 0.5...0.72, using: &generator)
+        self.baseBright = Double.random(in: 0.58...0.78, using: &generator)
+        self.channel = Int.random(in: 0...1, using: &generator)
+        self.sign = Bool.random(using: &generator) ? 1 : -1
+        // Starts subtle and gets subtler: ~0.09 down to ~0.02.
+        self.baseGap = max(0.02, 0.09 - Double(turn.turn - 1) * 0.012)
     }
 
     var body: some View {
@@ -115,9 +128,17 @@ struct OddTurnView: View {
 
     // MARK: - Colours
 
-    private var effectiveGap: Double { min(0.62, baseGap + assistBonus) }
-    private var baseColor: Color { Color(hue: baseHue, saturation: 0.62, brightness: 0.8) }
-    private var oddColor: Color { Color(hue: baseHue, saturation: 0.62, brightness: max(0.14, 0.8 - effectiveGap)) }
+    private var effectiveGap: Double { min(0.5, baseGap + assistBonus) }
+    private var baseColor: Color { Color(hue: baseHue, saturation: baseSat, brightness: baseBright) }
+    private var oddColor: Color {
+        let g = effectiveGap * sign
+        if channel == 1 {
+            return Color(hue: baseHue, saturation: clampChannel(baseSat + g), brightness: baseBright)
+        }
+        return Color(hue: baseHue, saturation: baseSat, brightness: clampChannel(baseBright + g))
+    }
+
+    private func clampChannel(_ v: Double) -> Double { min(0.98, max(0.06, v)) }
 
     // MARK: - Tapping
 

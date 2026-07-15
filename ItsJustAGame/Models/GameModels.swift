@@ -522,7 +522,7 @@ enum GameTiming {
     static let spotRevealSeconds: Double = 5
 
     // Odd One Out
-    static let oddGridSize = 5                  // 5×5 grid of shapes
+    static let oddGridSize = 6                  // 6×6 grid of shapes
     static let oddMaxSeconds: Double = 15       // time to find it
     static let oddWrongPenaltyMs = 2000         // added per wrong tap
     static let oddRevealSeconds: Double = 5
