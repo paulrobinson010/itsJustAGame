@@ -147,7 +147,7 @@ struct TrafficTurnView: View {
             busted = true
             submitted = true
             SoundPlayer.shared.play(.lose)
-            session.submitTraffic(taps: nil, busted: true)
+            session.submitTraffic(taps: nil, busted: true, for: turn)
         }
     }
 
@@ -157,7 +157,7 @@ struct TrafficTurnView: View {
         guard !Task.isCancelled, !submitted else { return }
         submitted = true
         SoundPlayer.shared.play(.lockin)
-        session.submitTraffic(taps: taps, busted: false)
+        session.submitTraffic(taps: taps, busted: false, for: turn)
     }
 
     // MARK: - Simplify
