@@ -97,6 +97,18 @@ enum GamePhase: Hashable {
     // Traffic Light
     case trafficTurn(TrafficTurn)
     case trafficReveal(TrafficReveal)
+    // Shake It Off
+    case shakeTurn(ShakeTurn)
+    case shakeReveal(ShakeReveal)
+    // Tightrope
+    case ropeTurn(RopeTurn)
+    case ropeReveal(RopeReveal)
+    // Freeze!
+    case freezeTurn(FreezeTurn)
+    case freezeReveal(FreezeReveal)
+    // Compass Duel
+    case compassTurn(CompassTurn)
+    case compassReveal(CompassReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
@@ -137,6 +149,10 @@ enum GamePhase: Hashable {
         case .oddTurn(let t): return t.startAt
         case .traceTurn(let t): return t.startAt
         case .trafficTurn(let t): return t.startAt
+        case .shakeTurn(let t): return t.startAt
+        case .ropeTurn(let t): return t.startAt
+        case .freezeTurn(let t): return t.startAt
+        case .compassTurn(let t): return t.startAt
         default: return nil
         }
     }
@@ -793,6 +809,66 @@ final class GameSession {
         submittedAnswerIDs.contains(RecordName.trafficTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
     }
 
+    // MARK: - Shake It Off input
+
+    func submitShake(shakes: Int, for turn: ShakeTurn) {
+        let id = RecordName.shakeCount(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.shakeCount(round: turn.round, turn: turn.turn, slot: mySlot, shakes: shakes), id: id)
+        }
+    }
+
+    func hasSubmittedShake(for turn: ShakeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.shakeCount(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Tightrope input
+
+    func submitRope(distanceDeci: Int, fell: Bool, for turn: RopeTurn) {
+        let id = RecordName.ropeWalk(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.ropeWalk(round: turn.round, turn: turn.turn, slot: mySlot, distanceDeci: distanceDeci, fell: fell), id: id)
+        }
+    }
+
+    func hasSubmittedRope(for turn: RopeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.ropeWalk(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Freeze! input
+
+    func submitFreeze(score: Int, for turn: FreezeTurn) {
+        let id = RecordName.freezeScore(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.freezeScore(round: turn.round, turn: turn.turn, slot: mySlot, score: score), id: id)
+        }
+    }
+
+    func hasSubmittedFreeze(for turn: FreezeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.freezeScore(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Compass Duel input
+
+    func submitCompass(elapsedMs: Int?, completed: Int, for turn: CompassTurn) {
+        let id = RecordName.compassRun(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.compassRun(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs, completed: completed), id: id)
+        }
+    }
+
+    func hasSubmittedCompass(for turn: CompassTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.compassRun(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
@@ -1058,6 +1134,30 @@ final class GameSession {
         case .trafficReveal(let reveal):
             points = reveal.points
             phase = .trafficReveal(reveal)
+        case .shakeTurn(let turn):
+            points = turn.points
+            phase = .shakeTurn(turn)
+        case .shakeReveal(let reveal):
+            points = reveal.points
+            phase = .shakeReveal(reveal)
+        case .ropeTurn(let turn):
+            points = turn.points
+            phase = .ropeTurn(turn)
+        case .ropeReveal(let reveal):
+            points = reveal.points
+            phase = .ropeReveal(reveal)
+        case .freezeTurn(let turn):
+            points = turn.points
+            phase = .freezeTurn(turn)
+        case .freezeReveal(let reveal):
+            points = reveal.points
+            phase = .freezeReveal(reveal)
+        case .compassTurn(let turn):
+            points = turn.points
+            phase = .compassTurn(turn)
+        case .compassReveal(let reveal):
+            points = reveal.points
+            phase = .compassReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

@@ -98,6 +98,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case oddOneOut
     case traceIt
     case trafficLight
+    case shakeItOff
+    case tightrope
+    case freeze
+    case compassDuel
 
     var displayName: String {
         switch self {
@@ -131,6 +135,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .oddOneOut: return "Odd One Out"
         case .traceIt: return "Trace It"
         case .trafficLight: return "Traffic Light"
+        case .shakeItOff: return "Shake It Off"
+        case .tightrope: return "Tightrope"
+        case .freeze: return "Freeze!"
+        case .compassDuel: return "Compass Duel"
         }
     }
 
@@ -167,6 +175,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .oddOneOut: return 2
         case .traceIt: return 2
         case .trafficLight: return 2
+        case .shakeItOff: return 2
+        case .tightrope: return 2
+        case .freeze: return 2
+        case .compassDuel: return 2
         }
     }
 
@@ -202,6 +214,10 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .oddOneOut: return "circle.grid.3x3.fill"
         case .traceIt: return "scribble.variable"
         case .trafficLight: return "hand.tap.fill"
+        case .shakeItOff: return "iphone.radiowaves.left.and.right"
+        case .tightrope: return "figure.walk"
+        case .freeze: return "figure.dance"
+        case .compassDuel: return "safari.fill"
         }
     }
 
@@ -267,6 +283,14 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "A winding line appears. Trace along it with your finger as accurately as you can. Closest to the line wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         case .trafficLight:
             return "Tap like mad on green, stop the moment it turns amber. Tap on red and you're out. \(Int(GameTiming.trafficMaxSeconds)) seconds — most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .shakeItOff:
+            return "\(Int(GameTiming.shakeSeconds)) seconds. Shake your phone like mad — grip it tight! Most shakes wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .tightrope:
+            return "Tilt to keep your walker on the swaying rope — and hold the phone steady, jolts make them wobble. Furthest along the rope wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .freeze:
+            return "MOVE says dance your phone about — FREEZE means go dead still, instantly. Moving on a freeze costs you. Highest score wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .compassDuel:
+            return "Spin on the spot to face each compass heading as it's called. Fastest through all \(GameTiming.compassHeadings) wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -287,7 +311,8 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         switch self {
         case .globetrotter, .colourClash, .spiritLevel, .pourIt, .marbleMaze,
              .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat,
-             .sizeItUp, .spotRecall, .oddOneOut, .traceIt, .trafficLight:
+             .sizeItUp, .spotRecall, .oddOneOut, .traceIt, .trafficLight,
+             .shakeItOff, .tightrope, .freeze, .compassDuel:
             return 1
         default:
             return 0
@@ -539,4 +564,42 @@ enum GameTiming {
     static let trafficRedMinSeconds: Double = 0.9
     static let trafficRedMaxSeconds: Double = 2.2
     static let trafficRevealSeconds: Double = 5
+
+    // Shake It Off
+    static let shakeSeconds: Double = 10
+    /// A shake counts when user acceleration crosses above this many g
+    /// (with hysteresis — it must fall back to half before re-arming).
+    /// Simplify lowers the bar on the assisted phone.
+    static let shakeThresholdG: Double = 1.3
+    static let shakeRevealSeconds: Double = 5
+
+    // Tightrope
+    static let ropeMaxSeconds: Double = 20
+    /// Walking speed while balanced, in metres/second of rope.
+    static let ropeSpeed: Double = 1.2
+    /// Half-width of the balance zone, in degrees of roll. Simplify widens.
+    static let ropeHalfWidthDegrees: Double = 6
+    /// Off balance for this long (cumulative, decaying) and you fall.
+    static let ropeFallSeconds: Double = 0.8
+    static let ropeRevealSeconds: Double = 5
+
+    // Freeze!
+    static let freezeMaxSeconds: Double = 20
+    static let freezeMoveMinSeconds: Double = 2.0
+    static let freezeMoveMaxSeconds: Double = 3.5
+    static let freezeStillMinSeconds: Double = 1.5
+    static let freezeStillMaxSeconds: Double = 2.5
+    /// Human-reaction grace after FREEZE flashes up before movement is
+    /// penalised. Simplify stretches it on the assisted phone.
+    static let freezeGraceSeconds: Double = 0.45
+    static let freezeRevealSeconds: Double = 5
+
+    // Compass Duel
+    static let compassHeadings = 5
+    static let compassMaxSeconds: Double = 30
+    /// Hold within the cone this long to lock a heading in.
+    static let compassLockSeconds: Double = 0.8
+    /// Half-angle of the acceptance cone, in degrees. Simplify widens.
+    static let compassConeDegrees: Double = 12
+    static let compassRevealSeconds: Double = 5
 }

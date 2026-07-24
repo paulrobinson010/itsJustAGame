@@ -368,6 +368,46 @@ thing that hurts, the bust: everyone gets a longer amber warning (×1.6 /
 never busts you at all. The green and red spells stay identical for
 everyone, so the lights always read the same.
 
+### Shake It Off
+
+Ten seconds, shake your phone as hard as you can — grip it tight. Each
+device counts its own shakes (a user-acceleration crossing with
+hysteresis, so one wild swing isn't ten shakes) and submits the tally;
+most shakes wins, first to 3 takes the round. Counted locally, latency
+never matters. Simplify quietly lowers the bar a shake has to clear
+(×0.75 / ×0.55 / ×0.4), so gentler wobbles count.
+
+### Tightrope
+
+Tilt to keep your walker balanced over a swaying rope — the sway is
+seeded, so every device walks the identical rope, swinging wider the
+further you get. While you're in balance the walker strides forward;
+jolting the phone pumps up a wobble that narrows your balance band, and
+0.8 s off balance is a fall, freezing your distance where you dropped.
+Furthest along the rope wins (a bold fall can still beat a timid
+survival), first to 3 takes the round. Simplify widens the rope and
+makes jolts count for less.
+
+### Freeze!
+
+Musical statues with your phone. MOVE means dance it about — the harder
+it moves, the faster you score. The instant FREEZE flashes, go statue:
+after a human-reaction grace, any movement burns points. The MOVE/FREEZE
+schedule is seeded so every device calls the moments identically;
+highest score wins, first to 3 takes the round. Simplify stretches the
+grace after each FREEZE (0.45 s → 0.7 / 1.0 / 1.5) and softens the
+penalty at the top level.
+
+### Compass Duel
+
+A seeded run of five compass headings — physically spin on the spot to
+face each one (each at least 70° from the last) and hold it inside the
+acceptance cone for 0.8 s to lock it. The device times the whole run;
+fastest through all five wins, and if nobody finishes, furthest through
+takes it. First to 3 wins the round. Needs a real iPhone (the compass);
+a device without one sits the turn out gracefully. Simplify widens the
+cone (±12° → ±18 / ±25 / ±35).
+
 ### Sort Circuit
 
 Nine numbered tiles scattered identically on every device (seeded
@@ -567,6 +607,10 @@ Every game implements all three levels:
 | Odd One Out | 4 colours ×6 (not 12 pairs) | 2 colours ×12 | 1 colour ×24 |
 | Trace It | fatter line = wider tolerance band | thicker still | thickest — almost anywhere on it counts |
 | Traffic Light | longer amber warning ×1.6 | ×2.0 amber + one red slip forgiven | ×2.5 amber + reds never bust you |
+| Shake It Off | shake bar ×0.75 | ×0.55 | ×0.4 — wobbles count |
+| Tightrope | rope ×1.4 wider + softer jolts | ×1.9 | ×2.7 + jolts barely matter |
+| Freeze! | 0.7s grace after FREEZE | 1.0s grace | 1.5s + half penalty |
+| Compass Duel | cone ±18° | ±25° | ±35° |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
 | Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
 | Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
@@ -617,7 +661,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all thirty games
+button. It steps through every screen — lobby, wheel, all thirty-four games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

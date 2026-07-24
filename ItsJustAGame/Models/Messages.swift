@@ -104,6 +104,18 @@ enum HostMessage: Codable {
     // Traffic Light
     case trafficTurn(TrafficTurn)
     case trafficReveal(TrafficReveal)
+
+    case shakeTurn(ShakeTurn)
+    case shakeReveal(ShakeReveal)
+
+    case ropeTurn(RopeTurn)
+    case ropeReveal(RopeReveal)
+
+    case freezeTurn(FreezeTurn)
+    case freezeReveal(FreezeReveal)
+
+    case compassTurn(CompassTurn)
+    case compassReveal(CompassReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -158,6 +170,10 @@ enum PlayerMessage: Codable {
     case oddTap(round: Int, turn: Int, slot: Int, timeMs: Int)
     case traceDraw(round: Int, turn: Int, slot: Int, errorPerMille: Int)
     case trafficTap(round: Int, turn: Int, slot: Int, taps: Int?, busted: Bool)
+    case shakeCount(round: Int, turn: Int, slot: Int, shakes: Int)
+    case ropeWalk(round: Int, turn: Int, slot: Int, distanceDeci: Int, fell: Bool)
+    case freezeScore(round: Int, turn: Int, slot: Int, score: Int)
+    case compassRun(round: Int, turn: Int, slot: Int, elapsedMs: Int?, completed: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -1303,6 +1319,144 @@ struct FrenzyReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Shake It Off
+
+/// Everyone shakes at once; each device counts its own shakes (threshold
+/// crossings with hysteresis) and submits the tally. Most shakes wins.
+struct ShakeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var shakeSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(shakeSeconds) }
+}
+
+struct ShakeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil = never played.
+    var shakes: Int?
+    var id: Int { slot }
+}
+
+struct ShakeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [ShakeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Tightrope
+
+/// Tilt to keep the walker on a swaying rope (the sway is seeded, so every
+/// device runs the identical rope); jolting the phone wobbles them. Each
+/// device measures how far its walker got and submits the distance.
+struct RopeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical rope sway from this seed.
+    var seed: UInt64
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct RopeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Distance walked in decimetres (nil = never played).
+    var distanceDeci: Int?
+    /// Fell off before time ran out.
+    var fell: Bool
+    var id: Int { slot }
+}
+
+struct RopeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [RopeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Freeze!
+
+/// Musical statues: seeded MOVE/FREEZE segments, identical on every device.
+/// Moving during MOVE earns points, moving during FREEZE loses them; the
+/// device tots up its own score and submits it. Highest wins.
+struct FreezeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical MOVE/FREEZE schedule from this seed.
+    var seed: UInt64
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct FreezeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil = never played.
+    var score: Int?
+    var id: Int { slot }
+}
+
+struct FreezeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [FreezeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Compass Duel
+
+/// A seeded sequence of compass headings; spin bodily to face each one and
+/// hold it to lock in. The device times the whole run — fastest through
+/// them all wins; if nobody finishes, furthest through wins.
+struct CompassTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device derives the identical heading sequence from this seed.
+    var seed: UInt64
+    var headingCount: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct CompassResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to lock every heading; nil = didn't finish (or never played).
+    var elapsedMs: Int?
+    /// Headings locked before time ran out.
+    var completed: Int
+    var id: Int { slot }
+}
+
+struct CompassReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [CompassResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 /// Deterministic record IDs. Everything is fetched by ID rather than by
 /// query, so CloudKit needs no custom indexes or schema setup at all.
 enum RecordName {
@@ -1447,5 +1601,21 @@ enum RecordName {
 
     static func trafficTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-tl\(turn)-trf\(slot)"
+    }
+
+    static func shakeCount(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sk\(turn)-shk\(slot)"
+    }
+
+    static func ropeWalk(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-rp\(turn)-rop\(slot)"
+    }
+
+    static func freezeScore(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-fz\(turn)-fze\(slot)"
+    }
+
+    static func compassRun(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-cd\(turn)-cmp\(slot)"
     }
 }

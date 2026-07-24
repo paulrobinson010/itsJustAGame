@@ -642,6 +642,86 @@ enum Demo {
             ))
         },
 
+        // Shake It Off — mid-shake, then the reveal
+        Step(points: [2: 1, 3: 1], duration: 2.6) {
+            .shakeTurn(ShakeTurn(
+                round: 2, turn: 2, points: [2: 1, 3: 1],
+                startAt: now(-3), shakeSeconds: 10
+            ))
+        },
+        Step(points: [2: 1, 3: 1]) {
+            .shakeReveal(ShakeReveal(
+                round: 2, turn: 2,
+                results: [
+                    ShakeResult(slot: 1, shakes: 38),
+                    ShakeResult(slot: 2, shakes: 47),
+                    ShakeResult(slot: 3, shakes: 29),
+                    ShakeResult(slot: 4, shakes: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Tightrope — on the rope, then the reveal
+        Step(points: [1: 1], duration: 2.6) {
+            .ropeTurn(RopeTurn(
+                round: 2, turn: 2, points: [1: 1],
+                startAt: now(-4), seed: 20260901, maxSeconds: 20
+            ))
+        },
+        Step(points: [1: 1]) {
+            .ropeReveal(RopeReveal(
+                round: 2, turn: 2,
+                results: [
+                    RopeResult(slot: 1, distanceDeci: 168, fell: false),
+                    RopeResult(slot: 2, distanceDeci: 121, fell: true),
+                    RopeResult(slot: 3, distanceDeci: 190, fell: false),
+                    RopeResult(slot: 4, distanceDeci: nil, fell: false),
+                ],
+                winners: [3], points: [1: 1, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Freeze! — mid-dance, then the reveal
+        Step(points: [4: 1], duration: 2.6) {
+            .freezeTurn(FreezeTurn(
+                round: 2, turn: 2, points: [4: 1],
+                startAt: now(-3), seed: 20261024, maxSeconds: 20
+            ))
+        },
+        Step(points: [4: 1]) {
+            .freezeReveal(FreezeReveal(
+                round: 2, turn: 2,
+                results: [
+                    FreezeResult(slot: 1, score: 214),
+                    FreezeResult(slot: 2, score: 342),
+                    FreezeResult(slot: 3, score: 187),
+                    FreezeResult(slot: 4, score: nil),
+                ],
+                winners: [2], points: [2: 1, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Compass Duel — spinning, then the reveal
+        Step(points: [3: 1], duration: 2.6) {
+            .compassTurn(CompassTurn(
+                round: 2, turn: 2, points: [3: 1],
+                startAt: now(-2), seed: 20261111, headingCount: 5, maxSeconds: 30
+            ))
+        },
+        Step(points: [3: 1]) {
+            .compassReveal(CompassReveal(
+                round: 2, turn: 2,
+                results: [
+                    CompassResult(slot: 1, elapsedMs: 14200, completed: 5),
+                    CompassResult(slot: 2, elapsedMs: 18750, completed: 5),
+                    CompassResult(slot: 3, elapsedMs: nil, completed: 3),
+                    CompassResult(slot: 4, elapsedMs: nil, completed: 0),
+                ],
+                winners: [1], points: [1: 1, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
         // Feel the Beat — reveal
         Step(points: [1: 1, 2: 1]) {
             .beatReveal(BeatReveal(
@@ -831,6 +911,22 @@ struct DemoTourView: View {
             TrafficTurnView(session: session, turn: turn)
         case .trafficReveal(let reveal):
             TrafficRevealView(session: session, reveal: reveal)
+        case .shakeTurn(let turn):
+            ShakeTurnView(session: session, turn: turn)
+        case .shakeReveal(let reveal):
+            ShakeRevealView(session: session, reveal: reveal)
+        case .ropeTurn(let turn):
+            RopeTurnView(session: session, turn: turn)
+        case .ropeReveal(let reveal):
+            RopeRevealView(session: session, reveal: reveal)
+        case .freezeTurn(let turn):
+            FreezeTurnView(session: session, turn: turn)
+        case .freezeReveal(let reveal):
+            FreezeRevealView(session: session, reveal: reveal)
+        case .compassTurn(let turn):
+            CompassTurnView(session: session, turn: turn)
+        case .compassReveal(let reveal):
+            CompassRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):

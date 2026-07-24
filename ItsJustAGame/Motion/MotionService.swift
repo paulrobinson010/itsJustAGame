@@ -42,4 +42,12 @@ final class MotionService {
     var twistRateDegrees: Double {
         (manager.deviceMotion?.rotationRate.z ?? 0) * 180 / .pi
     }
+
+    /// How hard the phone is being moved right now: the magnitude of user
+    /// (gravity-removed) acceleration, in g. ~0 at rest, 1–3 g when shaken
+    /// hard. Drives Shake It Off, Freeze! and Tightrope's wobble.
+    var shakeG: Double {
+        guard let a = manager.deviceMotion?.userAcceleration else { return 0 }
+        return (a.x * a.x + a.y * a.y + a.z * a.z).squareRoot()
+    }
 }

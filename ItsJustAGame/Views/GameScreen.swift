@@ -194,6 +194,14 @@ struct GameScreen: View {
         case .traceReveal(let reveal): return "tracereveal\(reveal.round)-\(reveal.turn)"
         case .trafficTurn(let turn): return "traffic\(turn.round)-\(turn.turn)"
         case .trafficReveal(let reveal): return "trafficreveal\(reveal.round)-\(reveal.turn)"
+        case .shakeTurn(let turn): return "shake\(turn.round)-\(turn.turn)"
+        case .shakeReveal(let reveal): return "shakereveal\(reveal.round)-\(reveal.turn)"
+        case .ropeTurn(let turn): return "rope\(turn.round)-\(turn.turn)"
+        case .ropeReveal(let reveal): return "ropereveal\(reveal.round)-\(reveal.turn)"
+        case .freezeTurn(let turn): return "freeze\(turn.round)-\(turn.turn)"
+        case .freezeReveal(let reveal): return "freezereveal\(reveal.round)-\(reveal.turn)"
+        case .compassTurn(let turn): return "compass\(turn.round)-\(turn.turn)"
+        case .compassReveal(let reveal): return "compassreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -331,6 +339,22 @@ struct GameScreen: View {
             TrafficTurnView(session: session, turn: turn)
         case .trafficReveal(let reveal):
             TrafficRevealView(session: session, reveal: reveal)
+        case .shakeTurn(let turn):
+            ShakeTurnView(session: session, turn: turn)
+        case .shakeReveal(let reveal):
+            ShakeRevealView(session: session, reveal: reveal)
+        case .ropeTurn(let turn):
+            RopeTurnView(session: session, turn: turn)
+        case .ropeReveal(let reveal):
+            RopeRevealView(session: session, reveal: reveal)
+        case .freezeTurn(let turn):
+            FreezeTurnView(session: session, turn: turn)
+        case .freezeReveal(let reveal):
+            FreezeRevealView(session: session, reveal: reveal)
+        case .compassTurn(let turn):
+            CompassTurnView(session: session, turn: turn)
+        case .compassReveal(let reveal):
+            CompassRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -437,6 +461,14 @@ struct GameScreen: View {
         case .traceReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .trafficReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .shakeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .ropeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .freezeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .compassReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)
