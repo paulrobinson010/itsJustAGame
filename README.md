@@ -11,17 +11,19 @@ Everything the game sends between devices is **end-to-end encrypted**.
 
 ### Game flow
 
-1. **Create** — the host picks how many rounds it takes to win, how many
-   players, and their names (every player must be named). Names can be
-   typed or **picked from contacts** — a searchable picker with your
-   frequent players pinned on top (iOS exposes no API for the Phone app's
-   Favourites, so "frequent" means people you've picked before in this
-   app). Contacts are read on-device only: the name goes into the
-   encrypted config, the phone number stays on the host's phone. The app
-   generates a personal invite link for every player except the host.
-   Players picked from contacts get a one-tap **iMessage invite** from the
-   lobby — the composer opens pre-addressed with their link (iOS requires
-   the sender to tap Send). Everyone else uses the share sheet.
+1. **Create** — two decisions: who's playing, and how many rounds to win.
+   The roster grows as players are added — no player-count stepper, no
+   empty slots. Add from **contacts** (a searchable multi-select picker
+   with your frequent players pinned on top; iOS exposes no API for the
+   Phone app's Favourites, so "frequent" means people you've picked
+   before in this app) or type a name. Contacts are read on-device only:
+   the name goes into the encrypted config, the phone number stays on the
+   host's phone. The app generates a personal invite link for every
+   player except the host. The lobby then shows a **"Send the invites"**
+   card per player still to join, with big labelled buttons: one-tap
+   **iMessage** (pre-addressed composer — iOS requires the sender to tap
+   Send) and **Share link** for any other app. Rows disappear as players
+   join.
 2. **Join** — players paste their invite message into the app (or tap the
    link — the app registers the `itsjustagame://` URL scheme). A joiner is
    greeted with "Welcome ⟨their name⟩ to ⟨host⟩'s game" before entering the

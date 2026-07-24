@@ -1,30 +1,33 @@
 import SwiftUI
 
+/// Creating a game is two decisions: who's playing, and how many rounds.
+/// The roster grows as players are added — from contacts (one tap, brings
+/// the number for iMessage invites) or by typing a name — no player-count
+/// stepper, no empty slots to fill.
 struct CreateGameView: View {
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var roundsToWin: Int
-    @State private var playerCount = 3
-    @State private var names: [String]
-    @State private var addresses: [String?] = Array(repeating: nil, count: 8)
-    @State private var assists: [AssistLevel?] = Array(repeating: nil, count: 8)
-    @State private var pickerMode: PickerMode?
+    @State private var myName: String
+    @State private var myAssist: AssistLevel?
+    @State private var guests: [Guest] = []
+    @State private var typedName = ""
+    @State private var showContactPicker = false
 
-    private enum PickerMode: Identifiable {
-        case single(Int)
-        case multiple
-
-        var id: Int {
-            if case .single(let index) = self { return index }
-            return -1
-        }
+    /// Everyone playing apart from you.
+    struct Guest: Identifiable, Hashable {
+        let id = UUID()
+        var name: String
+        /// Number or email for the iMessage invite (from contacts only).
+        var address: String?
+        var assist: AssistLevel?
     }
+
+    private static let maxPlayers = 8
 
     init(model: AppModel, myName: String) {
         self.model = model
-        var initial = Array(repeating: "", count: 8)
-        initial[0] = myName
-        _names = State(initialValue: initial)
+        _myName = State(initialValue: myName)
         let remembered = UserDefaults.standard.integer(forKey: "lastRoundsToWin")
         _roundsToWin = State(initialValue: (1...10).contains(remembered) ? remembered : 3)
     }
@@ -32,16 +35,14 @@ struct CreateGameView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Rules") {
-                    Stepper("Rounds to win: \(roundsToWin)", value: $roundsToWin, in: 1...10)
-                    Stepper("Players: \(playerCount)", value: $playerCount, in: 2...8)
-                }
                 Section {
                     Button {
-                        pickerMode = .multiple
+                        showContactPicker = true
                     } label: {
-                        Label("Pick players from contacts", systemImage: "person.2.fill")
+                        Label("Add players from contacts", systemImage: "person.2.fill")
+                            .font(Theme.headline)
                     }
+                    .disabled(guests.count >= CreateGameView.maxPlayers - 1)
                     if let last = lastHostedGame {
                         Button {
                             applyLastGame(last)
@@ -49,63 +50,84 @@ struct CreateGameView: View {
                             Label("Same players as last game", systemImage: "arrow.counterclockwise")
                         }
                     }
-                    ForEach(0..<playerCount, id: \.self) { index in
-                        VStack(spacing: 8) {
-                            HStack {
-                                TextField(index == 0 ? "You" : "Player \(index + 1) name", text: $names[index])
-                                    .textInputAutocapitalization(.words)
-                                if index > 0 {
-                                    if addresses[index] != nil {
-                                        Image(systemName: "message.fill")
-                                            .font(.caption)
-                                            .foregroundStyle(Theme.cyan)
-                                    }
-                                    Button {
-                                        pickerMode = .single(index)
-                                    } label: {
-                                        Image(systemName: "person.crop.circle.badge.plus")
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
+                } header: {
+                    Text("Who's playing?")
+                } footer: {
+                    Text("Picking from contacts also grabs their number, so you can invite them by iMessage with one tap. Contacts never leave this phone.")
+                }
+
+                Section {
+                    HStack {
+                        TextField("Your name", text: $myName)
+                            .textInputAutocapitalization(.words)
+                        Spacer()
+                        Text("You").font(Theme.caption).foregroundStyle(.secondary)
+                        assistMenu($myAssist)
+                    }
+                    ForEach($guests) { $guest in
+                        HStack {
+                            TextField("Name", text: $guest.name)
+                                .textInputAutocapitalization(.words)
+                            Spacer()
+                            if guest.address != nil {
+                                Image(systemName: "message.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(Theme.cyan)
                             }
-                            HStack {
-                                Toggle(isOn: simplifyBinding(index)) {
-                                    Label("Simplify", systemImage: "wand.and.stars")
-                                        .font(Theme.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .toggleStyle(.switch)
-                                .controlSize(.mini)
-                                if assists[index] != nil {
-                                    Picker("", selection: levelBinding(index)) {
-                                        ForEach(AssistLevel.allCases, id: \.self) { level in
-                                            Text(level.displayName).tag(level)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .labelsHidden()
-                                }
+                            assistMenu($guest.assist)
+                        }
+                    }
+                    .onDelete { guests.remove(atOffsets: $0) }
+                    if guests.count < CreateGameView.maxPlayers - 1 {
+                        HStack {
+                            TextField("Add a player by name", text: $typedName)
+                                .textInputAutocapitalization(.words)
+                                .onSubmit(addTypedName)
+                            Button {
+                                addTypedName()
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(Theme.cyan)
                             }
+                            .buttonStyle(.borderless)
+                            .disabled(typedName.trimmingCharacters(in: .whitespaces).isEmpty)
                         }
                     }
                 } header: {
-                    Text("Players")
+                    Text("Players — \(guests.count + 1) of \(CreateGameView.maxPlayers)")
                 } footer: {
-                    Text("Every player needs a name. Pick from contacts to fill names and send invites by iMessage straight from the lobby. Contacts never leave this phone. Simplify quietly makes every mini game easier for that player — nothing in the game gives it away.")
+                    Text("Swipe a player to remove them. The wand quietly makes every mini game easier for that player — nothing on screen gives it away.")
+                }
+
+                Section("Rules") {
+                    Stepper("First to \(roundsToWin) round\(roundsToWin == 1 ? "" : "s") wins", value: $roundsToWin, in: 1...10)
+                }
+
+                Section {
+                    Button {
+                        create()
+                    } label: {
+                        Label(
+                            guests.isEmpty
+                                ? "Add at least one player"
+                                : "Create game for \(guests.count + 1)",
+                            systemImage: "play.circle.fill"
+                        )
+                        .font(Theme.headline)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.cyan)
+                    .disabled(!canCreate)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                } footer: {
+                    Text("Next you'll get the lobby, where each player gets their own invite link.")
                 }
             }
-            .sheet(item: $pickerMode) { mode in
-                switch mode {
-                case .single(let index):
-                    ContactPickerView { picked in
-                        guard let contact = picked.first else { return }
-                        names[index] = contact.firstName
-                        addresses[index] = contact.address
-                    }
-                case .multiple:
-                    ContactPickerView(allowsMultiple: true) { picked in
-                        applyPickedContacts(picked)
-                    }
+            .sheet(isPresented: $showContactPicker) {
+                ContactPickerView(allowsMultiple: true) { picked in
+                    addPickedContacts(picked)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -116,92 +138,98 @@ struct CreateGameView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        UserDefaults.standard.set(roundsToWin, forKey: "lastRoundsToWin")
-                        model.createGame(
-                            roundsToWin: roundsToWin,
-                            playerNames: trimmedNames,
-                            inviteeAddresses: inviteeAddresses,
-                            assists: chosenAssists
-                        )
-                        dismiss()
-                    }
-                    .disabled(!allPlayersNamed)
+            }
+        }
+    }
+
+    /// Off / a little / a big help / basically cheating, in one compact menu.
+    private func assistMenu(_ level: Binding<AssistLevel?>) -> some View {
+        Menu {
+            Button {
+                level.wrappedValue = nil
+            } label: {
+                if level.wrappedValue == nil {
+                    Label("Simplify off", systemImage: "checkmark")
+                } else {
+                    Text("Simplify off")
                 }
             }
-        }
-    }
-
-    private var trimmedNames: [String] {
-        (0..<playerCount).map { names[$0].trimmingCharacters(in: .whitespaces) }
-    }
-
-    private var allPlayersNamed: Bool {
-        trimmedNames.allSatisfy { !$0.isEmpty }
-    }
-
-    private var inviteeAddresses: [Int: String] {
-        var result: [Int: String] = [:]
-        for index in 1..<playerCount {
-            if let phone = addresses[index] {
-                result[index + 1] = phone
+            ForEach(AssistLevel.allCases, id: \.self) { choice in
+                Button {
+                    level.wrappedValue = choice
+                } label: {
+                    if level.wrappedValue == choice {
+                        Label(choice.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(choice.displayName)
+                    }
+                }
             }
+        } label: {
+            Image(systemName: level.wrappedValue == nil ? "wand.and.stars.inverse" : "wand.and.stars")
+                .foregroundStyle(level.wrappedValue == nil ? Color.secondary : Theme.magenta)
         }
-        return result
+        .buttonStyle(.borderless)
     }
 
-    private var chosenAssists: [Int: AssistLevel] {
-        var result: [Int: AssistLevel] = [:]
-        for index in 0..<playerCount {
-            if let level = assists[index] {
-                result[index + 1] = level
-            }
+    private var trimmedMyName: String {
+        myName.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var canCreate: Bool {
+        !trimmedMyName.isEmpty
+            && !guests.isEmpty
+            && guests.allSatisfy { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    private func addTypedName() {
+        let name = typedName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, guests.count < CreateGameView.maxPlayers - 1 else { return }
+        guests.append(Guest(name: name))
+        typedName = ""
+    }
+
+    private func addPickedContacts(_ picked: [PickedContact]) {
+        for contact in picked {
+            guard guests.count < CreateGameView.maxPlayers - 1 else { break }
+            guests.append(Guest(name: contact.firstName, address: contact.address))
         }
-        return result
-    }
-
-    private func simplifyBinding(_ index: Int) -> Binding<Bool> {
-        Binding(
-            get: { assists[index] != nil },
-            set: { assists[index] = $0 ? .little : nil }
-        )
-    }
-
-    private func levelBinding(_ index: Int) -> Binding<AssistLevel> {
-        Binding(
-            get: { assists[index] ?? .little },
-            set: { assists[index] = $0 }
-        )
     }
 
     private var lastHostedGame: SavedGame? {
         model.store.games.first { $0.isHost && $0.hostConfig != nil }
     }
 
-    /// Fill the roster from a multi-select: one row per contact, in the
-    /// order they were ticked.
-    private func applyPickedContacts(_ picked: [PickedContact]) {
-        let capped = picked.prefix(7)
-        guard !capped.isEmpty else { return }
-        playerCount = capped.count + 1
-        for (offset, contact) in capped.enumerated() {
-            names[offset + 1] = contact.firstName
-            addresses[offset + 1] = contact.address
-        }
-    }
-
     private func applyLastGame(_ last: SavedGame) {
         guard let config = last.hostConfig else { return }
-        let others = config.players.filter { $0.slot != 1 }.prefix(7)
+        let others = config.players.filter { $0.slot != 1 }.prefix(CreateGameView.maxPlayers - 1)
         guard !others.isEmpty else { return }
-        playerCount = others.count + 1
-        assists[0] = config.player(1)?.assist
-        for (offset, player) in others.enumerated() {
-            names[offset + 1] = player.name
-            addresses[offset + 1] = last.inviteeAddresses?[player.slot]
-            assists[offset + 1] = player.assist
+        myAssist = config.player(1)?.assist
+        guests = others.map { player in
+            Guest(
+                name: player.name,
+                address: last.inviteeAddresses?[player.slot],
+                assist: player.assist
+            )
         }
         roundsToWin = config.roundsToWin
+    }
+
+    private func create() {
+        UserDefaults.standard.set(roundsToWin, forKey: "lastRoundsToWin")
+        var addresses: [Int: String] = [:]
+        var assists: [Int: AssistLevel] = [:]
+        assists[1] = myAssist
+        for (offset, guest) in guests.enumerated() {
+            addresses[offset + 2] = guest.address
+            assists[offset + 2] = guest.assist
+        }
+        model.createGame(
+            roundsToWin: roundsToWin,
+            playerNames: [trimmedMyName] + guests.map { $0.name.trimmingCharacters(in: .whitespaces) },
+            inviteeAddresses: addresses,
+            assists: assists
+        )
+        dismiss()
     }
 }

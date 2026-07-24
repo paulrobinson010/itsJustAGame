@@ -36,49 +36,43 @@ struct LobbyView: View {
                             Circle()
                                 .fill(player.color)
                                 .frame(width: 10, height: 10)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(player.name)
-                                if player.slot == session.mySlot {
-                                    Text("You")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                            Text(player.name)
+                            if player.slot == session.mySlot {
+                                Text("· you")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if session.saved.isHost && player.slot != 1 {
-                                if MessageComposeView.canSend,
-                                   let address = session.saved.inviteeAddresses?[player.slot] {
-                                    Button {
-                                        composeTarget = ComposeTarget(
-                                            slot: player.slot,
-                                            address: address,
-                                            message: inviteMessage(for: player, config: config)
-                                        )
-                                    } label: {
-                                        Image(systemName: "message.fill")
-                                            .foregroundStyle(Theme.cyan)
-                                    }
-                                    .buttonStyle(.borderless)
-                                }
-                                ShareLink(item: inviteMessage(for: player, config: config)) {
-                                    Image(systemName: "square.and.arrow.up")
-                                }
-                                .buttonStyle(.borderless)
-                            }
+                            Text(joined.contains(player.slot) ? "In!" : "waiting")
+                                .font(Theme.caption)
+                                .foregroundStyle(joined.contains(player.slot) ? .green : .secondary)
                         }
                     }
                 }
 
                 if session.saved.isHost, let engine {
-                    Section {
-                        let pending = pendingInvitees(config: config)
-                        if pending.count > 1 {
-                            Button {
-                                startInviteAll(pending)
-                            } label: {
-                                Label("Invite all by iMessage (\(pending.count))", systemImage: "paperplane.fill")
+                    let waiting = waitingPlayers(config: config)
+                    if !waiting.isEmpty && session.saved.autoStart != true && session.saved.practiceGame == nil {
+                        Section {
+                            ForEach(waiting) { player in
+                                inviteRow(for: player, config: config)
                             }
+                            let pending = pendingInvitees(config: config)
+                            if pending.count > 1 {
+                                Button {
+                                    startInviteAll(pending)
+                                } label: {
+                                    Label("Invite all by iMessage (\(pending.count))", systemImage: "paperplane.fill")
+                                }
+                            }
+                        } header: {
+                            Text("Send the invites")
+                        } footer: {
+                            Text("Each player gets their own link — it carries the game's secret key, so send it privately. Share works with any app: iMessage, WhatsApp, email…")
                         }
+                    }
+
+                    Section {
                         if engine.resumeBlocked {
                             Text("This game already started on a previous launch. Resuming a game as the host isn't supported yet — please start a new game.")
                                 .foregroundStyle(.orange)
@@ -92,9 +86,14 @@ struct LobbyView: View {
                                         : "Start with \(joined.count) of \(config.players.count) players",
                                     systemImage: "play.fill"
                                 )
+                                .font(Theme.headline)
                                 .frame(maxWidth: .infinity)
                             }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Theme.cyan)
                             .disabled(!engine.canBeginGame)
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
                         }
                     } footer: {
                         if session.saved.practiceGame != nil {
@@ -102,9 +101,7 @@ struct LobbyView: View {
                         } else if session.saved.autoStart == true {
                             Text("It's a rematch — no new links needed. The others get a join request in their app, and the game starts by itself when everyone's in.")
                         } else if joined.count < MiniGameType.smallestMinimum {
-                            Text("At least \(MiniGameType.smallestMinimum) players must join before the game can start. Send each player their own link — the links carry the game's secret key, so share them privately.")
-                        } else {
-                            Text("Send each player their own link. The links carry the game's secret key, so everything stays end-to-end encrypted — share them privately.")
+                            Text("The game can start once \(MiniGameType.smallestMinimum) players are in.")
                         }
                     }
                 } else {
@@ -122,6 +119,43 @@ struct LobbyView: View {
         }
         .navigationTitle("Lobby")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// One clear row per player yet to join: their name plus big, labelled
+    /// invite buttons — no tiny icons to hunt for.
+    private func inviteRow(for player: PlayerInfo, config: GameConfig) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(player.name)
+                .font(Theme.headline)
+            HStack(spacing: 10) {
+                if MessageComposeView.canSend,
+                   let address = session.saved.inviteeAddresses?[player.slot] {
+                    Button {
+                        composeTarget = ComposeTarget(
+                            slot: player.slot,
+                            address: address,
+                            message: inviteMessage(for: player, config: config)
+                        )
+                    } label: {
+                        Label("iMessage", systemImage: "message.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.cyan)
+                }
+                ShareLink(item: inviteMessage(for: player, config: config)) {
+                    Label("Share link", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// Players (other than the host) who haven't joined yet.
+    private func waitingPlayers(config: GameConfig) -> [PlayerInfo] {
+        config.players.filter { $0.slot != 1 && !joined.contains($0.slot) }
     }
 
     /// Everyone picked from contacts who hasn't joined yet.
