@@ -932,7 +932,7 @@ struct DemoTourView: View {
         case .tieBreak(let candidates, let winner, let spinSeconds):
             TieBreakView(session: session, candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .gameEnd(let winner):
-            GameEndView(session: session, winner: winner, onClose: {}, onHostRematch: {})
+            GameEndView(session: session, winner: winner, onClose: {})
         }
     }
 

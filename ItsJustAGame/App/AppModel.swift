@@ -144,6 +144,14 @@ final class AppModel {
         )
     }
 
+    // MARK: - Rematch (shelved)
+    //
+    // The whole rematch flow is currently unplumbed from the UI — it was
+    // too hit and miss in the wild. The machinery below (and the engine's
+    // announceRematch/existingRematch, the .rematch host message, the
+    // parked g<oldID>-rematch record) is kept dormant so it can come back
+    // once the discovery mechanism is rethought.
+
     /// Take up a rematch invite: create (or reopen) the local SavedGame for
     /// the new game, keeping this device's slot and role from the old one.
     /// With `open` the game opens immediately (the player accepted, or the

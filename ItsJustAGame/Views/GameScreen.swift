@@ -98,8 +98,6 @@ struct GameScreen: View {
                 )
             }
         }
-        // The host's rematch shows up as a request on the end screens —
-        // players join by tapping accept, never automatically.
     }
 
     @ViewBuilder
@@ -109,9 +107,7 @@ struct GameScreen: View {
             FinishedGameView(
                 session: session,
                 summary: summary,
-                onClose: { close() },
-                onPlayAgain: saved.isHost ? { hostRematch() } : nil,
-                onJoinRematch: saved.isHost ? nil : { joinRematch($0) }
+                onClose: { close() }
             )
         } else if showWelcome {
             WelcomeView(session: session) {
@@ -363,9 +359,7 @@ struct GameScreen: View {
             GameEndView(
                 session: session,
                 winner: winner,
-                onClose: { close() },
-                onHostRematch: saved.isHost ? { hostRematch() } : nil,
-                onJoinRematch: saved.isHost ? nil : { joinRematch($0) }
+                onClose: { close() }
             )
         }
     }
@@ -491,38 +485,14 @@ struct GameScreen: View {
         model.activeGame = nil
     }
 
-    private func hostRematch() {
-        guard let engine else { return }
-        if let invite = engine.existingRematch {
-            // This game already has a rematch — reopen it, never mint another.
-            model.adoptRematch(invite, from: saved, open: true)
-            return
-        }
-        Task {
-            guard var newSaved = await engine.announceRematch() else { return }
-            newSaved.inviteeAddresses = saved.inviteeAddresses
-            model.store.add(newSaved)
-            model.activeGame = newSaved
-        }
-    }
-
-    private func joinRematch(_ invite: RematchInvite) {
-        model.adoptRematch(invite, from: saved, open: true)
-    }
 }
 
-/// A finished game reopened later: the stored result, standings, and (for
-/// the host) a one-tap fresh game with the same crew. The session still
-/// replays quietly underneath so a rematch someone already started is
-/// discovered and joined automatically.
+/// A finished game reopened later: the stored result and standings.
+/// For the next game, "Start a new game" remembers the same crew.
 struct FinishedGameView: View {
     let session: GameSession
     let summary: GameSummary
     var onClose: () -> Void
-    var onPlayAgain: (() -> Void)?
-    var onJoinRematch: ((RematchInvite) -> Void)?
-
-    @State private var playAgainTapped = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -534,43 +504,13 @@ struct FinishedGameView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             standings
-            VStack(spacing: 12) {
-                if let invite = session.pendingRematch, onPlayAgain == nil {
-                    Text("🔁 \(session.name(1)) wants a rematch!")
-                        .font(Theme.headline)
-                        .foregroundStyle(Theme.magenta)
-                    Button {
-                        onJoinRematch?(invite)
-                    } label: {
-                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
-                } else if let onPlayAgain {
-                    Button {
-                        playAgainTapped = true
-                        onPlayAgain()
-                        Task {
-                            // If announcing failed (offline blip), come back
-                            // to life so it can be tried again.
-                            try? await Task.sleep(for: .seconds(6))
-                            playAgainTapped = false
-                        }
-                    } label: {
-                        Label("Play again — same crew", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(playAgainTapped)
-                }
-                Button {
-                    onClose()
-                } label: {
-                    Text("Back to home")
-                        .frame(maxWidth: 240)
-                }
-                .buttonStyle(QuietButtonStyle())
+            Button {
+                onClose()
+            } label: {
+                Text("Back to home")
+                    .frame(maxWidth: 240)
             }
+            .buttonStyle(QuietButtonStyle())
             .padding(.top, 8)
             Spacer()
         }
@@ -747,10 +687,6 @@ struct GameEndView: View {
     let session: GameSession
     let winner: Int
     var onClose: () -> Void
-    var onHostRematch: (() -> Void)?
-    var onJoinRematch: ((RematchInvite) -> Void)?
-
-    @State private var rematchStarted = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -763,40 +699,11 @@ struct GameEndView: View {
                 .padding(.horizontal, 24)
             RoundStandingsView(session: session)
             VStack(spacing: 12) {
-                if let onHostRematch {
-                    Button {
-                        rematchStarted = true
-                        onHostRematch()
-                        Task {
-                            // If announcing failed (offline blip), come back
-                            // to life so it can be tried again.
-                            try? await Task.sleep(for: .seconds(6))
-                            rematchStarted = false
-                        }
-                    } label: {
-                        Label("Rematch — same crew", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(rematchStarted)
-                } else if let invite = session.pendingRematch {
-                    Text("🔁 \(session.name(1)) wants a rematch!")
-                        .font(Theme.headline)
-                        .foregroundStyle(Theme.magenta)
-                    Button {
-                        onJoinRematch?(invite)
-                    } label: {
-                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
-                } else {
-                    Text("If \(session.name(1)) starts a rematch, you'll get a join request right here — no new link needed.")
-                        .font(Theme.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
+                Text("Fancy another? \"Start a new game\" remembers this crew.")
+                    .font(Theme.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
                 Button {
                     onClose()
                 } label: {

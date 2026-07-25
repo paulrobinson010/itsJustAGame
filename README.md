@@ -48,22 +48,15 @@ Everything the game sends between devices is **end-to-end encrypted**.
    Turns are host-scheduled `GameTiming.countdownSeconds` ahead so the
    overlay has a full run; the game-specific timings (how long the dots
    flash, the reaction wait, the draw window) are untouched.
-6. **Rematch without links** — only the host can start one. When a game
-   ends the host taps "Rematch": a fresh game (new ID, fresh key) is
-   announced over the old game's encrypted stream, and every other player
-   gets a **join request** — on the game-over screen, on a reopened
-   finished game, or as a "Rematch waiting" card on the home screen (the
-   invite is also parked at a well-known record, `g<oldID>-rematch`,
-   sealed with the old game's key, and the home screen checks recent
-   games on every launch and foreground). Tapping the request joins them;
-   the new game **starts on its own** once everyone is in (or after ~25s
-   with whoever came). No links; keys still rotate every game and colors
-   are re-dealt. Finished games store their result: reopening one
-   shows the winner and standings instantly (no replay) with "Play again —
-   same crew" for the host. The create screen also remembers your last
-   rounds-to-win, can refill "same players as last game", and the contact
-   picker multi-selects — while the lobby's "Invite all by iMessage" walks
-   the pre-addressed composers back-to-back.
+6. **Playing again** — finished games store their result: reopening one
+   shows the winner and standings instantly (no replay). For the next
+   game, the create screen remembers your last rounds-to-win and refills
+   **"same players as last game"** in one tap, and the lobby's "Invite
+   all by iMessage" walks the pre-addressed composers back-to-back.
+   (A link-free "Rematch" flow shipped in 1.0 but proved too hit and
+   miss, so its UI is shelved for now — the machinery survives, dormant,
+   in `AppModel`/`HostEngine` pending a rethink of the discovery
+   mechanism.)
 7. **Practice mode** — "Practice on your own" on the home screen plays
    any single game round after round, solo. It's the full stack — a
    one-player hosted game whose engine and session talk over an
@@ -582,8 +575,8 @@ from them:
 
 The host can switch **Simplify** on for any player when creating the game
 and pick a level: *A little help*, *A big help* or *Basically cheating*
-(`AssistLevel`, stored on `PlayerInfo` inside the encrypted config, carried
-into rematches, restored by "Same players as last game"). It's invisible in
+(`AssistLevel`, stored on `PlayerInfo` inside the encrypted config,
+restored by "Same players as last game"). It's invisible in
 play — nothing on other screens shows who has it.
 
 Every game implements all three levels:
