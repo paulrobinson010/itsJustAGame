@@ -12,16 +12,12 @@ struct CreateGameView: View {
     @State private var myAssist: AssistLevel?
     @State private var guests: [Guest] = []
     @State private var typedName = ""
-    /// One presentation state for the consent → picker flow. A single
-    /// item-driven sheet can never get stuck the way two chained boolean
-    /// sheets could (a collided presentation left the flag true with no
-    /// sheet up, and the button went dead for good).
-    @State private var activeSheet: CreateSheet?
-
-    private enum CreateSheet: Int, Identifiable {
-        case contactsConsent, contactPicker
-        var id: Int { rawValue }
-    }
+    /// One sheet, one boolean. The consent → picker hand-off happens
+    /// INSIDE the sheet (AddPlayersFlow), so there is no programmatic
+    /// sheet-to-sheet transition left to wedge — both earlier attempts
+    /// (chained booleans, then an item swap) could strand the button dead
+    /// after the first use.
+    @State private var showAddPlayers = false
 
     /// Everyone playing apart from you.
     struct Guest: Identifiable, Hashable {
@@ -46,7 +42,7 @@ struct CreateGameView: View {
             Form {
                 Section {
                     Button {
-                        activeSheet = ContactsConsentView.hasConsented ? .contactPicker : .contactsConsent
+                        showAddPlayers = true
                     } label: {
                         Label("Add players from contacts", systemImage: "person.2.fill")
                             .font(Theme.headline)
@@ -134,18 +130,9 @@ struct CreateGameView: View {
                     Text("Next you'll get the lobby, where each player gets their own invite link.")
                 }
             }
-            .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .contactsConsent:
-                    ContactsConsentView {
-                        // Swap the sheet's content in place — no dismiss/
-                        // re-present race, nothing to get stuck.
-                        activeSheet = .contactPicker
-                    }
-                case .contactPicker:
-                    ContactPickerView(allowsMultiple: true) { picked in
-                        addPickedContacts(picked)
-                    }
+            .sheet(isPresented: $showAddPlayers) {
+                AddPlayersFlow { picked in
+                    addPickedContacts(picked)
                 }
             }
             .scrollContentBackground(.hidden)

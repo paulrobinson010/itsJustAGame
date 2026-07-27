@@ -206,6 +206,27 @@ struct ContactPickerView: View {
     }
 }
 
+/// The "Add players from contacts" sheet: consent first (once), then the
+/// picker — both faces of ONE presentation, switched by plain view state.
+/// Programmatic sheet-to-sheet transitions kept stranding the button dead
+/// after the first use, so there are none: the parent presents a single
+/// boolean-driven sheet and never touches it again.
+struct AddPlayersFlow: View {
+    var onPick: ([PickedContact]) -> Void
+
+    @State private var consented = ContactsConsentView.hasConsented
+
+    var body: some View {
+        if consented {
+            ContactPickerView(allowsMultiple: true, onPick: onPick)
+        } else {
+            ContactsConsentView {
+                withAnimation(.snappy) { consented = true }
+            }
+        }
+    }
+}
+
 /// Explicit consent before the contact picker ever opens (App Review
 /// 5.1.2): spells out exactly what happens to a picked contact — the
 /// first name is shared with the game group end-to-end encrypted, the
@@ -252,8 +273,8 @@ struct ContactsConsentView: View {
             Spacer()
             Button {
                 UserDefaults.standard.set(true, forKey: ContactsConsentView.consentKey)
-                // No dismiss() here: the presenter swaps this sheet's
-                // content straight to the contact picker.
+                // No dismiss() here: AddPlayersFlow flips to the picker
+                // inside the same, still-presented sheet.
                 onConsent()
             } label: {
                 Text("I agree — choose from contacts")
