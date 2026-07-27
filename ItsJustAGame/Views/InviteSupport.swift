@@ -1,4 +1,5 @@
 import Contacts
+import ContactsUI
 import MessageUI
 import SwiftUI
 
@@ -43,6 +44,10 @@ struct ContactPickerView: View {
     @State private var loading = true
     /// Ordered selection for multi-select mode.
     @State private var selectedIDs: [String] = []
+    /// iOS 18 "Select Contacts" mode: the app can only see the contacts
+    /// the user shared, so offer a way back to the phone's full list.
+    @State private var limitedAccess = false
+    @State private var showAccessPicker = false
 
     var body: some View {
         NavigationStack {
@@ -73,6 +78,18 @@ struct ContactPickerView: View {
                         Section(searchText.isEmpty ? "All contacts" : "Results") {
                             rows(filteredContacts)
                         }
+                        if limitedAccess {
+                            Section {
+                                Button {
+                                    showAccessPicker = true
+                                } label: {
+                                    Label("Add more from your phone's contacts", systemImage: "person.crop.circle.badge.plus")
+                                        .foregroundStyle(Theme.cyan)
+                                }
+                            } footer: {
+                                Text("You've shared only some contacts with this app. Tap to pick more from your phone's full list — the app still sees only the ones you choose.")
+                            }
+                        }
                     }
                     .searchable(text: $searchText, prompt: "Search contacts")
                     .scrollContentBackground(.hidden)
@@ -96,6 +113,10 @@ struct ContactPickerView: View {
                 }
             }
             .task { await load() }
+            .modifier(LimitedAccessPickerModifier(isPresented: $showAccessPicker) {
+                // The user changed which contacts are shared — refetch.
+                Task { await load() }
+            })
         }
     }
 
@@ -173,6 +194,11 @@ struct ContactPickerView: View {
             loading = false
             return
         }
+        // iOS 18's "Select Contacts": access is granted but covers only
+        // the shared handful — surface the "add more" affordance.
+        if #available(iOS 18.0, *) {
+            limitedAccess = CNContactStore.authorizationStatus(for: .contacts) == .limited
+        }
         let loaded = await Task.detached { () -> [PickedContact] in
             let keys = [
                 CNContactGivenNameKey,
@@ -203,6 +229,24 @@ struct ContactPickerView: View {
         }.value
         contacts = loaded
         loading = false
+    }
+}
+
+/// Presents the system "choose which contacts this app can see" UI on
+/// iOS 18+ (where limited access exists); a no-op on iOS 17, which only
+/// has all-or-nothing access.
+private struct LimitedAccessPickerModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    var onDone: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.contactAccessPicker(isPresented: $isPresented) { _ in
+                onDone()
+            }
+        } else {
+            content
+        }
     }
 }
 

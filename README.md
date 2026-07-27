@@ -16,9 +16,12 @@ Everything the game sends between devices is **end-to-end encrypted**.
    empty slots. Add from **contacts** (a searchable multi-select picker
    with your frequent players pinned on top; iOS exposes no API for the
    Phone app's Favourites, so "frequent" means people you've picked
-   before in this app) or type a name. The first time, a **consent
-   screen** (App Review 5.1.2) spells out what happens before the picker
-   opens: the picked **first name** is shared with the game group inside
+   before in this app) or type a name. On iOS 18's "Select Contacts"
+   (limited access) the picker shows an **"Add more from your phone's
+   contacts"** row that opens the system access picker, so the shared
+   handful can be extended without a trip to Settings. The first time, a
+   **consent screen** (App Review 5.1.2) spells out what happens before
+   the picker opens: the picked **first name** is shared with the game group inside
    the end-to-end-encrypted config; phone numbers and emails never leave
    the host's phone (they only address the iMessage invites the host
    sends themself); no server of ours ever sees anything. The app
