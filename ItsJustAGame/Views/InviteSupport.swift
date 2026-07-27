@@ -252,7 +252,8 @@ struct ContactsConsentView: View {
             Spacer()
             Button {
                 UserDefaults.standard.set(true, forKey: ContactsConsentView.consentKey)
-                dismiss()
+                // No dismiss() here: the presenter swaps this sheet's
+                // content straight to the contact picker.
                 onConsent()
             } label: {
                 Text("I agree — choose from contacts")
