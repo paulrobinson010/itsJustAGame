@@ -13,6 +13,7 @@ struct CreateGameView: View {
     @State private var guests: [Guest] = []
     @State private var typedName = ""
     @State private var showContactPicker = false
+    @State private var showContactsConsent = false
 
     /// Everyone playing apart from you.
     struct Guest: Identifiable, Hashable {
@@ -37,7 +38,11 @@ struct CreateGameView: View {
             Form {
                 Section {
                     Button {
-                        showContactPicker = true
+                        if ContactsConsentView.hasConsented {
+                            showContactPicker = true
+                        } else {
+                            showContactsConsent = true
+                        }
                     } label: {
                         Label("Add players from contacts", systemImage: "person.2.fill")
                             .font(Theme.headline)
@@ -53,7 +58,7 @@ struct CreateGameView: View {
                 } header: {
                     Text("Who's playing?")
                 } footer: {
-                    Text("Picking from contacts also grabs their number, so you can invite them by iMessage with one tap. Contacts never leave this phone.")
+                    Text("Picking from contacts also grabs their number, so you can invite them by iMessage with one tap. Only picked first names are shared with your game (end-to-end encrypted) — numbers and emails never leave this phone.")
                 }
 
                 Section {
@@ -128,6 +133,16 @@ struct CreateGameView: View {
             .sheet(isPresented: $showContactPicker) {
                 ContactPickerView(allowsMultiple: true) { picked in
                     addPickedContacts(picked)
+                }
+            }
+            .sheet(isPresented: $showContactsConsent) {
+                ContactsConsentView {
+                    // Let the consent sheet finish dismissing before the
+                    // picker presents.
+                    Task {
+                        try? await Task.sleep(for: .seconds(0.45))
+                        showContactPicker = true
+                    }
                 }
             }
             .scrollContentBackground(.hidden)

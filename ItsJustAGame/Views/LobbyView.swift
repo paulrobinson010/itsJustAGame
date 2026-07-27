@@ -6,10 +6,17 @@ struct LobbyView: View {
     let joined: Set<Int>
     @State private var composeTarget: ComposeTarget?
     @State private var inviteQueue: [ComposeTarget] = []
+    @State private var shareTarget: ShareTarget?
 
     private struct ComposeTarget: Identifiable {
         let slot: Int
         let address: String
+        let message: String
+        var id: Int { slot }
+    }
+
+    private struct ShareTarget: Identifiable {
+        let slot: Int
         let message: String
         var id: Int { slot }
     }
@@ -117,6 +124,12 @@ struct LobbyView: View {
         .sheet(item: $composeTarget, onDismiss: advanceInviteQueue) { target in
             MessageComposeView(recipients: [target.address], body: target.message)
         }
+        // A real sheet, not ShareLink's popover — the popover could end up
+        // clipped or hidden on iPad (App Review, twice).
+        .sheet(item: $shareTarget) { target in
+            ActivityShareView(text: target.message)
+                .presentationDetents([.medium, .large])
+        }
         .navigationTitle("Lobby")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -143,7 +156,12 @@ struct LobbyView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.cyan)
                 }
-                ShareLink(item: inviteMessage(for: player, config: config)) {
+                Button {
+                    shareTarget = ShareTarget(
+                        slot: player.slot,
+                        message: inviteMessage(for: player, config: config)
+                    )
+                } label: {
                     Label("Share link", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }

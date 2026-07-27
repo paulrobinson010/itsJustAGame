@@ -206,6 +206,86 @@ struct ContactPickerView: View {
     }
 }
 
+/// Explicit consent before the contact picker ever opens (App Review
+/// 5.1.2): spells out exactly what happens to a picked contact — the
+/// first name is shared with the game group end-to-end encrypted, the
+/// number/email never leaves the phone — and asks the user to agree.
+/// Shown once; the choice is remembered.
+struct ContactsConsentView: View {
+    var onConsent: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    static let consentKey = "contactsConsentGiven"
+
+    static var hasConsented: Bool {
+        UserDefaults.standard.bool(forKey: consentKey)
+    }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "person.2.badge.key.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(Theme.cyan)
+            Text("Before you pick players")
+                .font(Theme.display(26))
+                .multilineTextAlignment(.center)
+            VStack(alignment: .leading, spacing: 14) {
+                Label {
+                    Text("The **first name** of each player you pick is shared with the people in your game — end-to-end encrypted via iCloud, readable only by them.")
+                } icon: {
+                    Image(systemName: "lock.fill").foregroundStyle(Theme.cyan)
+                }
+                Label {
+                    Text("**Phone numbers and emails never leave this phone.** They're used only to address the iMessage invites you send yourself.")
+                } icon: {
+                    Image(systemName: "iphone").foregroundStyle(Theme.cyan)
+                }
+                Label {
+                    Text("We run no servers and **collect nothing** — there's no account, no analytics, no ads.")
+                } icon: {
+                    Image(systemName: "eye.slash.fill").foregroundStyle(Theme.cyan)
+                }
+            }
+            .font(Theme.subheadline)
+            .padding(.horizontal, 28)
+            Spacer()
+            Button {
+                UserDefaults.standard.set(true, forKey: ContactsConsentView.consentKey)
+                dismiss()
+                onConsent()
+            } label: {
+                Text("I agree — choose from contacts")
+                    .frame(maxWidth: 300)
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            Button {
+                dismiss()
+            } label: {
+                Text("No thanks — I'll type names instead")
+                    .frame(maxWidth: 300)
+            }
+            .buttonStyle(QuietButtonStyle())
+            .padding(.bottom, 20)
+        }
+        .background(Theme.background)
+    }
+}
+
+/// The system share sheet, presented as a real sheet rather than
+/// SwiftUI's ShareLink popover — on iPad the popover could end up
+/// clipped or hidden (App Review, twice); a sheet is unmissable on
+/// every device.
+struct ActivityShareView: UIViewControllerRepresentable {
+    let text: String
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
 /// The system iMessage composer, pre-addressed with the invite. iOS
 /// requires the sender to tap Send themselves — no app can send silently.
 struct MessageComposeView: UIViewControllerRepresentable {
