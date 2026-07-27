@@ -4,7 +4,7 @@ import SwiftUI
 
 enum GamePhase: Hashable {
     case lobby(joined: Set<Int>)
-    case wheel(round: Int, chooser: Int, spinSeconds: Double)
+    case wheel(round: Int, chooser: Int, spinSeconds: Double, maxGameVersion: Int?)
     case roundIntro(round: Int, game: MiniGameType)
     // Sense of Direction
     case turn(TurnStart)
@@ -52,9 +52,110 @@ enum GamePhase: Hashable {
     // Tap Frenzy
     case frenzyTurn(FrenzyTurn)
     case frenzyReveal(FrenzyReveal)
+    // Globetrotter
+    case globeTurn(GlobeTurn)
+    case globeReveal(GlobeReveal)
+    // Colour Clash
+    case clashTurn(ClashTurn)
+    case clashReveal(ClashReveal)
+    // Spirit Level
+    case levelTurn(LevelTurn)
+    case levelReveal(LevelReveal)
+    // Pour It
+    case pourTurn(PourTurn)
+    case pourReveal(PourReveal)
+    // Marble Maze
+    case mazeTurn(MazeTurn)
+    case mazeReveal(MazeReveal)
+    // Loudest
+    case loudTurn(LoudTurn)
+    case loudReveal(LoudReveal)
+    // Blow It Out
+    case blowTurn(BlowTurn)
+    case blowReveal(BlowReveal)
+    // Hum It
+    case humTurn(HumTurn)
+    case humReveal(HumReveal)
+    // Crack the Safe
+    case safeTurn(SafeTurn)
+    case safeReveal(SafeReveal)
+    // Feel the Beat
+    case beatTurn(BeatTurn)
+    case beatReveal(BeatReveal)
+    // Size It Up
+    case sizeTurn(SizeTurn)
+    case sizeReveal(SizeReveal)
+    // Spot Recall
+    case spotTurn(SpotTurn)
+    case spotReveal(SpotReveal)
+    // Odd One Out
+    case oddTurn(OddTurn)
+    case oddReveal(OddReveal)
+    // Trace It
+    case traceTurn(TraceTurn)
+    case traceReveal(TraceReveal)
+    // Traffic Light
+    case trafficTurn(TrafficTurn)
+    case trafficReveal(TrafficReveal)
+    // Shake It Off
+    case shakeTurn(ShakeTurn)
+    case shakeReveal(ShakeReveal)
+    // Tightrope
+    case ropeTurn(RopeTurn)
+    case ropeReveal(RopeReveal)
+    // Freeze!
+    case freezeTurn(FreezeTurn)
+    case freezeReveal(FreezeReveal)
+    // Compass Duel
+    case compassTurn(CompassTurn)
+    case compassReveal(CompassReveal)
     case roundEnd(round: Int, winners: [Int])
     case tieBreak(candidates: [Int], winner: Int, spinSeconds: Double)
     case gameEnd(winner: Int)
+
+    /// When this phase's play begins, if it's a turn with a scheduled start.
+    /// The shared 3-2-1 countdown overlay runs from here backwards; reveals,
+    /// the lobby, the wheel and the endings return nil (no countdown).
+    var turnStartAt: Date? {
+        switch self {
+        case .turn(let t): return t.startAt
+        case .hiding(let t): return t.startAt
+        case .seekTurn(let t): return t.startAt
+        case .cardGuess(let t): return t.startAt
+        case .sequenceTurn(let t): return t.startAt
+        case .flashTurn(let t): return t.startAt
+        case .fingerTurn(let t): return t.startAt
+        case .clockTurn(let t): return t.startAt
+        case .diceStep(let t): return t.startAt
+        case .goldTurn(let t): return t.startAt
+        case .eyeballTurn(let t): return t.startAt
+        case .circleTurn(let t): return t.startAt
+        case .sortTurn(let t): return t.startAt
+        case .steadyTurn(let t): return t.startAt
+        case .showdownTurn(let t): return t.startAt
+        case .frenzyTurn(let t): return t.startAt
+        case .globeTurn(let t): return t.startAt
+        case .clashTurn(let t): return t.startAt
+        case .levelTurn(let t): return t.startAt
+        case .pourTurn(let t): return t.startAt
+        case .mazeTurn(let t): return t.startAt
+        case .loudTurn(let t): return t.startAt
+        case .blowTurn(let t): return t.startAt
+        case .humTurn(let t): return t.startAt
+        case .safeTurn(let t): return t.startAt
+        case .beatTurn(let t): return t.startAt
+        case .sizeTurn(let t): return t.startAt
+        case .spotTurn(let t): return t.startAt
+        case .oddTurn(let t): return t.startAt
+        case .traceTurn(let t): return t.startAt
+        case .trafficTurn(let t): return t.startAt
+        case .shakeTurn(let t): return t.startAt
+        case .ropeTurn(let t): return t.startAt
+        case .freezeTurn(let t): return t.startAt
+        case .compassTurn(let t): return t.startAt
+        default: return nil
+        }
+    }
 }
 
 /// Every device — the host included — runs a session. It replays the host's
@@ -458,10 +559,323 @@ final class GameSession {
         )
     }
 
+    // MARK: - Globetrotter input
+
+    func submitGlobe(coordinate: Coordinate, for turn: GlobeTurn) {
+        let id = RecordName.globeGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.globeGuess(round: turn.round, turn: turn.turn, slot: mySlot, coordinate: coordinate),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedGlobe(for turn: GlobeTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.globeGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Colour Clash input
+
+    func submitClash(elapsedMs: Int, mistakes: Int, for turn: ClashTurn) {
+        let id = RecordName.clashTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.clashTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs, mistakes: mistakes),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedClash(for turn: ClashTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.clashTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Spirit Level input
+
+    func submitLevel(heldMs: Int, for turn: LevelTurn) {
+        let id = RecordName.levelHeld(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.levelHeld(round: turn.round, turn: turn.turn, slot: mySlot, heldMs: heldMs),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedLevel(for turn: LevelTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.levelHeld(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Pour It input
+
+    func submitPour(fillPercent: Int, overflowed: Bool, for turn: PourTurn) {
+        let id = RecordName.pourFill(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.pourFill(round: turn.round, turn: turn.turn, slot: mySlot, fillPercent: fillPercent, overflowed: overflowed),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedPour(for turn: PourTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.pourFill(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Marble Maze input
+
+    func submitMaze(elapsedMs: Int, for turn: MazeTurn) {
+        let id = RecordName.mazeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(
+                PlayerMessage.mazeTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs),
+                id: id
+            )
+        }
+    }
+
+    func hasSubmittedMaze(for turn: MazeTurn) -> Bool {
+        submittedAnswerIDs.contains(
+            RecordName.mazeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        )
+    }
+
+    // MARK: - Loudest input
+
+    func submitLoud(level: Int, for turn: LoudTurn) {
+        let id = RecordName.loudLevel(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.loudLevel(round: turn.round, turn: turn.turn, slot: mySlot, level: level), id: id)
+        }
+    }
+
+    func hasSubmittedLoud(for turn: LoudTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.loudLevel(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Blow It Out input
+
+    func submitBlow(candles: Int, for turn: BlowTurn) {
+        let id = RecordName.blowCandles(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.blowCandles(round: turn.round, turn: turn.turn, slot: mySlot, candles: candles), id: id)
+        }
+    }
+
+    func hasSubmittedBlow(for turn: BlowTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.blowCandles(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Hum It input
+
+    func submitHum(errorCents: Int, for turn: HumTurn) {
+        let id = RecordName.humPitch(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.humPitch(round: turn.round, turn: turn.turn, slot: mySlot, errorCents: errorCents), id: id)
+        }
+    }
+
+    func hasSubmittedHum(for turn: HumTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.humPitch(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Crack the Safe input
+
+    func submitSafe(elapsedMs: Int, for turn: SafeTurn) {
+        let id = RecordName.safeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.safeTime(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs), id: id)
+        }
+    }
+
+    func hasSubmittedSafe(for turn: SafeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.safeTime(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Feel the Beat input
+
+    func submitBeat(errorMs: Int, for turn: BeatTurn) {
+        let id = RecordName.beatError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.beatError(round: turn.round, turn: turn.turn, slot: mySlot, errorMs: errorMs), id: id)
+        }
+    }
+
+    func hasSubmittedBeat(for turn: BeatTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.beatError(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Size It Up input
+
+    func submitSize(sizePerMille: Int, for turn: SizeTurn) {
+        let id = RecordName.sizeDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.sizeDraw(round: turn.round, turn: turn.turn, slot: mySlot, sizePerMille: sizePerMille), id: id)
+        }
+    }
+
+    func hasSubmittedSize(for turn: SizeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.sizeDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Spot Recall input
+
+    func submitSpot(errorPerMille: Int, for turn: SpotTurn) {
+        let id = RecordName.spotGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.spotGuess(round: turn.round, turn: turn.turn, slot: mySlot, errorPerMille: errorPerMille), id: id)
+        }
+    }
+
+    func hasSubmittedSpot(for turn: SpotTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.spotGuess(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Odd One Out input
+
+    func submitOdd(timeMs: Int, for turn: OddTurn) {
+        let id = RecordName.oddTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.oddTap(round: turn.round, turn: turn.turn, slot: mySlot, timeMs: timeMs), id: id)
+        }
+    }
+
+    func hasSubmittedOdd(for turn: OddTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.oddTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Trace It input
+
+    func submitTrace(errorPerMille: Int, for turn: TraceTurn) {
+        let id = RecordName.traceDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.traceDraw(round: turn.round, turn: turn.turn, slot: mySlot, errorPerMille: errorPerMille), id: id)
+        }
+    }
+
+    func hasSubmittedTrace(for turn: TraceTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.traceDraw(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Traffic Light input
+
+    func submitTraffic(taps: Int?, busted: Bool, for turn: TrafficTurn) {
+        let id = RecordName.trafficTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.trafficTap(round: turn.round, turn: turn.turn, slot: mySlot, taps: taps, busted: busted), id: id)
+        }
+    }
+
+    func hasSubmittedTraffic(for turn: TrafficTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.trafficTap(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Shake It Off input
+
+    func submitShake(shakes: Int, for turn: ShakeTurn) {
+        let id = RecordName.shakeCount(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.shakeCount(round: turn.round, turn: turn.turn, slot: mySlot, shakes: shakes), id: id)
+        }
+    }
+
+    func hasSubmittedShake(for turn: ShakeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.shakeCount(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Tightrope input
+
+    func submitRope(distanceDeci: Int, fell: Bool, for turn: RopeTurn) {
+        let id = RecordName.ropeWalk(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.ropeWalk(round: turn.round, turn: turn.turn, slot: mySlot, distanceDeci: distanceDeci, fell: fell), id: id)
+        }
+    }
+
+    func hasSubmittedRope(for turn: RopeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.ropeWalk(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Freeze! input
+
+    func submitFreeze(score: Int, for turn: FreezeTurn) {
+        let id = RecordName.freezeScore(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.freezeScore(round: turn.round, turn: turn.turn, slot: mySlot, score: score), id: id)
+        }
+    }
+
+    func hasSubmittedFreeze(for turn: FreezeTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.freezeScore(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
+    // MARK: - Compass Duel input
+
+    func submitCompass(elapsedMs: Int?, completed: Int, for turn: CompassTurn) {
+        let id = RecordName.compassRun(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot)
+        guard !submittedAnswerIDs.contains(id) else { return }
+        submittedAnswerIDs.insert(id)
+        Task {
+            await publish(PlayerMessage.compassRun(round: turn.round, turn: turn.turn, slot: mySlot, elapsedMs: elapsedMs, completed: completed), id: id)
+        }
+    }
+
+    func hasSubmittedCompass(for turn: CompassTurn) -> Bool {
+        submittedAnswerIDs.contains(RecordName.compassRun(saved.gameID, round: turn.round, turn: turn.turn, slot: mySlot))
+    }
+
     private func publishJoin() async {
         let coordinate = await LocationService.shared.currentCoordinate()
         let name = UserDefaults.standard.string(forKey: "myName") ?? ""
-        let message = PlayerMessage.join(slot: saved.mySlot, name: name, coordinate: coordinate)
+        let message = PlayerMessage.join(
+            slot: saved.mySlot, name: name, coordinate: coordinate,
+            protocolVersion: AppProtocol.current
+        )
         await publish(message, id: RecordName.join(saved.gameID, slot: saved.mySlot))
     }
 
@@ -492,7 +906,9 @@ final class GameSession {
             var advanced = false
             while let body = found[RecordName.host(saved.gameID, seq: nextSeq)] {
                 guard let message = try? crypto.open(HostMessage.self, from: body) else {
-                    lastError = "Couldn't decrypt a game message — is the link right?"
+                    // Either the link/key is wrong, or the host is on a newer
+                    // wire format we can't read yet.
+                    lastError = "Couldn't read a game message — check the link is right, and that your app is up to date."
                     return
                 }
                 apply(message)
@@ -524,14 +940,19 @@ final class GameSession {
         switch message {
         case .gameCreated(let config):
             self.config = config
+            // A host on a newer wire format than we understand — warn rather
+            // than fail cryptically later.
+            if config.wireVersion > AppProtocol.current {
+                lastError = "This game needs a newer version of the app — check the App Store for an update."
+            }
         case .lobby(let joined):
             joinedSlots = Set(joined)
             if case .lobby = phase {
                 phase = .lobby(joined: Set(joined))
             }
-        case .wheel(let round, let chooser, let spinSeconds):
+        case .wheel(let round, let chooser, let spinSeconds, let maxGameVersion):
             points = [:]
-            phase = .wheel(round: round, chooser: chooser, spinSeconds: spinSeconds)
+            phase = .wheel(round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: maxGameVersion)
         case .roundStart(let round, let game):
             phase = .roundIntro(round: round, game: game)
         case .turnStart(let turnStart):
@@ -623,6 +1044,120 @@ final class GameSession {
         case .frenzyReveal(let reveal):
             points = reveal.points
             phase = .frenzyReveal(reveal)
+        case .globeTurn(let turn):
+            points = turn.points
+            phase = .globeTurn(turn)
+        case .globeReveal(let reveal):
+            points = reveal.points
+            phase = .globeReveal(reveal)
+        case .clashTurn(let turn):
+            points = turn.points
+            phase = .clashTurn(turn)
+        case .clashReveal(let reveal):
+            points = reveal.points
+            phase = .clashReveal(reveal)
+        case .levelTurn(let turn):
+            points = turn.points
+            phase = .levelTurn(turn)
+        case .levelReveal(let reveal):
+            points = reveal.points
+            phase = .levelReveal(reveal)
+        case .pourTurn(let turn):
+            points = turn.points
+            phase = .pourTurn(turn)
+        case .pourReveal(let reveal):
+            points = reveal.points
+            phase = .pourReveal(reveal)
+        case .mazeTurn(let turn):
+            points = turn.points
+            phase = .mazeTurn(turn)
+        case .mazeReveal(let reveal):
+            points = reveal.points
+            phase = .mazeReveal(reveal)
+        case .loudTurn(let turn):
+            points = turn.points
+            phase = .loudTurn(turn)
+        case .loudReveal(let reveal):
+            points = reveal.points
+            phase = .loudReveal(reveal)
+        case .blowTurn(let turn):
+            points = turn.points
+            phase = .blowTurn(turn)
+        case .blowReveal(let reveal):
+            points = reveal.points
+            phase = .blowReveal(reveal)
+        case .humTurn(let turn):
+            points = turn.points
+            phase = .humTurn(turn)
+        case .humReveal(let reveal):
+            points = reveal.points
+            phase = .humReveal(reveal)
+        case .safeTurn(let turn):
+            points = turn.points
+            phase = .safeTurn(turn)
+        case .safeReveal(let reveal):
+            points = reveal.points
+            phase = .safeReveal(reveal)
+        case .beatTurn(let turn):
+            points = turn.points
+            phase = .beatTurn(turn)
+        case .beatReveal(let reveal):
+            points = reveal.points
+            phase = .beatReveal(reveal)
+        case .sizeTurn(let turn):
+            points = turn.points
+            phase = .sizeTurn(turn)
+        case .sizeReveal(let reveal):
+            points = reveal.points
+            phase = .sizeReveal(reveal)
+        case .spotTurn(let turn):
+            points = turn.points
+            phase = .spotTurn(turn)
+        case .spotReveal(let reveal):
+            points = reveal.points
+            phase = .spotReveal(reveal)
+        case .oddTurn(let turn):
+            points = turn.points
+            phase = .oddTurn(turn)
+        case .oddReveal(let reveal):
+            points = reveal.points
+            phase = .oddReveal(reveal)
+        case .traceTurn(let turn):
+            points = turn.points
+            phase = .traceTurn(turn)
+        case .traceReveal(let reveal):
+            points = reveal.points
+            phase = .traceReveal(reveal)
+        case .trafficTurn(let turn):
+            points = turn.points
+            phase = .trafficTurn(turn)
+        case .trafficReveal(let reveal):
+            points = reveal.points
+            phase = .trafficReveal(reveal)
+        case .shakeTurn(let turn):
+            points = turn.points
+            phase = .shakeTurn(turn)
+        case .shakeReveal(let reveal):
+            points = reveal.points
+            phase = .shakeReveal(reveal)
+        case .ropeTurn(let turn):
+            points = turn.points
+            phase = .ropeTurn(turn)
+        case .ropeReveal(let reveal):
+            points = reveal.points
+            phase = .ropeReveal(reveal)
+        case .freezeTurn(let turn):
+            points = turn.points
+            phase = .freezeTurn(turn)
+        case .freezeReveal(let reveal):
+            points = reveal.points
+            phase = .freezeReveal(reveal)
+        case .compassTurn(let turn):
+            points = turn.points
+            phase = .compassTurn(turn)
+        case .compassReveal(let reveal):
+            points = reveal.points
+            phase = .compassReveal(reveal)
         case .tieBreakSpin(let candidates, let winner, let spinSeconds):
             phase = .tieBreak(candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .roundEnd(let round, let winners, let rounds):

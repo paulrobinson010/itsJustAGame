@@ -11,17 +11,23 @@ Everything the game sends between devices is **end-to-end encrypted**.
 
 ### Game flow
 
-1. **Create** — the host picks how many rounds it takes to win, how many
-   players, and their names (every player must be named). Names can be
-   typed or **picked from contacts** — a searchable picker with your
-   frequent players pinned on top (iOS exposes no API for the Phone app's
-   Favourites, so "frequent" means people you've picked before in this
-   app). Contacts are read on-device only: the name goes into the
-   encrypted config, the phone number stays on the host's phone. The app
-   generates a personal invite link for every player except the host.
-   Players picked from contacts get a one-tap **iMessage invite** from the
-   lobby — the composer opens pre-addressed with their link (iOS requires
-   the sender to tap Send). Everyone else uses the share sheet.
+1. **Create** — two decisions: who's playing, and how many rounds to win.
+   The roster grows as players are added — no player-count stepper, no
+   empty slots. Add from **contacts** (a searchable multi-select picker
+   with your frequent players pinned on top; iOS exposes no API for the
+   Phone app's Favourites, so "frequent" means people you've picked
+   before in this app) or type a name. The first time, a **consent
+   screen** (App Review 5.1.2) spells out what happens before the picker
+   opens: the picked **first name** is shared with the game group inside
+   the end-to-end-encrypted config; phone numbers and emails never leave
+   the host's phone (they only address the iMessage invites the host
+   sends themself); no server of ours ever sees anything. The app
+   generates a personal invite link for every
+   player except the host. The lobby then shows a **"Send the invites"**
+   card per player still to join, with big labelled buttons: one-tap
+   **iMessage** (pre-addressed composer — iOS requires the sender to tap
+   Send) and **Share link** for any other app. Rows disappear as players
+   join.
 2. **Join** — players paste their invite message into the app (or tap the
    link — the app registers the `itsjustagame://` URL scheme). A joiner is
    greeted with "Welcome ⟨their name⟩ to ⟨host⟩'s game" before entering the
@@ -39,23 +45,22 @@ Everything the game sends between devices is **end-to-end encrypted**.
 5. **Round** — a *game* is made of *rounds* (first to N rounds wins the
    game). Each round is one mini game. Within Sense of Direction, each
    *turn* is one target place; the turn winner gets a point, and the first
-   player to 3 points takes the round.
-6. **Rematch without links** — only the host can start one. When a game
-   ends the host taps "Rematch": a fresh game (new ID, fresh key) is
-   announced over the old game's encrypted stream, and every other player
-   gets a **join request** — on the game-over screen, on a reopened
-   finished game, or as a "Rematch waiting" card on the home screen (the
-   invite is also parked at a well-known record, `g<oldID>-rematch`,
-   sealed with the old game's key, and the home screen checks recent
-   games on every launch and foreground). Tapping the request joins them;
-   the new game **starts on its own** once everyone is in (or after ~25s
-   with whoever came). No links; keys still rotate every game and colors
-   are re-dealt. Finished games store their result: reopening one
-   shows the winner and standings instantly (no replay) with "Play again —
-   same crew" for the host. The create screen also remembers your last
-   rounds-to-win, can refill "same players as last game", and the contact
-   picker multi-selects — while the lobby's "Invite all by iMessage" walks
-   the pre-addressed composers back-to-back.
+   player to 3 points takes the round. Every turn opens with the same
+   3-2-1 "get ready" countdown, shown dead-centre over the game (a shared
+   `CountdownOverlay` keyed off the turn's start time), and every results
+   screen is shown for the same 5 seconds — one rhythm across all games.
+   Turns are host-scheduled `GameTiming.countdownSeconds` ahead so the
+   overlay has a full run; the game-specific timings (how long the dots
+   flash, the reaction wait, the draw window) are untouched.
+6. **Playing again** — finished games store their result: reopening one
+   shows the winner and standings instantly (no replay). For the next
+   game, the create screen remembers your last rounds-to-win and refills
+   **"same players as last game"** in one tap, and the lobby's "Invite
+   all by iMessage" walks the pre-addressed composers back-to-back.
+   (A link-free "Rematch" flow shipped in 1.0 but proved too hit and
+   miss, so its UI is shelved for now — the machinery survives, dormant,
+   in `AppModel`/`HostEngine` pending a rethink of the discovery
+   mechanism.)
 7. **Practice mode** — "Practice on your own" on the home screen plays
    any single game round after round, solo. It's the full stack — a
    one-player hosted game whose engine and session talk over an
@@ -158,6 +163,15 @@ game-level tie-break wheel applies as everywhere else.
   in the development environment.
 - Sync is foreground polling (~1.5–2 s) for v1. Fine for a lobby-and-turns
   party game; push subscriptions can come later.
+- **Version handshake** (`AppProtocol.current`): the host stamps its wire
+  version into `GameConfig`, and each joiner reports its own in the `join`
+  message. The host (authoritative) keeps any game an older player can't
+  decode out of the wheel menu, so a mixed-version table only ever plays
+  games everyone can read. A joiner whose host is on a *newer* version than
+  it understands is told to update. All the version fields are optional, so
+  new and old builds still decode each other's messages — only the game set
+  is gated. Bump `AppProtocol.current` whenever the wire format changes and
+  tag any new/changed game with its `minProtocolVersion`.
 
 ```
 ItsJustAGame/
@@ -201,6 +215,35 @@ Alaska and Hawaii are omitted from the US region since they sit outside
 the continental map view. The capital's location stays on the host until
 the reveal, which shows the starred capital, everyone's pins, and
 distances in km.
+
+### Colour Clash
+
+The Stroop test as a race. A colour name flashes up printed in a
+different colour — "GREEN" in red ink — and you tap the colour it's
+**printed in**, not the word, through a run of eight prompts. The
+sequence is regenerated identically on every device from a seed (like
+Sort Circuit's tile layout); each device validates taps locally and
+reports only its penalty-inclusive time, so the host scores it
+latency-free. Wrong taps flash and add a second. Fastest run takes the
+point; first to 3 wins the round. The fun is watching clever adults
+overthink it while the kids just see the colour. (Inherently a colour-
+vision game — buttons are name-labelled, but the prompt's hue is the
+whole point.)
+
+### Globetrotter
+
+Put Your Finger On It's globe-scale sibling, sharing the same map
+machinery (frozen satellite view, closest-pin scoring, dashed-distance
+reveal). Instead of a region's capital, it names a **famous landmark**
+("Where is the Taj Mahal?") over a bare view of the whole planet —
+continents by shape, no labels — and you drop your pin anywhere on Earth
+within 15 seconds. Closest takes the point; first to 3 wins the round.
+The bank is `LandmarkAtlas`: ~175 globally-recognisable landmarks and
+natural wonders (`name · country · continent · coordinate`), spread
+across all six continents so it isn't Euro/US-heavy. Coordinates are
+city-level approximate — invisible at world scale, and every player is
+scored against the same target. The landmark's location stays on the
+host until the reveal (starred, with everyone's pins and distances).
 
 ### Ten Seconds
 
@@ -259,6 +302,109 @@ so scores are never client-claimed. The reveal shows everyone's actual
 drawings side by side. Highest score takes the point; first to 3 wins
 the round.
 
+### Size It Up
+
+A shape (square, circle, triangle or diamond) flashes on a square canvas
+at a random size, then vanishes — you get two seconds to burn it in. Then
+draw it back at the same size from memory, one stroke, ten seconds. The
+device measures your drawing's size (the larger side of its bounding box,
+as a fraction of the canvas) and submits just that number; the **host
+scores** it against the target, closest wins. Everything is measured
+locally, so latency never matters. First to 3 wins the round. Simplify
+leaves a faint trace of the target up while you draw — barely-there
+(level 1), clearer (level 2), or a near-solid outline to trace (level 3).
+
+### Spot Recall
+
+A handful of dots flash on a square canvas — the same layout on every
+device, seeded — then vanish. Tap where each one was; the device scores
+your **average distance** from the real dots (as a fraction of the canvas)
+and submits just that number, so closest wins. Measured locally, latency
+never matters. First to 3 wins the round. Simplify leaves a faint ghost of
+the real dots up while you tap (fainter to clearer across the levels).
+
+### Odd One Out
+
+A 5×5 grid of 25 tiles: twelve clearly-distinct colours each appear as a
+matching pair, and one colour appears alone. Find the loner. Which twelve
+pairs, which colour is the odd one, and where everything lands are all
+rebuilt identically on every device from the seed (colours drawn from a
+palette of sixteen well-separated tones, so a pair is never in doubt). Tap
+fast; a wrong tap adds a time penalty. Your find is **timed locally** from
+when the grid appears, so latency never matters — fastest wins, first to 3
+takes the round. Simplify makes your own grid simpler by using fewer,
+more-repeated colours so the loner stands out — 4 colours × 6 (level 1),
+2 × 12 (level 2), then a single colour × 24 (level 3) — while everyone
+else still faces the full twelve pairs. Each device builds its own grid,
+so it's invisible.
+
+### Trace It
+
+A winding line — a smooth Catmull-Rom curve through seeded control points,
+the same on every device — appears on a square canvas. Trace along it with
+one finger. The device scores your accuracy against the line and submits a
+single number; closest wins. Scoring is deliberately unforgiving: it blends
+the **Chamfer distance** (mean nearest-point distance both ways, so you're
+rewarded for both staying on the line and covering all of it) with your
+single **worst stray** — one careless excursion can't be averaged away —
+then multiplies by a gain, so even a tidy trace shows real error. Measured
+locally, latency never matters. First to 3 wins the round. Simplify fattens
+the line into a visible tolerance band: anything your finger draws inside
+the paint counts as dead-on, and the band gets wider each level.
+
+### Traffic Light
+
+Go on green, stop on amber, and never tap on red. The light cycles
+green→amber→red over 30 seconds — the exact same seeded sequence on every
+device — and you rack up as many taps as you can while it's green. Amber
+is the warning: taps don't count. Tap once on red and you're out for the
+turn. Taps are counted **locally**, so latency never matters — most green
+taps wins, first to 3 takes the round. Simplify graduates around the one
+thing that hurts, the bust: everyone gets a longer amber warning (×1.6 /
+×2.0 / ×2.5), the middle tier forgives one red slip, and the top tier
+never busts you at all. The green and red spells stay identical for
+everyone, so the lights always read the same.
+
+### Shake It Off
+
+Ten seconds, shake your phone as hard as you can — grip it tight. Each
+device counts its own shakes (a user-acceleration crossing with
+hysteresis, so one wild swing isn't ten shakes) and submits the tally;
+most shakes wins, first to 3 takes the round. Counted locally, latency
+never matters. Simplify quietly lowers the bar a shake has to clear
+(×0.75 / ×0.55 / ×0.4), so gentler wobbles count.
+
+### Tightrope
+
+Tilt to keep your walker balanced over a swaying rope — the sway is
+seeded, so every device walks the identical rope, swinging wider the
+further you get. While you're in balance the walker strides forward;
+jolting the phone pumps up a wobble that narrows your balance band, and
+0.8 s off balance is a fall, freezing your distance where you dropped.
+Furthest along the rope wins (a bold fall can still beat a timid
+survival), first to 3 takes the round. Simplify widens the rope and
+makes jolts count for less.
+
+### Freeze!
+
+Musical statues with your phone. MOVE means dance it about — the harder
+it moves, the faster you score. The instant FREEZE flashes, go statue:
+after a human-reaction grace, any movement burns points. The MOVE/FREEZE
+schedule is seeded so every device calls the moments identically;
+highest score wins, first to 3 takes the round. Simplify stretches the
+grace after each FREEZE (0.45 s → 0.7 / 1.0 / 1.5) and softens the
+penalty at the top level.
+
+### Compass Duel
+
+A seeded run of five compass headings — physically spin on the spot to
+face each one (each at least 70° from the last) and hold it inside the
+acceptance cone for 0.8 s to lock it. The device times the whole run;
+fastest through all five wins, and if nobody finishes, furthest through
+takes it. First to 3 wins the round. Needs a real iPhone (the compass);
+a device without one sits the turn out gracefully. Simplify widens the
+cone (±12° → ±18 / ±25 / ±35).
+
 ### Sort Circuit
 
 Nine numbered tiles scattered identically on every device (seeded
@@ -266,6 +412,99 @@ layout). Tap 1→9 as fast as you can — a wrong tap flashes and adds a
 one-second penalty. Timing runs locally against the shared start
 timestamp, so latency never matters. Fastest penalty-inclusive time
 takes the point; first to 3 wins the round.
+
+### Marble Maze
+
+Tilt to roll a ball through a maze to the exit — fastest escape wins the
+point, first to 3 wins the round. Each turn the host sends a seed and
+every device regenerates the **identical** maze (a perfect maze from a
+recursive-backtracker on a 6×6 grid — `MazeModel`), so it's a fair race
+and never the same maze twice. The ball is simple continuous physics:
+tilt (roll/pitch) accelerates it, damping keeps it controllable, and it's
+pushed out of wall segments by circle-vs-segment collision. Time is
+measured locally from the shared start, latency-immune. Needs a real
+device (no motion in the Simulator). Simplify: gentler, slower ball
+(level 1); the solution path drawn faintly (level 2); the path drawn
+boldly, plus the gentler ball (level 3).
+
+### Spirit Level
+
+Tilt the phone (left–right roll, read from CoreMotion device attitude) to
+keep the bubble between two markers — but the markers **drift, faster and
+faster**. The zone's path is two summed sinusoids on an accelerating time
+base, regenerated identically on every device from the turn's seed. The
+clock runs as long as you stay inside; the moment you slip out (past a
+short grace) your time locks in, capped at 20 seconds. A brief dip back
+inside is forgiven so hand jitter doesn't end the run. Longest hold takes
+the point; first to 3 wins the round. Timed locally, so latency never
+matters. Needs a real device (the Simulator has no motion). Simplify
+widens the gap between the markers, so the zone is easier to stay inside
+(×1.8 / ×2.6 / ×3.6).
+
+### Pour It
+
+Tip the phone to either side (roll) to pour, level off to stop, and hit a
+target fill line without spilling. The glass on screen tips the way you
+roll — clockwise or anti-clockwise — and either direction pours. Fill is
+integrated locally from the roll magnitude each frame (pour rate ∝ how far
+past ~6° you tip), so it's latency-free; overflowing past the top spills,
+and a clean pour always beats a spill. Closest to the line takes the
+point; first to 3 wins the round. Needs a real device. Simplify: slower
+pour and a green band round the line (level 1), plus a live fill %
+(level 2), and at the top level it simply won't overflow past the line
+(level 3).
+
+### Loudest
+
+On GO, everyone shouts; the loudest wins the point, first to 3 wins the
+round. A shared `MicService` (AVAudioEngine tap) reduces the mic to a 0–1
+loudness on the render thread — **raw audio is never recorded, stored, or
+transmitted**, only a number 0–1000. The score is a *sustained* loudness
+(a slow-attack smoothed peak) put through a curve, so a one-off spike
+won't do it — you have to hold a genuinely loud shout for the best part of
+a second to near 1000. Measured on each device, so it's latency-free.
+Needs mic permission (and a real device). Simplify quietly scales your
+loudness up (×1.15 / ×1.3 / ×1.6) — invisible at the reveal.
+
+### Blow It Out
+
+Blow at the phone to snuff two rows of birthday candles (20 of them); the
+device integrates sustained loudness (above a threshold, so a shout won't
+do it) into a candle count, most out wins — you can't clear the lot in the
+window, so it's a race for the most. First to 3 rounds. Same mic-to-number
+privacy as Loudest. Simplify makes the candles easier to blow out
+(×1.3 / ×1.6 / ×2).
+
+### Hum It
+
+The reference note plays (a sine tone built in memory — `ToneWAV`), then
+you hum it back. The device estimates your hum's pitch by autocorrelation,
+takes the median over the window, and reports the error in **cents**;
+closest wins. Only the cents error leaves the phone. Needs mic + a real
+device. Simplify: level 1 plays the note longer and shows a higher/lower
+arrow; levels 2–3 show a live cents readout.
+
+### Crack the Safe
+
+Twist the phone like a safe dial to spin each digit of the (shown) combo
+into place. The device integrates the twist rate (`MotionService`, gyro
+about the screen-normal) into a 0–9 dial and locks a digit once you settle
+on it; fastest to enter all three wins. Only the elapsed time leaves the
+phone, measured locally against the shared start — latency-free. Needs a
+real device. Simplify: level 1 is more forgiving about "settled"; level 2
+turns the dial green on the right digit; level 3 locks the instant you
+pass it.
+
+### Feel the Beat
+
+A short rhythm thumps through the phone — a full-strength haptic and a
+punchy low drum beat (a synthesized tone, played loud), no beat shown —
+then you tap it straight back. The device compares your tap gaps to the
+pattern and reports the average error in ms; closest wins. Only the error
+leaves the phone. Works on iPad too (the drum hits carry it where there's
+no haptics). Simplify: level 1 plays the pattern twice; level 2 adds a
+visual pulse on each beat; level 3 keeps a visual metronome looping so you
+can tap along.
 
 ### Steady Hand
 
@@ -340,8 +579,8 @@ from them:
 
 The host can switch **Simplify** on for any player when creating the game
 and pick a level: *A little help*, *A big help* or *Basically cheating*
-(`AssistLevel`, stored on `PlayerInfo` inside the encrypted config, carried
-into rematches, restored by "Same players as last game"). It's invisible in
+(`AssistLevel`, stored on `PlayerInfo` inside the encrypted config,
+restored by "Same players as last game"). It's invisible in
 play — nothing on other screens shows who has it.
 
 Every game implements all three levels:
@@ -354,12 +593,31 @@ Every game implements all three levels:
 | Repeat After Me | next pad blinks a ring when you stall | ring always on next pad | next pad fully lit |
 | Lightning | dot turns cyan just before the flash | visible 3-2-1 countdown | countdown + your time counts ×0.6 |
 | Put Your Finger On It | big hint circle on the map (off-centre from the capital) | smaller circle | tiny circle |
+| Globetrotter | continent named + big hint circle (off-centre) | smaller circle | tiny circle |
 | Ten Seconds | clock visible ~1.7× longer | ~2.5× longer + silent pulsing beat | clock never hides |
 | Push Your Luck | bust odds shown | plain-English bank/ride advice | host pre-spins — you're told if the next spin busts |
 | Gold Rush | top-3 squares outlined | + others' picks appear live on your board | + taken squares lock, so you can't clash |
 | Eyeball It | dots linger ~1.6× longer | + slider narrows around the count (jittered) | + "it's between X and Y" |
 | Perfect Circle | faint dashed guide ring to trace | bold guide ring | + the host adds 7 to your score |
+| Size It Up | faint target trace left up while drawing | clearer trace | near-solid outline to trace |
+| Spot Recall | faint ghost of the dots while you tap | clearer ghost | clearest ghost |
+| Odd One Out | 4 colours ×6 (not 12 pairs) | 2 colours ×12 | 1 colour ×24 |
+| Trace It | fatter line = wider tolerance band | thicker still | thickest — almost anywhere on it counts |
+| Traffic Light | longer amber warning ×1.6 | ×2.0 amber + one red slip forgiven | ×2.5 amber + reds never bust you |
+| Shake It Off | shake bar ×0.75 | ×0.55 | ×0.4 — wobbles count |
+| Tightrope | rope ×1.4 wider + softer jolts | ×1.9 | ×2.7 + jolts barely matter |
+| Freeze! | 0.7s grace after FREEZE | 1.0s grace | 1.5s + half penalty |
+| Compass Duel | cone ±18° | ±25° | ±35° |
 | Sort Circuit | next number glows when you stall | next number always glows | + slips cost no time |
+| Colour Clash | correct button glows when you stall | correct button always glows | + slips cost no time |
+| Marble Maze | gentler, slower ball | + solution path drawn faintly | bold solution path + gentle ball |
+| Loudest | your loudness ×1.15 | ×1.3 | ×1.6 |
+| Blow It Out | candles ×1.3 easier | ×1.6 | ×2 |
+| Hum It | note plays longer + higher/lower arrow | live cents readout | live cents readout |
+| Crack the Safe | more forgiving "settled" | + dial goes green on the right digit | + locks the instant you pass it |
+| Feel the Beat | pattern plays twice | + a visual pulse on each beat | + a visual metronome to tap along to |
+| Spirit Level | wider gap between the markers (×1.8) | ×2.6 | ×3.6 |
+| Pour It | slower pour + green band round the line | + live fill % | + can't overflow past the line |
 | Steady Hand | ring drawn (and judged) 1.35× bigger | 1.7× bigger | 2.1× bigger |
 | Showdown | what-beats-what reminder | others' throws appear live | + told which throw beats the most right now |
 | Tap Frenzy | your window quietly runs 1.5s longer | 3s longer | 5s longer |
@@ -400,7 +658,7 @@ first.
 ### App Store screenshots
 
 In the **simulator only**, the home screen shows a **Screenshot tour**
-button. It steps through every screen — lobby, wheel, all fifteen games
+button. It steps through every screen — lobby, wheel, all thirty-four games
 mid-play, reveals, round end, tie-break, game end — with demo players
 (Mum, Dad, Freddy and Lilly) and believable made-up scores, holding each
 screen for about two seconds so you can grab shots with **⌘S**. Tap to

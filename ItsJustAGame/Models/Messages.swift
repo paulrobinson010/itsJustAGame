@@ -8,7 +8,10 @@ import Foundation
 enum HostMessage: Codable {
     case gameCreated(config: GameConfig)
     case lobby(joined: [Int])
-    case wheel(round: Int, chooser: Int, spinSeconds: Double)
+    /// `maxGameVersion` is the highest wire version every joined player can
+    /// handle — the chooser filters the menu to games at or below it.
+    /// Optional so a 1.0 host's wheel (which lacks it) still decodes.
+    case wheel(round: Int, chooser: Int, spinSeconds: Double, maxGameVersion: Int?)
     case roundStart(round: Int, game: MiniGameType)
     // Sense of Direction
     case turnStart(TurnStart)
@@ -56,6 +59,63 @@ enum HostMessage: Codable {
     // Tap Frenzy
     case frenzyTurn(FrenzyTurn)
     case frenzyReveal(FrenzyReveal)
+    // Globetrotter
+    case globeTurn(GlobeTurn)
+    case globeReveal(GlobeReveal)
+    // Colour Clash
+    case clashTurn(ClashTurn)
+    case clashReveal(ClashReveal)
+    // Spirit Level
+    case levelTurn(LevelTurn)
+    case levelReveal(LevelReveal)
+    // Pour It
+    case pourTurn(PourTurn)
+    case pourReveal(PourReveal)
+    // Marble Maze
+    case mazeTurn(MazeTurn)
+    case mazeReveal(MazeReveal)
+    // Loudest
+    case loudTurn(LoudTurn)
+    case loudReveal(LoudReveal)
+    // Blow It Out
+    case blowTurn(BlowTurn)
+    case blowReveal(BlowReveal)
+    // Hum It
+    case humTurn(HumTurn)
+    case humReveal(HumReveal)
+    // Crack the Safe
+    case safeTurn(SafeTurn)
+    case safeReveal(SafeReveal)
+    // Feel the Beat
+    case beatTurn(BeatTurn)
+    case beatReveal(BeatReveal)
+    // Size It Up
+    case sizeTurn(SizeTurn)
+    case sizeReveal(SizeReveal)
+    // Spot Recall
+    case spotTurn(SpotTurn)
+    case spotReveal(SpotReveal)
+    // Odd One Out
+    case oddTurn(OddTurn)
+    case oddReveal(OddReveal)
+    // Trace It
+    case traceTurn(TraceTurn)
+    case traceReveal(TraceReveal)
+    // Traffic Light
+    case trafficTurn(TrafficTurn)
+    case trafficReveal(TrafficReveal)
+
+    case shakeTurn(ShakeTurn)
+    case shakeReveal(ShakeReveal)
+
+    case ropeTurn(RopeTurn)
+    case ropeReveal(RopeReveal)
+
+    case freezeTurn(FreezeTurn)
+    case freezeReveal(FreezeReveal)
+
+    case compassTurn(CompassTurn)
+    case compassReveal(CompassReveal)
     /// Several players reached the winning round count together — the
     /// wheel decides the overall winner, totally at random (host rolled).
     case tieBreakSpin(candidates: [Int], winner: Int, spinSeconds: Double)
@@ -77,7 +137,7 @@ struct RematchInvite: Codable, Hashable {
 /// knows to poll for. Players never talk to each other directly — the host
 /// folds their input into the next host message.
 enum PlayerMessage: Codable {
-    case join(slot: Int, name: String, coordinate: Coordinate?)
+    case join(slot: Int, name: String, coordinate: Coordinate?, protocolVersion: Int?)
     case choice(round: Int, slot: Int, game: MiniGameType)
     case answer(DirectionAnswer)
     case hide(round: Int, slot: Int, cell: Int)
@@ -95,6 +155,25 @@ enum PlayerMessage: Codable {
     case steadyTime(round: Int, turn: Int, slot: Int, survivedMs: Int)
     case showdownThrow(round: Int, turn: Int, slot: Int, throwing: RPSThrow)
     case frenzyTaps(round: Int, turn: Int, slot: Int, taps: Int)
+    case globeGuess(round: Int, turn: Int, slot: Int, coordinate: Coordinate)
+    case clashTime(round: Int, turn: Int, slot: Int, elapsedMs: Int, mistakes: Int)
+    case levelHeld(round: Int, turn: Int, slot: Int, heldMs: Int)
+    case pourFill(round: Int, turn: Int, slot: Int, fillPercent: Int, overflowed: Bool)
+    case mazeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
+    case loudLevel(round: Int, turn: Int, slot: Int, level: Int)
+    case blowCandles(round: Int, turn: Int, slot: Int, candles: Int)
+    case humPitch(round: Int, turn: Int, slot: Int, errorCents: Int)
+    case safeTime(round: Int, turn: Int, slot: Int, elapsedMs: Int)
+    case beatError(round: Int, turn: Int, slot: Int, errorMs: Int)
+    case sizeDraw(round: Int, turn: Int, slot: Int, sizePerMille: Int)
+    case spotGuess(round: Int, turn: Int, slot: Int, errorPerMille: Int)
+    case oddTap(round: Int, turn: Int, slot: Int, timeMs: Int)
+    case traceDraw(round: Int, turn: Int, slot: Int, errorPerMille: Int)
+    case trafficTap(round: Int, turn: Int, slot: Int, taps: Int?, busted: Bool)
+    case shakeCount(round: Int, turn: Int, slot: Int, shakes: Int)
+    case ropeWalk(round: Int, turn: Int, slot: Int, distanceDeci: Int, fell: Bool)
+    case freezeScore(round: Int, turn: Int, slot: Int, score: Int)
+    case compassRun(round: Int, turn: Int, slot: Int, elapsedMs: Int?, completed: Int)
 }
 
 struct TargetLocation: Codable, Hashable {
@@ -691,6 +770,526 @@ struct ShowdownReveal: Codable, Hashable {
     var nextAt: Date?
 }
 
+// MARK: - Globetrotter
+
+/// Reuses FingerHint (the off-centre hint circle) and FingerOutcome (a
+/// player's pin + distance) — the map machinery is shared with Put Your
+/// Finger On It; only the question differs (a world landmark, not a
+/// region's capital).
+struct GlobeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    /// The landmark being asked about ("Where is the Taj Mahal?"). Its
+    /// coordinate stays on the host until the reveal.
+    var landmark: String
+    var continent: String
+    var points: [Int: Int]
+    var startAt: Date
+    var guessSeconds: Double
+    /// Simplify: a circle the landmark sits inside (off-centre so it
+    /// doesn't pinpoint it), keyed by the assisted player it's for.
+    var assistHints: [Int: FingerHint]?
+
+    var deadline: Date { startAt.addingTimeInterval(guessSeconds) }
+}
+
+struct GlobeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var landmark: String
+    var country: String
+    var target: Coordinate
+    var outcomes: [FingerOutcome]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Spirit Level
+
+struct LevelTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device regenerates the identical drifting zone from this seed.
+    var seed: UInt64
+    /// The most time anyone can bank holding the bubble in the zone.
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct LevelResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Longest continuous time the bubble stayed between the markers, in ms;
+    /// nil = never played.
+    var heldMs: Int?
+    var id: Int { slot }
+}
+
+struct LevelReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [LevelResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Pour It
+
+struct PourTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Fill line to stop at, as a percentage of the glass.
+    var targetPercent: Int
+    var pourSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(pourSeconds) }
+}
+
+struct PourResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Final fill (0–100); nil = never poured.
+    var fillPercent: Int?
+    /// Spilled over the top.
+    var overflowed: Bool
+    var id: Int { slot }
+}
+
+struct PourReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var targetPercent: Int
+    var results: [PourResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Marble Maze
+
+struct MazeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device regenerates the identical maze from this seed.
+    var seed: UInt64
+    var size: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct MazeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to reach the exit; nil = never escaped.
+    var elapsedMs: Int?
+    var id: Int { slot }
+}
+
+struct MazeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [MazeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Loudest
+
+struct LoudTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var shoutSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(shoutSeconds) }
+}
+
+struct LoudResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Peak loudness 0–1000; nil = never shouted / no mic.
+    var level: Int?
+    var id: Int { slot }
+}
+
+struct LoudReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [LoudResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Blow It Out
+
+struct BlowTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var blowSeconds: Double
+    var candles: Int
+
+    var deadline: Date { startAt.addingTimeInterval(blowSeconds) }
+}
+
+struct BlowResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Candles blown out; nil = no mic.
+    var candles: Int?
+    var id: Int { slot }
+}
+
+struct BlowReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var candleCount: Int
+    var results: [BlowResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Hum It
+
+struct HumTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// The reference note to hum, in Hz.
+    var targetHz: Double
+    var listenSeconds: Double
+    var humSeconds: Double
+
+    /// Humming begins after the note has played.
+    var humStart: Date { startAt.addingTimeInterval(listenSeconds) }
+    var deadline: Date { humStart.addingTimeInterval(humSeconds) }
+}
+
+struct HumResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Pitch error in cents (100 = a semitone); nil = never hummed.
+    var errorCents: Int?
+    var id: Int { slot }
+}
+
+struct HumReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [HumResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Crack the Safe
+
+struct SafeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// The combination every device must dial in, e.g. [4, 9, 1].
+    var combo: [Int]
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct SafeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to crack the safe in ms; nil = never opened it in time.
+    var elapsedMs: Int?
+    var id: Int { slot }
+}
+
+struct SafeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var combo: [Int]
+    var results: [SafeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Feel the Beat
+
+struct BeatTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Gaps between successive beats, in ms (one fewer than the beat count).
+    var gaps: [Int]
+    var leadSeconds: Double
+    var tapSeconds: Double
+
+    /// The pattern plays first; tapping is scored once it has finished.
+    var patternMs: Int { gaps.reduce(0, +) }
+    var tapStart: Date { startAt.addingTimeInterval(leadSeconds + Double(patternMs) / 1000) }
+    var deadline: Date { tapStart.addingTimeInterval(tapSeconds) }
+}
+
+struct BeatResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Mean per-gap timing error in ms; nil = didn't tap the pattern back.
+    var errorMs: Int?
+    var id: Int { slot }
+}
+
+struct BeatReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [BeatResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Size It Up
+
+/// The shape a Size It Up turn asks you to redraw.
+enum ShapeKind: String, Codable, CaseIterable, Hashable {
+    case square, circle, triangle, diamond
+
+    var name: String {
+        switch self {
+        case .square: return "square"
+        case .circle: return "circle"
+        case .triangle: return "triangle"
+        case .diamond: return "diamond"
+        }
+    }
+}
+
+struct SizeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var shape: ShapeKind
+    /// Target size as a fraction (0–1) of the square canvas's side.
+    var targetSize: Double
+    var showSeconds: Double
+    var drawSeconds: Double
+
+    /// Drawing begins once the shape has flashed and vanished.
+    var drawStart: Date { startAt.addingTimeInterval(showSeconds) }
+    var deadline: Date { drawStart.addingTimeInterval(drawSeconds) }
+}
+
+struct SizeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// The drawn size in thousandths of the canvas side; nil = never drew.
+    var sizePerMille: Int?
+    var id: Int { slot }
+}
+
+struct SizeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var shape: ShapeKind
+    var targetSize: Double
+    var results: [SizeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Spot Recall
+
+struct SpotTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device places the identical dots from this seed.
+    var seed: UInt64
+    var dotCount: Int
+    var showSeconds: Double
+    var recallSeconds: Double
+
+    /// Tapping begins once the dots have flashed and vanished.
+    var recallStart: Date { startAt.addingTimeInterval(showSeconds) }
+    var deadline: Date { recallStart.addingTimeInterval(recallSeconds) }
+}
+
+struct SpotResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Mean distance from the real dots, in thousandths of the canvas side;
+    /// nil = never tapped.
+    var errorPerMille: Int?
+    var id: Int { slot }
+}
+
+struct SpotReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [SpotResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Odd One Out
+
+struct OddTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical grid (odd cell + colour gap) from
+    /// this seed; the gap shrinks as the turn number climbs.
+    var seed: UInt64
+    var gridSize: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct OddResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to find the odd one in ms (plus wrong-tap penalties); nil = never
+    /// found it.
+    var timeMs: Int?
+    var id: Int { slot }
+}
+
+struct OddReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [OddResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Trace It
+
+struct TraceTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device draws the identical line to trace from this seed.
+    var seed: UInt64
+    var traceSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(traceSeconds) }
+}
+
+struct TraceResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// How far the trace strayed from the line, in thousandths of the canvas;
+    /// nil = never traced.
+    var errorPerMille: Int?
+    var id: Int { slot }
+}
+
+struct TraceReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [TraceResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Traffic Light
+
+struct TrafficTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical green/amber/red light sequence from
+    /// this seed (from the shared start), so it's fair.
+    var seed: UInt64
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct TrafficResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Green taps banked; nil = never played.
+    var taps: Int?
+    /// Tapped on red — out for the turn.
+    var busted: Bool
+    var id: Int { slot }
+}
+
+struct TrafficReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [TrafficResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Colour Clash
+
+/// The Stroop game: a colour name printed in a clashing ink. The prompt
+/// sequence is regenerated identically on every device from the seed
+/// (like Sort Circuit's tile layout); each device validates taps locally
+/// and reports only its penalty-inclusive time, so the host scores it
+/// latency-free.
+struct ClashTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var seed: UInt64
+    var promptCount: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct ClashResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Penalty-inclusive; nil = never finished.
+    var elapsedMs: Int?
+    var mistakes: Int
+    var id: Int { slot }
+}
+
+struct ClashReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [ClashResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
 // MARK: - Tap Frenzy
 
 struct FrenzyTurn: Codable, Hashable {
@@ -714,6 +1313,144 @@ struct FrenzyReveal: Codable, Hashable {
     var round: Int
     var turn: Int
     var results: [FrenzyResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Shake It Off
+
+/// Everyone shakes at once; each device counts its own shakes (threshold
+/// crossings with hysteresis) and submits the tally. Most shakes wins.
+struct ShakeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    var shakeSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(shakeSeconds) }
+}
+
+struct ShakeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil = never played.
+    var shakes: Int?
+    var id: Int { slot }
+}
+
+struct ShakeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [ShakeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Tightrope
+
+/// Tilt to keep the walker on a swaying rope (the sway is seeded, so every
+/// device runs the identical rope); jolting the phone wobbles them. Each
+/// device measures how far its walker got and submits the distance.
+struct RopeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical rope sway from this seed.
+    var seed: UInt64
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct RopeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Distance walked in decimetres (nil = never played).
+    var distanceDeci: Int?
+    /// Fell off before time ran out.
+    var fell: Bool
+    var id: Int { slot }
+}
+
+struct RopeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [RopeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Freeze!
+
+/// Musical statues: seeded MOVE/FREEZE segments, identical on every device.
+/// Moving during MOVE earns points, moving during FREEZE loses them; the
+/// device tots up its own score and submits it. Highest wins.
+struct FreezeTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device builds the identical MOVE/FREEZE schedule from this seed.
+    var seed: UInt64
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct FreezeResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// nil = never played.
+    var score: Int?
+    var id: Int { slot }
+}
+
+struct FreezeReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [FreezeResult]
+    var winners: [Int]
+    var points: [Int: Int]
+    var roundWinners: [Int]
+    var nextAt: Date?
+}
+
+// MARK: - Compass Duel
+
+/// A seeded sequence of compass headings; spin bodily to face each one and
+/// hold it to lock in. The device times the whole run — fastest through
+/// them all wins; if nobody finishes, furthest through wins.
+struct CompassTurn: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var points: [Int: Int]
+    var startAt: Date
+    /// Every device derives the identical heading sequence from this seed.
+    var seed: UInt64
+    var headingCount: Int
+    var maxSeconds: Double
+
+    var deadline: Date { startAt.addingTimeInterval(maxSeconds) }
+}
+
+struct CompassResult: Codable, Hashable, Identifiable {
+    var slot: Int
+    /// Time to lock every heading; nil = didn't finish (or never played).
+    var elapsedMs: Int?
+    /// Headings locked before time ran out.
+    var completed: Int
+    var id: Int { slot }
+}
+
+struct CompassReveal: Codable, Hashable {
+    var round: Int
+    var turn: Int
+    var results: [CompassResult]
     var winners: [Int]
     var points: [Int: Int]
     var roundWinners: [Int]
@@ -804,5 +1541,81 @@ enum RecordName {
 
     static func frenzyTaps(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
         "g\(gameID)-r\(round)-tf\(turn)-frz\(slot)"
+    }
+
+    static func globeGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-gt\(turn)-glb\(slot)"
+    }
+
+    static func clashTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-cc\(turn)-clc\(slot)"
+    }
+
+    static func levelHeld(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sl\(turn)-lvl\(slot)"
+    }
+
+    static func pourFill(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-po\(turn)-pur\(slot)"
+    }
+
+    static func mazeTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-mz\(turn)-maz\(slot)"
+    }
+
+    static func loudLevel(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-ld\(turn)-lod\(slot)"
+    }
+
+    static func blowCandles(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-bl\(turn)-blw\(slot)"
+    }
+
+    static func humPitch(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-hm\(turn)-hum\(slot)"
+    }
+
+    static func safeTime(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sf\(turn)-saf\(slot)"
+    }
+
+    static func beatError(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-bt\(turn)-bet\(slot)"
+    }
+
+    static func sizeDraw(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sz\(turn)-siz\(slot)"
+    }
+
+    static func spotGuess(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sp\(turn)-spt\(slot)"
+    }
+
+    static func oddTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-oo\(turn)-odd\(slot)"
+    }
+
+    static func traceDraw(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-tc\(turn)-trc\(slot)"
+    }
+
+    static func trafficTap(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-tl\(turn)-trf\(slot)"
+    }
+
+    static func shakeCount(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-sk\(turn)-shk\(slot)"
+    }
+
+    static func ropeWalk(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-rp\(turn)-rop\(slot)"
+    }
+
+    static func freezeScore(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-fz\(turn)-fze\(slot)"
+    }
+
+    static func compassRun(_ gameID: String, round: Int, turn: Int, slot: Int) -> String {
+        "g\(gameID)-r\(round)-cd\(turn)-cmp\(slot)"
     }
 }

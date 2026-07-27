@@ -28,9 +28,22 @@ struct GameScreen: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
                     // Comfortable column on iPad instead of edge-to-edge.
                     .frame(maxWidth: 700)
+                // Shared 3-2-1 before every turn. Muted during the initial
+                // replay (buffered turns have a start time in the past, so it
+                // renders nothing anyway).
+                if session.caughtUp, let start = session.phase.turnStartAt {
+                    CountdownOverlay(startAt: start)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.background)
+            // Ask for mic + location up front, on entering the game, so a
+            // permission dialog never lands mid-round and costs someone a
+            // start. Both are one-time prompts and no-op once answered.
+            .onAppear {
+                LocationService.shared.requestPermission()
+                MicService.shared.prewarmPermission()
+            }
             // No cross-fades while the initial replay drains the stream.
             .animation(session.caughtUp ? .easeInOut(duration: 0.35) : nil, value: contentKey)
             .toolbar {
@@ -85,8 +98,6 @@ struct GameScreen: View {
                 )
             }
         }
-        // The host's rematch shows up as a request on the end screens —
-        // players join by tapping accept, never automatically.
     }
 
     @ViewBuilder
@@ -96,9 +107,7 @@ struct GameScreen: View {
             FinishedGameView(
                 session: session,
                 summary: summary,
-                onClose: { close() },
-                onPlayAgain: saved.isHost ? { hostRematch() } : nil,
-                onJoinRematch: saved.isHost ? nil : { joinRematch($0) }
+                onClose: { close() }
             )
         } else if showWelcome {
             WelcomeView(session: session) {
@@ -118,7 +127,7 @@ struct GameScreen: View {
         guard !showWelcome else { return "welcome" }
         switch session.phase {
         case .lobby: return "lobby"
-        case .wheel(let round, _, _): return "wheel\(round)"
+        case .wheel(let round, _, _, _): return "wheel\(round)"
         case .roundIntro(let round, _): return "intro\(round)"
         case .turn(let turnStart): return "turn\(turnStart.round)-\(turnStart.turn)"
         case .reveal(let reveal): return "reveal\(reveal.round)-\(reveal.turn)"
@@ -151,6 +160,44 @@ struct GameScreen: View {
         case .showdownReveal(let reveal): return "showdownreveal\(reveal.round)-\(reveal.turn)"
         case .frenzyTurn(let turn): return "frenzy\(turn.round)-\(turn.turn)"
         case .frenzyReveal(let reveal): return "frenzyreveal\(reveal.round)-\(reveal.turn)"
+        case .globeTurn(let turn): return "globe\(turn.round)-\(turn.turn)"
+        case .globeReveal(let reveal): return "globereveal\(reveal.round)-\(reveal.turn)"
+        case .clashTurn(let turn): return "clash\(turn.round)-\(turn.turn)"
+        case .clashReveal(let reveal): return "clashreveal\(reveal.round)-\(reveal.turn)"
+        case .levelTurn(let turn): return "level\(turn.round)-\(turn.turn)"
+        case .levelReveal(let reveal): return "levelreveal\(reveal.round)-\(reveal.turn)"
+        case .pourTurn(let turn): return "pour\(turn.round)-\(turn.turn)"
+        case .pourReveal(let reveal): return "pourreveal\(reveal.round)-\(reveal.turn)"
+        case .mazeTurn(let turn): return "maze\(turn.round)-\(turn.turn)"
+        case .mazeReveal(let reveal): return "mazereveal\(reveal.round)-\(reveal.turn)"
+        case .loudTurn(let turn): return "loud\(turn.round)-\(turn.turn)"
+        case .loudReveal(let reveal): return "loudreveal\(reveal.round)-\(reveal.turn)"
+        case .blowTurn(let turn): return "blow\(turn.round)-\(turn.turn)"
+        case .blowReveal(let reveal): return "blowreveal\(reveal.round)-\(reveal.turn)"
+        case .humTurn(let turn): return "hum\(turn.round)-\(turn.turn)"
+        case .humReveal(let reveal): return "humreveal\(reveal.round)-\(reveal.turn)"
+        case .safeTurn(let turn): return "safe\(turn.round)-\(turn.turn)"
+        case .safeReveal(let reveal): return "safereveal\(reveal.round)-\(reveal.turn)"
+        case .beatTurn(let turn): return "beat\(turn.round)-\(turn.turn)"
+        case .beatReveal(let reveal): return "beatreveal\(reveal.round)-\(reveal.turn)"
+        case .sizeTurn(let turn): return "size\(turn.round)-\(turn.turn)"
+        case .sizeReveal(let reveal): return "sizereveal\(reveal.round)-\(reveal.turn)"
+        case .spotTurn(let turn): return "spot\(turn.round)-\(turn.turn)"
+        case .spotReveal(let reveal): return "spotreveal\(reveal.round)-\(reveal.turn)"
+        case .oddTurn(let turn): return "odd\(turn.round)-\(turn.turn)"
+        case .oddReveal(let reveal): return "oddreveal\(reveal.round)-\(reveal.turn)"
+        case .traceTurn(let turn): return "trace\(turn.round)-\(turn.turn)"
+        case .traceReveal(let reveal): return "tracereveal\(reveal.round)-\(reveal.turn)"
+        case .trafficTurn(let turn): return "traffic\(turn.round)-\(turn.turn)"
+        case .trafficReveal(let reveal): return "trafficreveal\(reveal.round)-\(reveal.turn)"
+        case .shakeTurn(let turn): return "shake\(turn.round)-\(turn.turn)"
+        case .shakeReveal(let reveal): return "shakereveal\(reveal.round)-\(reveal.turn)"
+        case .ropeTurn(let turn): return "rope\(turn.round)-\(turn.turn)"
+        case .ropeReveal(let reveal): return "ropereveal\(reveal.round)-\(reveal.turn)"
+        case .freezeTurn(let turn): return "freeze\(turn.round)-\(turn.turn)"
+        case .freezeReveal(let reveal): return "freezereveal\(reveal.round)-\(reveal.turn)"
+        case .compassTurn(let turn): return "compass\(turn.round)-\(turn.turn)"
+        case .compassReveal(let reveal): return "compassreveal\(reveal.round)-\(reveal.turn)"
         case .roundEnd(let round, _): return "roundend\(round)"
         case .tieBreak: return "tiebreak"
         case .gameEnd: return "gameend"
@@ -162,8 +209,8 @@ struct GameScreen: View {
         switch session.phase {
         case .lobby(let joined):
             LobbyView(session: session, engine: engine, joined: joined)
-        case .wheel(let round, let chooser, let spinSeconds):
-            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds)
+        case .wheel(let round, let chooser, let spinSeconds, let maxGameVersion):
+            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: maxGameVersion)
         case .roundIntro(let round, let game):
             RoundIntroView(round: round, game: game)
         case .turn(let turnStart):
@@ -228,6 +275,82 @@ struct GameScreen: View {
             FrenzyTurnView(session: session, turn: turn)
         case .frenzyReveal(let reveal):
             FrenzyRevealView(session: session, reveal: reveal)
+        case .globeTurn(let turn):
+            GlobeTurnView(session: session, turn: turn)
+        case .globeReveal(let reveal):
+            GlobeRevealView(session: session, reveal: reveal)
+        case .clashTurn(let turn):
+            ClashTurnView(session: session, turn: turn)
+        case .clashReveal(let reveal):
+            ClashRevealView(session: session, reveal: reveal)
+        case .levelTurn(let turn):
+            LevelTurnView(session: session, turn: turn)
+        case .levelReveal(let reveal):
+            LevelRevealView(session: session, reveal: reveal)
+        case .pourTurn(let turn):
+            PourTurnView(session: session, turn: turn)
+        case .pourReveal(let reveal):
+            PourRevealView(session: session, reveal: reveal)
+        case .mazeTurn(let turn):
+            MazeTurnView(session: session, turn: turn)
+        case .mazeReveal(let reveal):
+            MazeRevealView(session: session, reveal: reveal)
+        case .loudTurn(let turn):
+            LoudTurnView(session: session, turn: turn)
+        case .loudReveal(let reveal):
+            LoudRevealView(session: session, reveal: reveal)
+        case .blowTurn(let turn):
+            BlowTurnView(session: session, turn: turn)
+        case .blowReveal(let reveal):
+            BlowRevealView(session: session, reveal: reveal)
+        case .humTurn(let turn):
+            HumTurnView(session: session, turn: turn)
+        case .humReveal(let reveal):
+            HumRevealView(session: session, reveal: reveal)
+        case .safeTurn(let turn):
+            SafeTurnView(session: session, turn: turn)
+        case .safeReveal(let reveal):
+            SafeRevealView(session: session, reveal: reveal)
+        case .beatTurn(let turn):
+            BeatTurnView(session: session, turn: turn)
+        case .beatReveal(let reveal):
+            BeatRevealView(session: session, reveal: reveal)
+        case .sizeTurn(let turn):
+            SizeTurnView(session: session, turn: turn)
+        case .sizeReveal(let reveal):
+            SizeRevealView(session: session, reveal: reveal)
+        case .spotTurn(let turn):
+            SpotTurnView(session: session, turn: turn)
+        case .spotReveal(let reveal):
+            SpotRevealView(session: session, reveal: reveal)
+        case .oddTurn(let turn):
+            OddTurnView(session: session, turn: turn)
+        case .oddReveal(let reveal):
+            OddRevealView(session: session, reveal: reveal)
+        case .traceTurn(let turn):
+            TraceTurnView(session: session, turn: turn)
+        case .traceReveal(let reveal):
+            TraceRevealView(session: session, reveal: reveal)
+        case .trafficTurn(let turn):
+            TrafficTurnView(session: session, turn: turn)
+        case .trafficReveal(let reveal):
+            TrafficRevealView(session: session, reveal: reveal)
+        case .shakeTurn(let turn):
+            ShakeTurnView(session: session, turn: turn)
+        case .shakeReveal(let reveal):
+            ShakeRevealView(session: session, reveal: reveal)
+        case .ropeTurn(let turn):
+            RopeTurnView(session: session, turn: turn)
+        case .ropeReveal(let reveal):
+            RopeRevealView(session: session, reveal: reveal)
+        case .freezeTurn(let turn):
+            FreezeTurnView(session: session, turn: turn)
+        case .freezeReveal(let reveal):
+            FreezeRevealView(session: session, reveal: reveal)
+        case .compassTurn(let turn):
+            CompassTurnView(session: session, turn: turn)
+        case .compassReveal(let reveal):
+            CompassRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
@@ -236,9 +359,7 @@ struct GameScreen: View {
             GameEndView(
                 session: session,
                 winner: winner,
-                onClose: { close() },
-                onHostRematch: saved.isHost ? { hostRematch() } : nil,
-                onJoinRematch: saved.isHost ? nil : { joinRematch($0) }
+                onClose: { close() }
             )
         }
     }
@@ -305,6 +426,44 @@ struct GameScreen: View {
             }
         case .frenzyReveal(let reveal):
             SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .globeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .clashReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .levelReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .pourReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .mazeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .loudReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .blowReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .humReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .safeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .beatReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .sizeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .spotReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .oddReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .traceReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .trafficReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .shakeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .ropeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .freezeReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
+        case .compassReveal(let reveal):
+            SoundPlayer.shared.play(reveal.winners.isEmpty ? .lose : .point)
         case .roundEnd:
             SoundPlayer.shared.play(.roundwin)
         case .gameEnd:
@@ -326,38 +485,14 @@ struct GameScreen: View {
         model.activeGame = nil
     }
 
-    private func hostRematch() {
-        guard let engine else { return }
-        if let invite = engine.existingRematch {
-            // This game already has a rematch — reopen it, never mint another.
-            model.adoptRematch(invite, from: saved, open: true)
-            return
-        }
-        Task {
-            guard var newSaved = await engine.announceRematch() else { return }
-            newSaved.inviteeAddresses = saved.inviteeAddresses
-            model.store.add(newSaved)
-            model.activeGame = newSaved
-        }
-    }
-
-    private func joinRematch(_ invite: RematchInvite) {
-        model.adoptRematch(invite, from: saved, open: true)
-    }
 }
 
-/// A finished game reopened later: the stored result, standings, and (for
-/// the host) a one-tap fresh game with the same crew. The session still
-/// replays quietly underneath so a rematch someone already started is
-/// discovered and joined automatically.
+/// A finished game reopened later: the stored result and standings.
+/// For the next game, "Start a new game" remembers the same crew.
 struct FinishedGameView: View {
     let session: GameSession
     let summary: GameSummary
     var onClose: () -> Void
-    var onPlayAgain: (() -> Void)?
-    var onJoinRematch: ((RematchInvite) -> Void)?
-
-    @State private var playAgainTapped = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -369,43 +504,13 @@ struct FinishedGameView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             standings
-            VStack(spacing: 12) {
-                if let invite = session.pendingRematch, onPlayAgain == nil {
-                    Text("🔁 \(session.name(1)) wants a rematch!")
-                        .font(Theme.headline)
-                        .foregroundStyle(Theme.magenta)
-                    Button {
-                        onJoinRematch?(invite)
-                    } label: {
-                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
-                } else if let onPlayAgain {
-                    Button {
-                        playAgainTapped = true
-                        onPlayAgain()
-                        Task {
-                            // If announcing failed (offline blip), come back
-                            // to life so it can be tried again.
-                            try? await Task.sleep(for: .seconds(6))
-                            playAgainTapped = false
-                        }
-                    } label: {
-                        Label("Play again — same crew", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(playAgainTapped)
-                }
-                Button {
-                    onClose()
-                } label: {
-                    Text("Back to home")
-                        .frame(maxWidth: 240)
-                }
-                .buttonStyle(QuietButtonStyle())
+            Button {
+                onClose()
+            } label: {
+                Text("Back to home")
+                    .frame(maxWidth: 240)
             }
+            .buttonStyle(QuietButtonStyle())
             .padding(.top, 8)
             Spacer()
         }
@@ -422,21 +527,42 @@ struct FinishedGameView: View {
                         .font(Theme.subheadline)
                         .lineLimit(1)
                     Spacer()
-                    let won = summary.roundsWon[player.slot, default: 0]
-                    let total = max(summary.roundsToWin, won)
-                    HStack(spacing: 5) {
-                        ForEach(0..<total, id: \.self) { index in
-                            Circle()
-                                .fill(index < won ? player.color : Theme.quietFill)
-                                .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
-                                .frame(width: 8, height: 8)
-                        }
-                    }
+                    RoundTally(
+                        color: player.color,
+                        won: summary.roundsWon[player.slot, default: 0],
+                        target: summary.roundsToWin
+                    )
                 }
             }
         }
         .card()
         .padding(.horizontal, 24)
+    }
+}
+
+/// One player's round-win tally: filled dots up to the target, or a plain
+/// count when the target is effectively endless (practice mode uses 999,
+/// where a row of dots would run off the screen).
+struct RoundTally: View {
+    let color: Color
+    let won: Int
+    let target: Int
+
+    var body: some View {
+        if target > 12 {
+            Text("\(won)")
+                .font(Theme.subheadline.weight(.bold).monospacedDigit())
+                .foregroundStyle(color)
+        } else {
+            HStack(spacing: 5) {
+                ForEach(0..<max(target, won), id: \.self) { index in
+                    Circle()
+                        .fill(index < won ? color : Theme.quietFill)
+                        .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
+                        .frame(width: 8, height: 8)
+                }
+            }
+        }
     }
 }
 
@@ -521,16 +647,11 @@ struct RoundStandingsView: View {
                         .font(Theme.subheadline)
                         .lineLimit(1)
                     Spacer()
-                    let won = session.roundsWon[player.slot, default: 0]
-                    let total = max(session.config?.roundsToWin ?? 1, won)
-                    HStack(spacing: 5) {
-                        ForEach(0..<total, id: \.self) { index in
-                            Circle()
-                                .fill(index < won ? player.color : Theme.quietFill)
-                                .overlay(Circle().stroke(Theme.hairline, lineWidth: index < won ? 0 : 1))
-                                .frame(width: 8, height: 8)
-                        }
-                    }
+                    RoundTally(
+                        color: player.color,
+                        won: session.roundsWon[player.slot, default: 0],
+                        target: session.config?.roundsToWin ?? 1
+                    )
                 }
             }
         }
@@ -566,10 +687,6 @@ struct GameEndView: View {
     let session: GameSession
     let winner: Int
     var onClose: () -> Void
-    var onHostRematch: (() -> Void)?
-    var onJoinRematch: ((RematchInvite) -> Void)?
-
-    @State private var rematchStarted = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -582,40 +699,11 @@ struct GameEndView: View {
                 .padding(.horizontal, 24)
             RoundStandingsView(session: session)
             VStack(spacing: 12) {
-                if let onHostRematch {
-                    Button {
-                        rematchStarted = true
-                        onHostRematch()
-                        Task {
-                            // If announcing failed (offline blip), come back
-                            // to life so it can be tried again.
-                            try? await Task.sleep(for: .seconds(6))
-                            rematchStarted = false
-                        }
-                    } label: {
-                        Label("Rematch — same crew", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(rematchStarted)
-                } else if let invite = session.pendingRematch {
-                    Text("🔁 \(session.name(1)) wants a rematch!")
-                        .font(Theme.headline)
-                        .foregroundStyle(Theme.magenta)
-                    Button {
-                        onJoinRematch?(invite)
-                    } label: {
-                        Label("Join the rematch", systemImage: "arrow.counterclockwise")
-                            .frame(maxWidth: 240)
-                    }
-                    .buttonStyle(PrimaryButtonStyle(tint: Theme.magenta))
-                } else {
-                    Text("If \(session.name(1)) starts a rematch, you'll get a join request right here — no new link needed.")
-                        .font(Theme.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
+                Text("Fancy another? \"Start a new game\" remembers this crew.")
+                    .font(Theme.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
                 Button {
                     onClose()
                 } label: {

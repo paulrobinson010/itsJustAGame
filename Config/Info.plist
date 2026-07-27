@@ -26,9 +26,11 @@
 		<string>ChakraPetch-Medium.ttf</string>
 	</array>
 	<key>NSContactsUsageDescription</key>
-	<string>Used only to fill in player names and address their invite by iMessage. Your contacts never leave this phone.</string>
+	<string>Lets you pick players by name. Only the first name of a player you pick is shared with your game group, end-to-end encrypted via iCloud. Phone numbers and emails stay on this phone (used only to address invites you send yourself). We run no servers and collect nothing.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to work out the true direction from you to each target and to draw the results map. It is shared only with the players in your game, end-to-end encrypted.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used only during the shouting, blowing and humming mini games to measure how loud or in-tune you are. Audio is processed on your phone and never recorded, stored, or sent anywhere.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

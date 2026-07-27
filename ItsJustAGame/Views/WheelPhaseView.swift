@@ -8,10 +8,19 @@ struct WheelPhaseView: View {
     let round: Int
     let chooser: Int
     let spinSeconds: Double
+    /// Highest wire version everyone in the game can handle; games above it
+    /// are hidden so nobody gets a round they can't decode. nil (a pre-1.1
+    /// host that never sent it) means only the original games are safe.
+    var maxGameVersion: Int? = nil
 
     @State private var rotation: Double = 0
     @State private var finished = false
     @State private var hasChosen = false
+
+    /// The games this chooser may pick: enough players and decodable by all.
+    private var choosableGames: [MiniGameType] {
+        MiniGameType.menu.filter { $0.minProtocolVersion <= (maxGameVersion ?? 0) }
+    }
 
     var body: some View {
         // Scrolls because the chooser lists every mini game.
@@ -38,7 +47,7 @@ struct WheelPhaseView: View {
                         VStack(spacing: 12) {
                             Text("You pick the game!")
                                 .font(Theme.headline)
-                            ForEach(MiniGameType.menu, id: \.self) { game in
+                            ForEach(choosableGames, id: \.self) { game in
                                 let available = session.joinedSlots.count >= game.minPlayers
                                 Button {
                                     hasChosen = true

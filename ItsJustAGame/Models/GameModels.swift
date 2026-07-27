@@ -33,11 +33,30 @@ struct PlayerInfo: Codable, Hashable, Identifiable {
     var id: Int { slot }
 }
 
+/// The version of the encrypted wire format (message shapes + game set).
+/// Bump `current` whenever a change would stop an older build from
+/// decoding the stream — new games, renamed/added message fields, etc.
+/// A peer whose data omits the version (or is lower) is treated as that
+/// older version; a peer whose version is *higher* than ours is one we may
+/// not fully understand, so we tell the user to update.
+enum AppProtocol {
+    /// v0 = the 1.0 App Store release (before versioning existed).
+    /// v1 = the 1.1 game set (Globetrotter, Colour Clash, the tilt/mic
+    ///      games, Crack the Safe, Feel the Beat).
+    static let current = 1
+}
+
 struct GameConfig: Codable, Hashable {
     var gameID: String
     var roundsToWin: Int
     var players: [PlayerInfo]
     var createdAt: Date
+    /// The host's wire-format version. Optional so pre-1.1 configs (and any
+    /// created by a 1.0 host) decode cleanly as version 0.
+    var protocolVersion: Int?
+
+    /// The host's wire version, with the pre-versioning default.
+    var wireVersion: Int { protocolVersion ?? 0 }
 
     func player(_ slot: Int) -> PlayerInfo? {
         players.first { $0.slot == slot }
@@ -64,6 +83,25 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
     case steadyHand
     case showdown
     case tapFrenzy
+    case globetrotter
+    case colourClash
+    case spiritLevel
+    case pourIt
+    case marbleMaze
+    case loudest
+    case blowItOut
+    case humIt
+    case crackTheSafe
+    case feelTheBeat
+    case sizeItUp
+    case spotRecall
+    case oddOneOut
+    case traceIt
+    case trafficLight
+    case shakeItOff
+    case tightrope
+    case freeze
+    case compassDuel
 
     var displayName: String {
         switch self {
@@ -82,6 +120,25 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .steadyHand: return "Steady Hand"
         case .showdown: return "Showdown"
         case .tapFrenzy: return "Tap Frenzy"
+        case .globetrotter: return "Globetrotter"
+        case .colourClash: return "Colour Clash"
+        case .spiritLevel: return "Spirit Level"
+        case .pourIt: return "Pour It"
+        case .marbleMaze: return "Marble Maze"
+        case .loudest: return "Loudest"
+        case .blowItOut: return "Blow It Out"
+        case .humIt: return "Hum It"
+        case .crackTheSafe: return "Crack the Safe"
+        case .feelTheBeat: return "Feel the Beat"
+        case .sizeItUp: return "Size It Up"
+        case .spotRecall: return "Spot Recall"
+        case .oddOneOut: return "Odd One Out"
+        case .traceIt: return "Trace It"
+        case .trafficLight: return "Traffic Light"
+        case .shakeItOff: return "Shake It Off"
+        case .tightrope: return "Tightrope"
+        case .freeze: return "Freeze!"
+        case .compassDuel: return "Compass Duel"
         }
     }
 
@@ -103,6 +160,25 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .steadyHand: return 2
         case .showdown: return 2
         case .tapFrenzy: return 2
+        case .globetrotter: return 2
+        case .colourClash: return 2
+        case .spiritLevel: return 2
+        case .pourIt: return 2
+        case .marbleMaze: return 2
+        case .loudest: return 2
+        case .blowItOut: return 2
+        case .humIt: return 2
+        case .crackTheSafe: return 2
+        case .feelTheBeat: return 2
+        case .sizeItUp: return 2
+        case .spotRecall: return 2
+        case .oddOneOut: return 2
+        case .traceIt: return 2
+        case .trafficLight: return 2
+        case .shakeItOff: return 2
+        case .tightrope: return 2
+        case .freeze: return 2
+        case .compassDuel: return 2
         }
     }
 
@@ -123,6 +199,25 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         case .steadyHand: return "hand.raised.fill"
         case .showdown: return "scissors"
         case .tapFrenzy: return "hand.tap.fill"
+        case .globetrotter: return "globe.europe.africa.fill"
+        case .colourClash: return "paintpalette.fill"
+        case .spiritLevel: return "gyroscope"
+        case .pourIt: return "drop.fill"
+        case .marbleMaze: return "square.grid.3x3.fill"
+        case .loudest: return "speaker.wave.3.fill"
+        case .blowItOut: return "wind"
+        case .humIt: return "music.note"
+        case .crackTheSafe: return "lock.rotation"
+        case .feelTheBeat: return "waveform.path"
+        case .sizeItUp: return "square.dashed"
+        case .spotRecall: return "sparkle.magnifyingglass"
+        case .oddOneOut: return "circle.grid.3x3.fill"
+        case .traceIt: return "scribble.variable"
+        case .trafficLight: return "hand.tap.fill"
+        case .shakeItOff: return "iphone.radiowaves.left.and.right"
+        case .tightrope: return "figure.walk"
+        case .freeze: return "figure.dance"
+        case .compassDuel: return "safari.fill"
         }
     }
 
@@ -158,6 +253,44 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
             return "Rock, paper, scissors — against the whole table at once. You score a win for every player you beat. First to \(GameTiming.showdownTarget) wins takes the round."
         case .tapFrenzy:
             return "\(Int(GameTiming.frenzyTapSeconds)) seconds. Tap as many times as you can. That's it. Most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .globetrotter:
+            return "A famous landmark, a world map, \(Int(GameTiming.globeGuessSeconds)) seconds. Drop your pin where on Earth you think it is — closest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .colourClash:
+            return "The name of a colour, printed in a different colour. Tap the colour it's PRINTED in — not the word — as fast as you can through them all. Fastest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .spiritLevel:
+            return "Tilt to keep the bubble between the two markers — but they drift faster and faster. The clock runs as long as you stay in. Longest hold wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .pourIt:
+            return "Tip the phone either way to pour, and stop at the line without spilling. Closest to the target fill wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .marbleMaze:
+            return "Tilt your phone to roll the ball through the maze to the exit. Fastest to escape wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .loudest:
+            return "When it says GO, shout as loud as you can! Loudest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round. (Nothing is recorded — just how loud you are.)"
+        case .blowItOut:
+            return "Blow at your phone to blow out the candles. Most candles out wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .humIt:
+            return "Listen to the note, then hum it back. Closest to the pitch wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .crackTheSafe:
+            return "Twist your phone like a safe dial to spin in the \(GameTiming.safeDigits)-digit combo. Fastest to crack it wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .feelTheBeat:
+            return "Feel the rhythm buzz through your phone, then tap it straight back. Closest to the beat wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .sizeItUp:
+            return "A shape flashes up, then vanishes. Draw it back at the same size from memory. Closest to the original size wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .spotRecall:
+            return "A handful of dots flash on screen, then vanish. Tap where each one was. Closest to the real spots wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .oddOneOut:
+            return "A grid of colours, every one in a matching pair — except one. Find the colour that stands alone, fast. Quickest wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .traceIt:
+            return "A winding line appears. Trace along it with your finger as accurately as you can. Closest to the line wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .trafficLight:
+            return "Tap like mad on green, stop the moment it turns amber. Tap on red and you're out. \(Int(GameTiming.trafficMaxSeconds)) seconds — most taps wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .shakeItOff:
+            return "\(Int(GameTiming.shakeSeconds)) seconds. Shake your phone like mad — grip it tight! Most shakes wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .tightrope:
+            return "Tilt to keep your walker on the swaying rope — and hold the phone steady, jolts make them wobble. Furthest along the rope wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .freeze:
+            return "MOVE says dance your phone about — FREEZE means go dead still, instantly. Moving on a freeze costs you. Highest score wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
+        case .compassDuel:
+            return "Spin on the spot to face each compass heading as it's called. Fastest through all \(GameTiming.compassHeadings) wins the point; first to \(GameTiming.pointsToWinRound) points wins the round."
         }
     }
 
@@ -169,6 +302,27 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
 
     static func available(for playerCount: Int) -> [MiniGameType] {
         allCases.filter { playerCount >= $0.minPlayers }
+    }
+
+    /// The lowest wire version that can run this game. The 1.1 games can't
+    /// be decoded by a 1.0 build, so the host keeps them out of the menu
+    /// whenever a 1.0 player is in the game.
+    var minProtocolVersion: Int {
+        switch self {
+        case .globetrotter, .colourClash, .spiritLevel, .pourIt, .marbleMaze,
+             .loudest, .blowItOut, .humIt, .crackTheSafe, .feelTheBeat,
+             .sizeItUp, .spotRecall, .oddOneOut, .traceIt, .trafficLight,
+             .shakeItOff, .tightrope, .freeze, .compassDuel:
+            return 1
+        default:
+            return 0
+        }
+    }
+
+    /// Games playable by a group whose lowest wire version is `version`
+    /// (and that have enough players).
+    static func available(for playerCount: Int, maxVersion: Int) -> [MiniGameType] {
+        available(for: playerCount).filter { $0.minProtocolVersion <= maxVersion }
     }
 
     /// The smallest minimum across all games — below this, no round can be
@@ -222,41 +376,56 @@ struct GameSummary: Codable, Hashable {
 }
 
 enum GameTiming {
-    static let introSeconds: Double = 4
+    /// Every turn begins with the same 3-2-1 "get ready" countdown, shown
+    /// dead-centre over the game. Host turns are scheduled this far ahead so
+    /// the shared overlay has a full run to count down.
+    static let countdownSeconds: Double = 3
+    /// Every results / reveal screen is shown for the same length.
+    static let resultsSeconds: Double = 5
+
+    /// The brief "here comes <game>" announcement before a round's first
+    /// turn (the 3-2-1 countdown then runs before the turn itself).
+    static let roundIntroSeconds: Double = 3
+    static let introSeconds: Double = 4          // Sense of Direction's own reveal-the-place window
     static let aimSeconds: Double = 15
-    static let revealSeconds: Double = 9
-    static let betweenRoundsSeconds: Double = 7
+    static let revealSeconds: Double = 5
+    static let betweenRoundsSeconds: Double = 5
     static let answerGraceSeconds: Double = 6
     static let pointsToWinRound = 3
     static let maxTurnsPerRound = 10
+    /// A rematch auto-starts on its own, but only after everyone has been in
+    /// the lobby together for this long — so a player who just tapped "join"
+    /// actually sees the lobby and a beat to breathe before it kicks off,
+    /// instead of the game snapping straight past them.
+    static let rematchLobbyDwell: Double = 5
 
     // Hide & Seek
     static let hideSeconds: Double = 15
     static let seekSeconds: Double = 15
-    static let seekRevealSeconds: Double = 6
+    static let seekRevealSeconds: Double = 5
 
     // Higher or Lower
     static let guessSeconds: Double = 10
-    static let cardRevealSeconds: Double = 6
+    static let cardRevealSeconds: Double = 5
 
     // Repeat After Me
     static let sequenceStartLength = 3
     static let sequenceFlashSeconds: Double = 0.65
-    static let sequenceRevealSeconds: Double = 6
+    static let sequenceRevealSeconds: Double = 5
 
     // Lightning
     static let flashWaitMinSeconds: Double = 2
     static let flashWaitMaxSeconds: Double = 7
     static let tapWindowSeconds: Double = 4
-    static let flashRevealSeconds: Double = 6
+    static let flashRevealSeconds: Double = 5
 
     // Put Your Finger On It
     static let fingerGuessSeconds: Double = 15
-    static let fingerRevealSeconds: Double = 8
+    static let fingerRevealSeconds: Double = 5
 
     // Ten Seconds
     static let clockVisibleSeconds: Double = 3
-    static let clockRevealSeconds: Double = 6
+    static let clockRevealSeconds: Double = 5
 
     // Push Your Luck
     static let diceChooseSeconds: Double = 8
@@ -268,14 +437,14 @@ enum GameTiming {
 
     // Gold Rush
     static let goldPickSeconds: Double = 12
-    static let goldRevealSeconds: Double = 6
+    static let goldRevealSeconds: Double = 5
     static let goldTarget = 30
     static let goldMaxTurns = 15
 
     // Eyeball It
     static let eyeballVisibleSeconds: Double = 2
     static let eyeballGuessSeconds: Double = 12
-    static let eyeballRevealSeconds: Double = 6
+    static let eyeballRevealSeconds: Double = 5
     static let eyeballMinCount = 15
     static let eyeballMaxCount = 250
     /// Consecutive clouds must differ by at least this many dots — uniform
@@ -287,26 +456,150 @@ enum GameTiming {
 
     // Perfect Circle
     static let circleDrawSeconds: Double = 10
-    static let circleRevealSeconds: Double = 8
+    static let circleRevealSeconds: Double = 5
 
     // Sort Circuit
     static let sortMaxSeconds: Double = 30
     static let sortPenaltyMs = 1000
-    static let sortRevealSeconds: Double = 6
+    static let sortRevealSeconds: Double = 5
 
     // Steady Hand
     static let steadyMaxSeconds: Double = 40
-    static let steadyRevealSeconds: Double = 6
+    static let steadyRevealSeconds: Double = 5
 
     // Showdown
     static let showdownThrowSeconds: Double = 8
-    static let showdownRevealSeconds: Double = 7
+    static let showdownRevealSeconds: Double = 5
     static let showdownTarget = 5
     static let showdownMaxTurns = 12
 
     // Tap Frenzy
     static let frenzyTapSeconds: Double = 5
-    static let frenzyRevealSeconds: Double = 6
+    static let frenzyRevealSeconds: Double = 5
     /// The biggest extra window Simplify can add, so the host waits for it.
     static let frenzyMaxAssistExtraSeconds: Double = 5
+
+    // Globetrotter
+    static let globeGuessSeconds: Double = 15
+    static let globeRevealSeconds: Double = 5
+
+    // Colour Clash
+    static let clashPromptCount = 8
+    static let clashPenaltyMs = 1000
+    static let clashMaxSeconds: Double = 20
+    static let clashRevealSeconds: Double = 5
+
+    // Spirit Level — hold the bubble between the markers as long as you can.
+    static let levelMaxSeconds: Double = 20
+    /// Half-width of the "level" zone in degrees (the gap between the two
+    /// markers is twice this). Simplify widens it on the assisted device.
+    static let levelZoneDegrees: Double = 5
+    static let levelRevealSeconds: Double = 5
+
+    // Pour It
+    static let pourSeconds: Double = 12
+    static let pourRevealSeconds: Double = 5
+
+    // Marble Maze
+    static let mazeSize = 6
+    static let mazeMaxSeconds: Double = 45
+    static let mazeRevealSeconds: Double = 5
+
+    // Loudest
+    static let loudShoutSeconds: Double = 4
+    static let loudRevealSeconds: Double = 5
+
+    // Blow It Out
+    static let blowSeconds: Double = 6
+    static let blowCandles = 20
+    static let blowRevealSeconds: Double = 5
+
+    // Hum It
+    static let humListenSeconds: Double = 2
+    static let humSeconds: Double = 5
+    static let humRevealSeconds: Double = 5
+
+    // Crack the Safe
+    static let safeDigits = 3
+    static let safeMaxSeconds: Double = 30
+    static let safeRevealSeconds: Double = 5
+
+    // Feel the Beat
+    static let beatCount = 4          // taps in the pattern (so 3 gaps)
+    static let beatShortMs = 350      // the two possible gap lengths
+    static let beatLongMs = 700
+    static let beatListenLeadSeconds: Double = 1.5
+    static let beatTapSeconds: Double = 8
+    static let beatRevealSeconds: Double = 5
+
+    // Size It Up
+    static let sizeShowSeconds: Double = 2      // how long the shape flashes
+    static let sizeDrawSeconds: Double = 10     // time to draw it back
+    static let sizeRevealSeconds: Double = 5
+    /// Target size range, as a fraction of the square canvas's side.
+    static let sizeMinFraction: Double = 0.2
+    static let sizeMaxFraction: Double = 0.85
+
+    // Spot Recall
+    static let spotDotCount = 4                 // dots to remember
+    static let spotShowSeconds: Double = 2.5    // how long they flash
+    static let spotRecallSeconds: Double = 12   // time to place your taps
+    static let spotRevealSeconds: Double = 5
+
+    // Odd One Out — 5×5 = 25 tiles: 12 colour pairs + 1 unpaired.
+    static let oddGridSize = 5
+    static let oddMaxSeconds: Double = 15       // time to find it
+    static let oddWrongPenaltyMs = 2000         // added per wrong tap
+    static let oddRevealSeconds: Double = 5
+
+    // Trace It
+    static let traceSeconds: Double = 10        // time to trace the line
+    static let traceRevealSeconds: Double = 5
+
+    // Traffic Light — tap on green, stop on amber, out if you tap red.
+    static let trafficMaxSeconds: Double = 30
+    static let trafficGreenMinSeconds: Double = 1.2
+    static let trafficGreenMaxSeconds: Double = 3.5
+    static let trafficAmberSeconds: Double = 0.7    // warning window before red
+    static let trafficRedMinSeconds: Double = 0.9
+    static let trafficRedMaxSeconds: Double = 2.2
+    static let trafficRevealSeconds: Double = 5
+
+    // Shake It Off
+    static let shakeSeconds: Double = 10
+    /// A shake counts when user acceleration crosses above this many g
+    /// (with hysteresis — it must fall back to half before re-arming).
+    /// Simplify lowers the bar on the assisted phone.
+    static let shakeThresholdG: Double = 1.3
+    static let shakeRevealSeconds: Double = 5
+
+    // Tightrope
+    static let ropeMaxSeconds: Double = 20
+    /// Walking speed while balanced, in metres/second of rope.
+    static let ropeSpeed: Double = 1.2
+    /// Half-width of the balance zone, in degrees of roll. Simplify widens.
+    static let ropeHalfWidthDegrees: Double = 6
+    /// Off balance for this long (cumulative, decaying) and you fall.
+    static let ropeFallSeconds: Double = 0.8
+    static let ropeRevealSeconds: Double = 5
+
+    // Freeze!
+    static let freezeMaxSeconds: Double = 20
+    static let freezeMoveMinSeconds: Double = 2.0
+    static let freezeMoveMaxSeconds: Double = 3.5
+    static let freezeStillMinSeconds: Double = 1.5
+    static let freezeStillMaxSeconds: Double = 2.5
+    /// Human-reaction grace after FREEZE flashes up before movement is
+    /// penalised. Simplify stretches it on the assisted phone.
+    static let freezeGraceSeconds: Double = 0.45
+    static let freezeRevealSeconds: Double = 5
+
+    // Compass Duel
+    static let compassHeadings = 5
+    static let compassMaxSeconds: Double = 30
+    /// Hold within the cone this long to lock a heading in.
+    static let compassLockSeconds: Double = 0.8
+    /// Half-angle of the acceptance cone, in degrees. Simplify widens.
+    static let compassConeDegrees: Double = 12
+    static let compassRevealSeconds: Double = 5
 }

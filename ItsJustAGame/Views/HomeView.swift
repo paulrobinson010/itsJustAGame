@@ -3,7 +3,6 @@ import SwiftUI
 
 struct HomeView: View {
     @Bindable var model: AppModel
-    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("myName") private var myName = ""
     @State private var showCreate = false
     @State private var showJoin = false
@@ -65,32 +64,8 @@ struct HomeView: View {
                     }
                 }
 
-                let pendingRematches = model.store.games.filter { $0.rematchPending == true }
-                if !pendingRematches.isEmpty {
-                    Section {
-                        ForEach(pendingRematches) { game in
-                            Button {
-                                model.acceptRematch(game)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "arrow.counterclockwise.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(Theme.magenta)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Rematch — \(game.title)")
-                                            .foregroundStyle(.primary)
-                                        Text("Tap to join")
-                                            .font(.caption)
-                                            .foregroundStyle(Theme.magenta)
-                                    }
-                                }
-                            }
-                        }
-                    } header: {
-                        Text("Rematch waiting")
-                    }
-                }
-
+                // Rematch is shelved for now (it was too hit and miss) —
+                // stale rematch-pending entries from older builds stay hidden.
                 let regularGames = model.store.games.filter { $0.rematchPending != true }
                 if !regularGames.isEmpty {
                     Section("Your games") {
@@ -183,14 +158,6 @@ struct HomeView: View {
                 let status = await CloudKitTransport.accountStatus()
                 if status != .available {
                     accountWarning = "Sign in to iCloud in Settings to play — the game passes its encrypted messages through iCloud."
-                }
-                await model.discoverRematches()
-            }
-            .onChange(of: scenePhase) { _, phase in
-                // Someone may have tapped "Play again" while this phone was
-                // in a pocket — look for rematches on every return.
-                if phase == .active {
-                    Task { await model.discoverRematches() }
                 }
             }
         }

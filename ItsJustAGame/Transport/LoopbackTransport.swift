@@ -8,6 +8,16 @@ final class LoopbackTransport: GameTransport, @unchecked Sendable {
     private let lock = NSLock()
 
     func put(id: String, body: Data) async throws {
+        store(id: id, body: body)
+    }
+
+    func get(ids: [String]) async throws -> [String: Data] {
+        fetch(ids: ids)
+    }
+
+    // The locking stays in synchronous helpers — a lock must never be held
+    // across an await, which is why the async methods just delegate here.
+    private func store(id: String, body: Data) {
         lock.lock()
         defer { lock.unlock() }
         // Create-if-absent, same contract as CloudKit.
@@ -16,7 +26,7 @@ final class LoopbackTransport: GameTransport, @unchecked Sendable {
         }
     }
 
-    func get(ids: [String]) async throws -> [String: Data] {
+    private func fetch(ids: [String]) -> [String: Data] {
         lock.lock()
         defer { lock.unlock() }
         var found: [String: Data] = [:]

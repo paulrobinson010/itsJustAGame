@@ -81,8 +81,8 @@ enum Demo {
     static let steps: [Step] = [
         // Core flow
         Step { .lobby(joined: [1, 2, 3, 4]) },
-        Step(points: [:]) { .wheel(round: 2, chooser: 3, spinSeconds: 5) },
-        Step { .wheel(round: 2, chooser: 1, spinSeconds: 5) },
+        Step(points: [:]) { .wheel(round: 2, chooser: 3, spinSeconds: 5, maxGameVersion: AppProtocol.current) },
+        Step { .wheel(round: 2, chooser: 1, spinSeconds: 5, maxGameVersion: AppProtocol.current) },
         Step { .roundIntro(round: 2, game: .senseOfDirection) },
 
         // Sense of Direction
@@ -396,6 +396,346 @@ enum Demo {
             ))
         },
 
+        // Globetrotter
+        Step(points: [2: 1, 4: 1]) {
+            .globeTurn(GlobeTurn(
+                round: 2, turn: 3, landmark: "Taj Mahal", continent: "Asia",
+                points: [2: 1, 4: 1], startAt: now(-3), guessSeconds: 15
+            ))
+        },
+        Step(points: [2: 1, 4: 1]) {
+            .globeReveal(GlobeReveal(
+                round: 2, turn: 3, landmark: "Taj Mahal", country: "India",
+                target: Coordinate(latitude: 27.1751, longitude: 78.0421),
+                outcomes: [
+                    FingerOutcome(slot: 1, coordinate: Coordinate(latitude: 31.0, longitude: 71.0), distanceKm: 940),
+                    FingerOutcome(slot: 2, coordinate: Coordinate(latitude: 26.2, longitude: 80.3), distanceKm: 250),
+                    FingerOutcome(slot: 3, coordinate: Coordinate(latitude: 15.0, longitude: 74.0), distanceKm: 1400),
+                    FingerOutcome(slot: 4, coordinate: Coordinate(latitude: 28.6, longitude: 77.2), distanceKm: 180),
+                ],
+                winners: [4], points: [2: 1, 4: 2], roundWinners: [], nextAt: now(8)
+            ))
+        },
+
+        // Colour Clash — mid-run
+        Step(points: [1: 1, 2: 1]) {
+            .clashTurn(ClashTurn(
+                round: 2, turn: 2, points: [1: 1, 2: 1],
+                startAt: now(-4), seed: 5150, promptCount: 8, maxSeconds: 20
+            ))
+        },
+        Step(points: [1: 1, 2: 1]) {
+            .clashReveal(ClashReveal(
+                round: 2, turn: 2,
+                results: [
+                    ClashResult(slot: 1, elapsedMs: 6120, mistakes: 0),
+                    ClashResult(slot: 2, elapsedMs: 5480, mistakes: 1),
+                    ClashResult(slot: 3, elapsedMs: 8300, mistakes: 2),
+                    ClashResult(slot: 4, elapsedMs: 7010, mistakes: 0),
+                ],
+                winners: [2], points: [1: 1, 2: 2], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Spirit Level — reveal (turn needs a real device)
+        Step(points: [3: 1, 1: 1]) {
+            .levelReveal(LevelReveal(
+                round: 2, turn: 2,
+                results: [
+                    LevelResult(slot: 1, heldMs: 8_400),
+                    LevelResult(slot: 2, heldMs: 3_100),
+                    LevelResult(slot: 3, heldMs: 14_600),
+                    LevelResult(slot: 4, heldMs: 6_900),
+                ],
+                winners: [3], points: [3: 2, 1: 1], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
+        // Pour It — reveal
+        Step(points: [2: 1, 4: 1]) {
+            .pourReveal(PourReveal(
+                round: 2, turn: 2, targetPercent: 72,
+                results: [
+                    PourResult(slot: 1, fillPercent: 64, overflowed: false),
+                    PourResult(slot: 2, fillPercent: 70, overflowed: false),
+                    PourResult(slot: 3, fillPercent: 100, overflowed: true),
+                    PourResult(slot: 4, fillPercent: 78, overflowed: false),
+                ],
+                winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
+        // Marble Maze — the maze renders even without motion
+        Step(points: [2: 1, 3: 1], duration: 2.6) {
+            .mazeTurn(MazeTurn(
+                round: 2, turn: 2, points: [2: 1, 3: 1],
+                startAt: now(-3), seed: 24_601, size: 6, maxSeconds: 45
+            ))
+        },
+        Step(points: [2: 1, 3: 1]) {
+            .mazeReveal(MazeReveal(
+                round: 2, turn: 2,
+                results: [
+                    MazeResult(slot: 1, elapsedMs: 18_400),
+                    MazeResult(slot: 2, elapsedMs: 12_900),
+                    MazeResult(slot: 3, elapsedMs: 15_700),
+                    MazeResult(slot: 4, elapsedMs: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Loudest — reveal
+        Step(points: [4: 1, 1: 1]) {
+            .loudReveal(LoudReveal(
+                round: 2, turn: 2,
+                results: [
+                    LoudResult(slot: 1, level: 720),
+                    LoudResult(slot: 2, level: 610),
+                    LoudResult(slot: 3, level: 540),
+                    LoudResult(slot: 4, level: 880),
+                ],
+                winners: [4], points: [4: 2, 1: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Blow It Out — reveal
+        Step(points: [2: 1, 3: 1]) {
+            .blowReveal(BlowReveal(
+                round: 2, turn: 2, candleCount: 20,
+                results: [
+                    BlowResult(slot: 1, candles: 12),
+                    BlowResult(slot: 2, candles: 17),
+                    BlowResult(slot: 3, candles: 8),
+                    BlowResult(slot: 4, candles: 14),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Hum It — reveal
+        Step(points: [1: 1, 3: 1]) {
+            .humReveal(HumReveal(
+                round: 2, turn: 2,
+                results: [
+                    HumResult(slot: 1, errorCents: 22),
+                    HumResult(slot: 2, errorCents: 140),
+                    HumResult(slot: 3, errorCents: 8),
+                    HumResult(slot: 4, errorCents: 65),
+                ],
+                winners: [3], points: [1: 1, 3: 2], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
+        // Crack the Safe — reveal
+        Step(points: [2: 1, 4: 1]) {
+            .safeReveal(SafeReveal(
+                round: 2, turn: 2, combo: [4, 9, 1],
+                results: [
+                    SafeResult(slot: 1, elapsedMs: 9_200),
+                    SafeResult(slot: 2, elapsedMs: 6_400),
+                    SafeResult(slot: 3, elapsedMs: nil),
+                    SafeResult(slot: 4, elapsedMs: 7_800),
+                ],
+                winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Size It Up — memorise the shape, then the reveal
+        Step(points: [3: 1, 2: 1], duration: 2.6) {
+            .sizeTurn(SizeTurn(
+                round: 2, turn: 2, points: [3: 1, 2: 1],
+                startAt: now(-1), shape: .triangle, targetSize: 0.55,
+                showSeconds: 2, drawSeconds: 10
+            ))
+        },
+        Step(points: [3: 1, 2: 1]) {
+            .sizeReveal(SizeReveal(
+                round: 2, turn: 2, shape: .triangle, targetSize: 0.55,
+                results: [
+                    SizeResult(slot: 1, sizePerMille: 480),
+                    SizeResult(slot: 2, sizePerMille: 540),
+                    SizeResult(slot: 3, sizePerMille: 620),
+                    SizeResult(slot: 4, sizePerMille: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Spot Recall — memorise then reveal
+        Step(points: [1: 1, 4: 1], duration: 2.6) {
+            .spotTurn(SpotTurn(
+                round: 2, turn: 2, points: [1: 1, 4: 1],
+                startAt: now(-1), seed: 42, dotCount: 4, showSeconds: 2.5, recallSeconds: 12
+            ))
+        },
+        Step(points: [1: 1, 4: 1]) {
+            .spotReveal(SpotReveal(
+                round: 2, turn: 2,
+                results: [
+                    SpotResult(slot: 1, errorPerMille: 60),
+                    SpotResult(slot: 2, errorPerMille: 180),
+                    SpotResult(slot: 3, errorPerMille: 110),
+                    SpotResult(slot: 4, errorPerMille: nil),
+                ],
+                winners: [1], points: [1: 2, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Odd One Out — the grid, then the reveal
+        Step(points: [2: 1, 3: 1], duration: 2.6) {
+            .oddTurn(OddTurn(
+                round: 2, turn: 2, points: [2: 1, 3: 1],
+                startAt: now(-1), seed: 7, gridSize: 5, maxSeconds: 15
+            ))
+        },
+        Step(points: [2: 1, 3: 1]) {
+            .oddReveal(OddReveal(
+                round: 2, turn: 2,
+                results: [
+                    OddResult(slot: 1, timeMs: 3400),
+                    OddResult(slot: 2, timeMs: 1900),
+                    OddResult(slot: 3, timeMs: 2600),
+                    OddResult(slot: 4, timeMs: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Trace It — the line, then the reveal
+        Step(points: [3: 1, 1: 1], duration: 2.6) {
+            .traceTurn(TraceTurn(
+                round: 2, turn: 2, points: [3: 1, 1: 1],
+                startAt: now(-1), seed: 99, traceSeconds: 10
+            ))
+        },
+        Step(points: [3: 1, 1: 1]) {
+            .traceReveal(TraceReveal(
+                round: 2, turn: 2,
+                results: [
+                    TraceResult(slot: 1, errorPerMille: 90),
+                    TraceResult(slot: 2, errorPerMille: 150),
+                    TraceResult(slot: 3, errorPerMille: 55),
+                    TraceResult(slot: 4, errorPerMille: nil),
+                ],
+                winners: [3], points: [3: 2, 1: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Traffic Light — the light, then the reveal
+        Step(points: [4: 1, 2: 1], duration: 2.6) {
+            .trafficTurn(TrafficTurn(
+                round: 2, turn: 2, points: [4: 1, 2: 1],
+                startAt: now(-1), seed: 20260715, maxSeconds: 30
+            ))
+        },
+        Step(points: [4: 1, 2: 1]) {
+            .trafficReveal(TrafficReveal(
+                round: 2, turn: 2,
+                results: [
+                    TrafficResult(slot: 1, taps: 14, busted: false),
+                    TrafficResult(slot: 2, taps: 21, busted: false),
+                    TrafficResult(slot: 3, taps: nil, busted: true),
+                    TrafficResult(slot: 4, taps: 12, busted: false),
+                ],
+                winners: [2], points: [2: 2, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Shake It Off — mid-shake, then the reveal
+        Step(points: [2: 1, 3: 1], duration: 2.6) {
+            .shakeTurn(ShakeTurn(
+                round: 2, turn: 2, points: [2: 1, 3: 1],
+                startAt: now(-3), shakeSeconds: 10
+            ))
+        },
+        Step(points: [2: 1, 3: 1]) {
+            .shakeReveal(ShakeReveal(
+                round: 2, turn: 2,
+                results: [
+                    ShakeResult(slot: 1, shakes: 38),
+                    ShakeResult(slot: 2, shakes: 47),
+                    ShakeResult(slot: 3, shakes: 29),
+                    ShakeResult(slot: 4, shakes: nil),
+                ],
+                winners: [2], points: [2: 2, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Tightrope — on the rope, then the reveal
+        Step(points: [1: 1], duration: 2.6) {
+            .ropeTurn(RopeTurn(
+                round: 2, turn: 2, points: [1: 1],
+                startAt: now(-4), seed: 20260901, maxSeconds: 20
+            ))
+        },
+        Step(points: [1: 1]) {
+            .ropeReveal(RopeReveal(
+                round: 2, turn: 2,
+                results: [
+                    RopeResult(slot: 1, distanceDeci: 168, fell: false),
+                    RopeResult(slot: 2, distanceDeci: 121, fell: true),
+                    RopeResult(slot: 3, distanceDeci: 190, fell: false),
+                    RopeResult(slot: 4, distanceDeci: nil, fell: false),
+                ],
+                winners: [3], points: [1: 1, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Freeze! — mid-dance, then the reveal
+        Step(points: [4: 1], duration: 2.6) {
+            .freezeTurn(FreezeTurn(
+                round: 2, turn: 2, points: [4: 1],
+                startAt: now(-3), seed: 20261024, maxSeconds: 20
+            ))
+        },
+        Step(points: [4: 1]) {
+            .freezeReveal(FreezeReveal(
+                round: 2, turn: 2,
+                results: [
+                    FreezeResult(slot: 1, score: 214),
+                    FreezeResult(slot: 2, score: 342),
+                    FreezeResult(slot: 3, score: 187),
+                    FreezeResult(slot: 4, score: nil),
+                ],
+                winners: [2], points: [2: 1, 4: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Compass Duel — spinning, then the reveal
+        Step(points: [3: 1], duration: 2.6) {
+            .compassTurn(CompassTurn(
+                round: 2, turn: 2, points: [3: 1],
+                startAt: now(-2), seed: 20261111, headingCount: 5, maxSeconds: 30
+            ))
+        },
+        Step(points: [3: 1]) {
+            .compassReveal(CompassReveal(
+                round: 2, turn: 2,
+                results: [
+                    CompassResult(slot: 1, elapsedMs: 14200, completed: 5),
+                    CompassResult(slot: 2, elapsedMs: 18750, completed: 5),
+                    CompassResult(slot: 3, elapsedMs: nil, completed: 3),
+                    CompassResult(slot: 4, elapsedMs: nil, completed: 0),
+                ],
+                winners: [1], points: [1: 1, 3: 1], roundWinners: [], nextAt: now(6)
+            ))
+        },
+
+        // Feel the Beat — reveal
+        Step(points: [1: 1, 2: 1]) {
+            .beatReveal(BeatReveal(
+                round: 2, turn: 2,
+                results: [
+                    BeatResult(slot: 1, errorMs: 48),
+                    BeatResult(slot: 2, errorMs: 120),
+                    BeatResult(slot: 3, errorMs: 31),
+                    BeatResult(slot: 4, errorMs: nil),
+                ],
+                winners: [3], points: [1: 1, 3: 1], roundWinners: [], nextAt: now(7)
+            ))
+        },
+
         // Endings
         Step(roundsWon: [3: 2, 1: 1, 2: 1]) { .roundEnd(round: 2, winners: [3]) },
         Step(roundsWon: [1: 3, 3: 3, 2: 1]) { .tieBreak(candidates: [1, 3], winner: 3, spinSeconds: 4) },
@@ -445,8 +785,8 @@ struct DemoTourView: View {
         switch session.phase {
         case .lobby(let joined):
             LobbyView(session: session, engine: engine, joined: joined)
-        case .wheel(let round, let chooser, let spinSeconds):
-            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds)
+        case .wheel(let round, let chooser, let spinSeconds, let maxGameVersion):
+            WheelPhaseView(session: session, round: round, chooser: chooser, spinSeconds: spinSeconds, maxGameVersion: maxGameVersion)
         case .roundIntro(let round, let game):
             RoundIntroView(round: round, game: game)
         case .turn(let turnStart):
@@ -511,12 +851,88 @@ struct DemoTourView: View {
             FrenzyTurnView(session: session, turn: turn)
         case .frenzyReveal(let reveal):
             FrenzyRevealView(session: session, reveal: reveal)
+        case .globeTurn(let turn):
+            GlobeTurnView(session: session, turn: turn)
+        case .globeReveal(let reveal):
+            GlobeRevealView(session: session, reveal: reveal)
+        case .clashTurn(let turn):
+            ClashTurnView(session: session, turn: turn)
+        case .clashReveal(let reveal):
+            ClashRevealView(session: session, reveal: reveal)
+        case .levelTurn(let turn):
+            LevelTurnView(session: session, turn: turn)
+        case .levelReveal(let reveal):
+            LevelRevealView(session: session, reveal: reveal)
+        case .pourTurn(let turn):
+            PourTurnView(session: session, turn: turn)
+        case .pourReveal(let reveal):
+            PourRevealView(session: session, reveal: reveal)
+        case .mazeTurn(let turn):
+            MazeTurnView(session: session, turn: turn)
+        case .mazeReveal(let reveal):
+            MazeRevealView(session: session, reveal: reveal)
+        case .loudTurn(let turn):
+            LoudTurnView(session: session, turn: turn)
+        case .loudReveal(let reveal):
+            LoudRevealView(session: session, reveal: reveal)
+        case .blowTurn(let turn):
+            BlowTurnView(session: session, turn: turn)
+        case .blowReveal(let reveal):
+            BlowRevealView(session: session, reveal: reveal)
+        case .humTurn(let turn):
+            HumTurnView(session: session, turn: turn)
+        case .humReveal(let reveal):
+            HumRevealView(session: session, reveal: reveal)
+        case .safeTurn(let turn):
+            SafeTurnView(session: session, turn: turn)
+        case .safeReveal(let reveal):
+            SafeRevealView(session: session, reveal: reveal)
+        case .beatTurn(let turn):
+            BeatTurnView(session: session, turn: turn)
+        case .beatReveal(let reveal):
+            BeatRevealView(session: session, reveal: reveal)
+        case .sizeTurn(let turn):
+            SizeTurnView(session: session, turn: turn)
+        case .sizeReveal(let reveal):
+            SizeRevealView(session: session, reveal: reveal)
+        case .spotTurn(let turn):
+            SpotTurnView(session: session, turn: turn)
+        case .spotReveal(let reveal):
+            SpotRevealView(session: session, reveal: reveal)
+        case .oddTurn(let turn):
+            OddTurnView(session: session, turn: turn)
+        case .oddReveal(let reveal):
+            OddRevealView(session: session, reveal: reveal)
+        case .traceTurn(let turn):
+            TraceTurnView(session: session, turn: turn)
+        case .traceReveal(let reveal):
+            TraceRevealView(session: session, reveal: reveal)
+        case .trafficTurn(let turn):
+            TrafficTurnView(session: session, turn: turn)
+        case .trafficReveal(let reveal):
+            TrafficRevealView(session: session, reveal: reveal)
+        case .shakeTurn(let turn):
+            ShakeTurnView(session: session, turn: turn)
+        case .shakeReveal(let reveal):
+            ShakeRevealView(session: session, reveal: reveal)
+        case .ropeTurn(let turn):
+            RopeTurnView(session: session, turn: turn)
+        case .ropeReveal(let reveal):
+            RopeRevealView(session: session, reveal: reveal)
+        case .freezeTurn(let turn):
+            FreezeTurnView(session: session, turn: turn)
+        case .freezeReveal(let reveal):
+            FreezeRevealView(session: session, reveal: reveal)
+        case .compassTurn(let turn):
+            CompassTurnView(session: session, turn: turn)
+        case .compassReveal(let reveal):
+            CompassRevealView(session: session, reveal: reveal)
         case .roundEnd(let round, let winners):
             RoundEndView(session: session, round: round, winners: winners)
         case .tieBreak(let candidates, let winner, let spinSeconds):
             TieBreakView(session: session, candidates: candidates, winner: winner, spinSeconds: spinSeconds)
         case .gameEnd(let winner):
-            GameEndView(session: session, winner: winner, onClose: {}, onHostRematch: {})
+            GameEndView(session: session, winner: winner, onClose: {})
         }
     }
 

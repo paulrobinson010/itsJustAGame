@@ -95,7 +95,8 @@ final class AppModel {
             gameID: UUID().uuidString.lowercased(),
             roundsToWin: roundsToWin,
             players: players,
-            createdAt: Date()
+            createdAt: Date(),
+            protocolVersion: AppProtocol.current
         )
         let crypto = GameCrypto()
         let saved = SavedGame(
@@ -126,7 +127,8 @@ final class AppModel {
                 name: name.isEmpty ? "You" : name,
                 colorIndex: Int.random(in: 0..<PlayerStyle.palette.count)
             )],
-            createdAt: Date()
+            createdAt: Date(),
+            protocolVersion: AppProtocol.current
         )
         let crypto = GameCrypto()
         activeGame = SavedGame(
@@ -141,6 +143,14 @@ final class AppModel {
             practiceGame: game
         )
     }
+
+    // MARK: - Rematch (shelved)
+    //
+    // The whole rematch flow is currently unplumbed from the UI — it was
+    // too hit and miss in the wild. The machinery below (and the engine's
+    // announceRematch/existingRematch, the .rematch host message, the
+    // parked g<oldID>-rematch record) is kept dormant so it can come back
+    // once the discovery mechanism is rethought.
 
     /// Take up a rematch invite: create (or reopen) the local SavedGame for
     /// the new game, keeping this device's slot and role from the old one.
@@ -194,7 +204,8 @@ final class AppModel {
             guard let found = try? await transport.get(ids: [id]),
                   let body = found[id],
                   let invite = try? crypto.open(RematchInvite.self, from: body),
-                  !store.games.contains(where: { $0.gameID == invite.newGameID }) else { continue }
+                  !store.games.contains(where: { $0.gameID == invite.newGameID }),
+                  !store.dismissedRematchIDs.contains(invite.newGameID) else { continue }
             adoptRematch(invite, from: old, open: false)
         }
     }
