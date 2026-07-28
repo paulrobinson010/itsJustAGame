@@ -278,7 +278,6 @@ struct AddPlayersFlow: View {
 /// Shown once; the choice is remembered.
 struct ContactsConsentView: View {
     var onConsent: () -> Void
-    @Environment(\.dismiss) private var dismiss
 
     static let consentKey = "contactsConsentGiven"
 
@@ -315,23 +314,19 @@ struct ContactsConsentView: View {
             .font(Theme.subheadline)
             .padding(.horizontal, 28)
             Spacer()
+            // App Review (5.1.1): the button must be a plain "Continue"
+            // and always proceed to the system permission request — the
+            // user accepts or declines THERE, never here.
             Button {
                 UserDefaults.standard.set(true, forKey: ContactsConsentView.consentKey)
                 // No dismiss() here: AddPlayersFlow flips to the picker
                 // inside the same, still-presented sheet.
                 onConsent()
             } label: {
-                Text("I agree — choose from contacts")
+                Text("Continue")
                     .frame(maxWidth: 300)
             }
             .buttonStyle(PrimaryButtonStyle())
-            Button {
-                dismiss()
-            } label: {
-                Text("No thanks — I'll type names instead")
-                    .frame(maxWidth: 300)
-            }
-            .buttonStyle(QuietButtonStyle())
             .padding(.bottom, 20)
         }
         .background(Theme.background)
