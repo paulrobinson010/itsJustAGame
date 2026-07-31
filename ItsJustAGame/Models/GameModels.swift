@@ -54,6 +54,9 @@ struct GameConfig: Codable, Hashable {
     /// The host's wire-format version. Optional so pre-1.1 configs (and any
     /// created by a 1.0 host) decode cleanly as version 0.
     var protocolVersion: Int?
+    /// A nearby (no-internet) game — every device hides the games that
+    /// need the internet (map tiles, place search) from the chooser.
+    var nearby: Bool?
 
     /// The host's wire version, with the pre-versioning default.
     var wireVersion: Int { protocolVersion ?? 0 }
@@ -319,6 +322,17 @@ enum MiniGameType: String, Codable, CaseIterable, Hashable {
         }
     }
 
+    /// True for games that can't work without the internet — map tiles and
+    /// place search. Hidden from the chooser in nearby (offline) games.
+    var needsInternet: Bool {
+        switch self {
+        case .senseOfDirection, .putYourFingerOnIt, .globetrotter:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Games playable by a group whose lowest wire version is `version`
     /// (and that have enough players).
     static func available(for playerCount: Int, maxVersion: Int) -> [MiniGameType] {
@@ -360,6 +374,11 @@ struct SavedGame: Codable, Hashable, Identifiable {
     /// Set for solo practice: the one game to play on repeat, over an
     /// in-memory transport. Practice games are never stored.
     var practiceGame: MiniGameType?
+    /// Set for nearby (no-internet) games played over MultipeerConnectivity.
+    /// The record store lives on the host phone, so these are playable only
+    /// while the group is together — reopening later shows the stored
+    /// result, nothing more.
+    var isNearby: Bool?
 
     var id: String { gameID }
 }

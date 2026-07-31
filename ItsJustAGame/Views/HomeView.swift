@@ -6,6 +6,7 @@ struct HomeView: View {
     @AppStorage("myName") private var myName = ""
     @State private var showCreate = false
     @State private var showJoin = false
+    @State private var showNearby = false
     @State private var showPractice = false
     @State private var accountWarning: String?
     #if targetEnvironment(simulator)
@@ -56,6 +57,11 @@ struct HomeView: View {
                         showJoin = true
                     } label: {
                         Label("Join with a link", systemImage: "link")
+                    }
+                    Button {
+                        showNearby = true
+                    } label: {
+                        Label("Play nearby — no internet needed", systemImage: "antenna.radiowaves.left.and.right")
                     }
                     Button {
                         showPractice = true
@@ -127,6 +133,11 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showJoin) {
                 JoinGameView(model: model)
+            }
+            .sheet(isPresented: $showNearby) {
+                NearbyView(model: model) {
+                    showNearby = false
+                }
             }
             .sheet(isPresented: $showPractice) {
                 PracticePickerView { game in

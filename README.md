@@ -64,12 +64,29 @@ Everything the game sends between devices is **end-to-end encrypted**.
    miss, so its UI is shelved for now — the machinery survives, dormant,
    in `AppModel`/`HostEngine` pending a rethink of the discovery
    mechanism.)
-7. **Practice mode** — "Practice on your own" on the home screen plays
+7. **Nearby mode (no internet)** — "Play nearby" on the home screen runs
+   a whole game over **MultipeerConnectivity** (Bluetooth + peer-to-peer
+   Wi-Fi): made for planes, campsites, anywhere offline. One person
+   hosts; everyone else taps Join and picks the host from a list — no
+   links, no iCloud. The host phone plays mailbox: it holds the same
+   record store CloudKit would, and peers' put/get calls travel as tiny
+   request/response packets over the encrypted MPC session (the game's
+   own E2E layer rides on top, unchanged). The rest of the stack —
+   engine, session, all the games — is untouched: `MultipeerTransport`
+   is just a third `GameTransport`. A dropped player walks back in
+   automatically (same name → same seat, and the replay-from-zero design
+   catches them up from the host's store). Map games (Sense of
+   Direction, Put Your Finger On It, Globetrotter) need the internet for
+   tiles/search, so `GameConfig.nearby` hides them from every chooser.
+   Nearby games live only while the group's together — reopening one
+   later shows the stored result. On a plane: airplane mode, then
+   Bluetooth and Wi-Fi back on in Control Centre.
+8. **Practice mode** — "Practice on your own" on the home screen plays
    any single game round after round, solo. It's the full stack — a
    one-player hosted game whose engine and session talk over an
    in-memory `LoopbackTransport` — so nothing touches CloudKit and
    nothing is saved. The wheel is skipped; leaving is the only way out.
-8. **Ties share** — when several players win a point or a round together,
+9. **Ties share** — when several players win a point or a round together,
    they all score. If several players reach the winning round count at the
    same moment, a tie-breaker wheel of just those players spins and the
    overall winner is decided totally at random (rolled on the host device,

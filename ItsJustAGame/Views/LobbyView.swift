@@ -30,7 +30,9 @@ struct LobbyView: View {
                         Text("Fetching game details…")
                     }
                 } footer: {
-                    Text("Make sure you're online and signed in to iCloud.")
+                    Text(session.saved.isNearby == true
+                         ? "A nearby game only lives while the group's together. If the host has gone, this one can't reconnect."
+                         : "Make sure you're online and signed in to iCloud.")
                 }
             }
 
@@ -59,7 +61,8 @@ struct LobbyView: View {
 
                 if session.saved.isHost, let engine {
                     let waiting = waitingPlayers(config: config)
-                    if !waiting.isEmpty && session.saved.autoStart != true && session.saved.practiceGame == nil {
+                    if !waiting.isEmpty && session.saved.autoStart != true && session.saved.practiceGame == nil
+                        && config.nearby != true {
                         Section {
                             ForEach(waiting) { player in
                                 inviteRow(for: player, config: config)
@@ -105,6 +108,8 @@ struct LobbyView: View {
                     } footer: {
                         if session.saved.practiceGame != nil {
                             Text("Practice — starting…")
+                        } else if config.nearby == true {
+                            Text("A nearby game — everyone connects by Bluetooth and joins on their own. No links needed.")
                         } else if session.saved.autoStart == true {
                             Text("It's a rematch — no new links needed. The others get a join request in their app, and the game starts by itself when everyone's in.")
                         } else if joined.count < MiniGameType.smallestMinimum {

@@ -29,6 +29,13 @@
 	<string>Lets you pick players by name. Only the first name of a player you pick is shared with your game group, end-to-end encrypted via iCloud. Phone numbers and emails stay on this phone (used only to address invites you send yourself). We run no servers and collect nothing.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to work out the true direction from you to each target and to draw the results map. It is shared only with the players in your game, end-to-end encrypted.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Nearby games connect your group's phones directly over Bluetooth and peer-to-peer Wi-Fi — no internet needed. Game messages stay end-to-end encrypted between the players' devices and never touch a server.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ijag._tcp</string>
+		<string>_ijag._udp</string>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used only during the shouting, blowing and humming mini games to measure how loud or in-tune you are. Audio is processed on your phone and never recorded, stored, or sent anywhere.</string>
 	<key>UISupportedInterfaceOrientations</key>

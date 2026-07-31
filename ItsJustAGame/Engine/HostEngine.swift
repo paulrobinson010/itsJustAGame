@@ -383,7 +383,11 @@ final class HostEngine {
             }
             try? await Task.sleep(for: .seconds(0.75))
         }
-        return MiniGameType.available(for: joined.count, maxVersion: groupMaxVersion).randomElement() ?? .senseOfDirection
+        var pool = MiniGameType.available(for: joined.count, maxVersion: groupMaxVersion)
+        if config.nearby == true {
+            pool.removeAll(where: \.needsInternet)
+        }
+        return pool.randomElement() ?? (config.nearby == true ? .higherOrLower : .senseOfDirection)
     }
 
     private func runDirectionRound(round: Int) async -> Int {

@@ -14,11 +14,17 @@ struct GameStack {
     init(saved: SavedGame) {
         self.saved = saved
         let crypto = GameCrypto(base64URL: saved.keyBase64URL) ?? GameCrypto()
-        // Practice plays entirely on-device: the host loop and session
-        // talk through an in-memory mailbox instead of CloudKit.
-        let transport: any GameTransport = saved.practiceGame != nil
-            ? LoopbackTransport()
-            : CloudKitTransport()
+        // Practice plays entirely on-device (in-memory mailbox); nearby
+        // games travel device-to-device over MultipeerConnectivity;
+        // everything else goes through CloudKit.
+        let transport: any GameTransport
+        if saved.practiceGame != nil {
+            transport = LoopbackTransport()
+        } else if saved.isNearby == true {
+            transport = MultipeerTransport(service: .shared, isHost: saved.isHost)
+        } else {
+            transport = CloudKitTransport()
+        }
         session = GameSession(saved: saved, transport: transport, crypto: crypto)
         if saved.isHost, let config = saved.hostConfig {
             engine = HostEngine(
@@ -68,6 +74,11 @@ final class AppModel {
                 activeStack?.start()
             }
         } else {
+            // Closing a nearby game ends the Bluetooth session with it —
+            // the next nearby game starts its own from the lobby.
+            if activeStack?.saved.isNearby == true {
+                NearbyService.shared.stop()
+            }
             activeStack?.stop()
             activeStack = nil
         }
@@ -208,6 +219,85 @@ final class AppModel {
                   !store.dismissedRematchIDs.contains(invite.newGameID) else { continue }
             adoptRematch(invite, from: old, open: false)
         }
+    }
+
+    // MARK: - Nearby (no-internet) games
+
+    /// Host a nearby game with the players currently connected over
+    /// MultipeerConnectivity. Builds the config exactly like createGame,
+    /// stamps it nearby, and hands every connected peer its seat.
+    @discardableResult
+    func hostNearbyGame(roundsToWin: Int, hostName: String, peerNames: [String], assists: [Int: AssistLevel] = [:]) -> SavedGame {
+        // Duplicate names would collide on rejoin — make them unique.
+        var seen: Set<String> = [hostName]
+        var names: [String] = []
+        for name in peerNames {
+            var candidate = name
+            var suffix = 2
+            while seen.contains(candidate) {
+                candidate = "\(name) \(suffix)"
+                suffix += 1
+            }
+            seen.insert(candidate)
+            names.append(candidate)
+        }
+        let colorIndices = Array(0..<PlayerStyle.palette.count).shuffled()
+        let players = ([hostName] + names).enumerated().map { index, name in
+            PlayerInfo(
+                slot: index + 1,
+                name: name,
+                colorIndex: colorIndices[index % colorIndices.count],
+                assist: assists[index + 1]
+            )
+        }
+        var config = GameConfig(
+            gameID: UUID().uuidString.lowercased(),
+            roundsToWin: roundsToWin,
+            players: players,
+            createdAt: Date(),
+            protocolVersion: AppProtocol.current
+        )
+        config.nearby = true
+        let crypto = GameCrypto()
+        let saved = SavedGame(
+            gameID: config.gameID,
+            keyBase64URL: crypto.base64URL,
+            mySlot: 1,
+            isHost: true,
+            hostConfig: config,
+            title: "\(hostName)'s nearby game · \(players.count) players",
+            createdAt: Date(),
+            isNearby: true
+        )
+        // Seats for the welcomes (and for handing back on reconnect).
+        var slots: [String: Int] = [:]
+        for (index, name) in names.enumerated() { slots[name] = index + 2 }
+        NearbyService.shared.sendWelcomes(gameID: config.gameID, keyBase64URL: crypto.base64URL, slots: slots)
+        store.add(saved)
+        activeGame = saved
+        return saved
+    }
+
+    /// A joiner received its seat from a nearby host — open the game.
+    func joinNearbyGame(_ welcome: NearbyService.NearbyWelcome) {
+        NearbyService.shared.clearWelcome()
+        if let existing = store.games.first(where: { $0.gameID == welcome.gameID }) {
+            activeGame = existing
+            return
+        }
+        let saved = SavedGame(
+            gameID: welcome.gameID,
+            keyBase64URL: welcome.keyBase64URL,
+            mySlot: welcome.slot,
+            isHost: false,
+            hostConfig: nil,
+            title: "Nearby game",
+            createdAt: Date(),
+            needsWelcome: true,
+            isNearby: true
+        )
+        store.add(saved)
+        activeGame = saved
     }
 
     func join(text: String) {

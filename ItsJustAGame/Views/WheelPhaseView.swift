@@ -17,9 +17,13 @@ struct WheelPhaseView: View {
     @State private var finished = false
     @State private var hasChosen = false
 
-    /// The games this chooser may pick: enough players and decodable by all.
+    /// The games this chooser may pick: enough players, decodable by all,
+    /// and playable offline when it's a nearby game.
     private var choosableGames: [MiniGameType] {
-        MiniGameType.menu.filter { $0.minProtocolVersion <= (maxGameVersion ?? 0) }
+        let nearby = session.config?.nearby == true
+        return MiniGameType.menu.filter {
+            $0.minProtocolVersion <= (maxGameVersion ?? 0) && !(nearby && $0.needsInternet)
+        }
     }
 
     var body: some View {
