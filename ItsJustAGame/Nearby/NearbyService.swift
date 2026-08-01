@@ -33,6 +33,19 @@ final class NearbyService: NSObject, @unchecked Sendable {
     private(set) var joinState: JoinState = .idle
     /// Set when the host starts the game and this joiner gets its slot/key.
     private(set) var receivedWelcome: NearbyWelcome?
+    /// Joiner-side: is the host still with us? A nearby game cannot outlive
+    /// its host — it holds the only copy of the game's records.
+    private(set) var hostPresence: HostPresence = .fine
+
+    enum HostPresence: Equatable {
+        /// Connected, or no game running yet.
+        case fine
+        /// Dropped mid-game — the host may just be in a pocket. We keep
+        /// looking for them until the grace period runs out.
+        case reconnecting
+        /// The host said goodbye, or never came back. The game is over.
+        case gone
+    }
 
     struct NearbyPeer: Identifiable, Hashable {
         let peerID: MCPeerID
@@ -68,7 +81,15 @@ final class NearbyService: NSObject, @unchecked Sendable {
         case get(requestID: UUID, ids: [String])
         /// Host → peer: the answer.
         case records(requestID: UUID, found: [String: Data])
+        /// Host → everyone, on the way out: the game ends with them. Saves
+        /// the joiners waiting out the reconnect grace for nothing.
+        case hostLeaving
     }
+
+    /// How long a joiner keeps hunting for a vanished host before calling
+    /// the game over — long enough to survive a locked phone or a walk to
+    /// the loo, short enough not to feel broken.
+    static let hostGraceSeconds: Double = 15
 
     struct NearbyWelcome: Equatable {
         let gameID: String
@@ -88,6 +109,12 @@ final class NearbyService: NSObject, @unchecked Sendable {
     private var slotAssignments: [String: Int] = [:]   // name → slot
     private var activeWelcomes: [MCPeerID: NearbyWelcome] = [:]
     private var startedGame: (gameID: String, key: String)?
+    /// Joiner-side: set once we're actually in a game, so a disconnect
+    /// before the game starts is just browsing again, not a lost host.
+    private var joinedGameID: String?
+    /// The host we're trying to get back to, and the countdown to giving up.
+    private var lostHostName: String?
+    private var graceTask: Task<Void, Never>?
 
     /// The host's record store + the joiner's pending gets. Touched from
     /// delegate queues and transport tasks — always under the lock.
@@ -150,9 +177,25 @@ final class NearbyService: NSObject, @unchecked Sendable {
     /// closing a finished nearby game).
     @MainActor
     func stop() {
+        // Leaving a game we were hosting: tell everyone before the line
+        // goes dead, so they see "the host left" instantly instead of
+        // sitting through the reconnect grace.
+        if isHosting, startedGame != nil, let session = mcSession, !session.connectedPeers.isEmpty {
+            send(.hostLeaving, to: session.connectedPeers, via: session)
+            // Let the packet flush before the socket closes; our own state
+            // resets immediately either way.
+            let closing = session
+            Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                closing.disconnect()
+            }
+        } else {
+            mcSession?.disconnect()
+        }
         advertiser?.stopAdvertisingPeer()
         browser?.stopBrowsingForPeers()
-        mcSession?.disconnect()
+        graceTask?.cancel()
+        graceTask = nil
         advertiser = nil
         browser = nil
         mcSession = nil
@@ -161,9 +204,12 @@ final class NearbyService: NSObject, @unchecked Sendable {
         foundHosts = []
         joinState = .idle
         receivedWelcome = nil
+        hostPresence = .fine
         slotAssignments = [:]
         activeWelcomes = [:]
         startedGame = nil
+        joinedGameID = nil
+        lostHostName = nil
         lock.lock()
         records = [:]
         let waiting = pendingGets
@@ -191,7 +237,35 @@ final class NearbyService: NSObject, @unchecked Sendable {
     /// The joiner consumed its welcome and opened the game.
     @MainActor
     func clearWelcome() {
+        joinedGameID = receivedWelcome?.gameID
         receivedWelcome = nil
+    }
+
+    /// The host dropped out mid-game. Keep browsing for them (the browser
+    /// never stopped) and auto-rejoin if they reappear; if the grace runs
+    /// out, the game is over — a nearby game can't outlive its host, which
+    /// holds the only copy of its records.
+    @MainActor
+    private func beginHostGrace(name: String) {
+        guard hostPresence != .gone else { return }
+        hostPresence = .reconnecting
+        lostHostName = name
+        graceTask?.cancel()
+        graceTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(NearbyService.hostGraceSeconds))
+            guard !Task.isCancelled, self.hostPresence == .reconnecting else { return }
+            self.hostPresence = .gone
+        }
+    }
+
+    /// The host said goodbye, or the grace expired — the game is over and
+    /// the player is shown the way out.
+    @MainActor
+    private func declareHostGone() {
+        graceTask?.cancel()
+        graceTask = nil
+        lostHostName = nil
+        hostPresence = .gone
     }
 
     // MARK: - Transport plumbing (called by MultipeerTransport)
@@ -271,6 +345,11 @@ extension NearbyService: MCSessionDelegate {
                     self.hostPeer = peerID
                     self.lock.unlock()
                     self.joinState = .connected(peerID.displayName)
+                    // Back from a mid-game drop — call off the search.
+                    self.graceTask?.cancel()
+                    self.graceTask = nil
+                    self.lostHostName = nil
+                    if self.hostPresence == .reconnecting { self.hostPresence = .fine }
                     // Introduce ourselves so the host's roster gets a name.
                     if let mc = self.mcSession {
                         self.send(.hello(name: mc.myPeerID.displayName, protocolVersion: AppProtocol.current), to: [peerID], via: mc)
@@ -284,7 +363,11 @@ extension NearbyService: MCSessionDelegate {
                     let wasHost = self.hostPeer == peerID
                     if wasHost { self.hostPeer = nil }
                     self.lock.unlock()
-                    if wasHost, case .connected = self.joinState {
+                    if wasHost, self.joinedGameID != nil {
+                        // Mid-game: they might just be in a pocket. Keep
+                        // hunting for them until the grace runs out.
+                        self.beginHostGrace(name: peerID.displayName)
+                    } else if wasHost, case .connected = self.joinState {
                         self.joinState = .browsing
                     } else if case .connecting = self.joinState {
                         self.joinState = .browsing
@@ -326,6 +409,11 @@ extension NearbyService: MCSessionDelegate {
                 guard !self.isHosting else { return }
                 self.receivedWelcome = NearbyWelcome(gameID: gameID, slot: slot, keyBase64URL: key)
             }
+        case .hostLeaving:
+            Task { @MainActor in
+                guard !self.isHosting, self.joinedGameID != nil else { return }
+                self.declareHostGone()
+            }
         }
     }
 
@@ -350,6 +438,14 @@ extension NearbyService: MCNearbyServiceBrowserDelegate {
             guard !self.isHosting else { return }
             self.foundHosts.removeAll { $0.peerID == peerID }
             self.foundHosts.append(NearbyHost(peerID: peerID, name: name))
+            // Our missing host just reappeared — walk straight back in,
+            // no tapping required. The host hands the same seat back and
+            // the session replays whatever was missed.
+            if self.hostPresence == .reconnecting,
+               self.lostHostName == peerID.displayName || self.lostHostName == name,
+               let session = self.mcSession {
+                browser.invitePeer(peerID, to: session, withContext: nil, timeout: 15)
+            }
         }
     }
 

@@ -216,6 +216,43 @@ struct NearbyHostView: View {
     }
 }
 
+/// Shown over a nearby game when the host has gone for good — they either
+/// left deliberately or never came back. A nearby game can't outlive its
+/// host: their phone holds the only copy of the game's records.
+struct HostLeftOverlay: View {
+    let hostName: String
+    var onClose: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.75).ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                    .font(.system(size: 54))
+                    .foregroundStyle(Theme.magenta)
+                Text("\(hostName) has left")
+                    .font(Theme.display(28))
+                    .multilineTextAlignment(.center)
+                Text("The game ran on their phone, so it ends here. Nothing's lost — start another whenever you're ready.")
+                    .font(Theme.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                Button {
+                    onClose()
+                } label: {
+                    Text("Back to home")
+                        .frame(maxWidth: 240)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.top, 4)
+            }
+            .padding(.vertical, 40)
+        }
+        .transition(.opacity)
+    }
+}
+
 /// The joiner's side: browse for hosts, tap one, then wait — the game
 /// opens by itself the moment the host starts it.
 struct NearbyJoinView: View {

@@ -13,6 +13,28 @@ struct GameScreen: View {
     private var session: GameSession { stack.session }
     private var engine: HostEngine? { stack.engine }
 
+    /// Only a joiner in a live nearby game cares whether the host is still
+    /// in the room — the host obviously hasn't left, and CloudKit games
+    /// don't depend on anyone's phone staying put.
+    private var watchingHost: Bool {
+        guard saved.isNearby == true, !saved.isHost, saved.summary == nil else { return false }
+        // A finished game needs nothing from the host — let the winner's
+        // screen stand rather than covering it with "they left".
+        if case .gameEnd = session.phase { return false }
+        return true
+    }
+
+    private var leaveWarning: String {
+        if saved.isHost {
+            return saved.isNearby == true
+                ? "You're the host — leaving ends the game for everyone, and it can't be picked up again."
+                : "You're the host — the game can't continue without this device."
+        }
+        return saved.isNearby == true
+            ? "This clears the game from your phone. You'd need the host to still be running the game to rejoin."
+            : "This clears the game from your phone. You'd need your invite link to rejoin."
+    }
+
     init(saved: SavedGame, model: AppModel, stack: GameStack) {
         self.saved = saved
         self.model = model
@@ -33,6 +55,11 @@ struct GameScreen: View {
                 // renders nothing anyway).
                 if session.caughtUp, let start = session.phase.turnStartAt {
                     CountdownOverlay(startAt: start)
+                }
+                // A nearby game lives on the host's phone — if they walk
+                // off with it, say so rather than freezing forever.
+                if watchingHost, NearbyService.shared.hostPresence == .gone {
+                    HostLeftOverlay(hostName: session.name(1)) { leaveAndForget() }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -65,9 +92,17 @@ struct GameScreen: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(saved.isHost
-                     ? "You're the host — the game can't continue without this device."
-                     : "This clears the game from your phone. You'd need your invite link to rejoin.")
+                Text(leaveWarning)
+            }
+            .safeAreaInset(edge: .top) {
+                if watchingHost, NearbyService.shared.hostPresence == .reconnecting {
+                    Label("Lost \(session.name(1)) — trying to reconnect…", systemImage: "antenna.radiowaves.left.and.right.slash")
+                        .font(Theme.caption)
+                        .foregroundStyle(.orange)
+                        .padding(6)
+                        .frame(maxWidth: .infinity)
+                        .background(.thinMaterial)
+                }
             }
             .safeAreaInset(edge: .bottom) {
                 if let error = session.lastError ?? engine?.lastError {

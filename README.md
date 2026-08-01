@@ -79,8 +79,16 @@ Everything the game sends between devices is **end-to-end encrypted**.
    Direction, Put Your Finger On It, Globetrotter) need the internet for
    tiles/search, so `GameConfig.nearby` hides them from every chooser.
    Nearby games live only while the group's together — reopening one
-   later shows the stored result. On a plane: airplane mode, then
-   Bluetooth and Wi-Fi back on in Control Centre.
+   later shows the stored result. **If the host goes, the game goes**:
+   they hold the only copy of its records, so a leaving host sends a
+   `hostLeaving` packet and the players get a "⟨host⟩ has left" screen
+   with a way out. An ungraceful exit (locked phone, flat battery, out
+   of range) is caught by the same path via the MPC disconnect, but only
+   after a 15-second grace in which the joiner keeps browsing and
+   silently walks back in if the host reappears — a pocketed phone
+   doesn't kill the game, and the rejoin gets the same seat and replays
+   whatever was missed. On a plane: airplane mode, then Bluetooth and
+   Wi-Fi back on in Control Centre.
 8. **Practice mode** — "Practice on your own" on the home screen plays
    any single game round after round, solo. It's the full stack — a
    one-player hosted game whose engine and session talk over an
