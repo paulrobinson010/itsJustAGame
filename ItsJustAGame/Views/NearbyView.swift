@@ -73,6 +73,7 @@ struct NearbyHostView: View {
     /// Keyed by player name (names are what survive reconnects).
     @State private var assists: [String: AssistLevel] = [:]
     @State private var started = false
+    @State private var waitingLong = false
 
     private var service: NearbyService { NearbyService.shared }
 
@@ -118,7 +119,11 @@ struct NearbyHostView: View {
             } header: {
                 Text("Joined — \(service.roster.count + 1) of 8")
             } footer: {
-                Text("Tell everyone: Play nearby → Join a game nearby → tap your name. The wand quietly makes games easier for that player.")
+                if waitingLong && service.roster.isEmpty {
+                    Text("Nobody yet? Everyone needs Bluetooth and Wi-Fi on, and this app allowed under Settings → Privacy & Security → Local Network. They should see \"\(myName)'s game\" in their list.")
+                } else {
+                    Text("Tell everyone: Play nearby → Join a game nearby → tap your name. The wand quietly makes games easier for that player.")
+                }
             }
 
             Section("Rules") {
@@ -151,6 +156,8 @@ struct NearbyHostView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             service.startHosting(hostName: myName)
+            try? await Task.sleep(for: .seconds(10))
+            waitingLong = true
         }
         .onDisappear {
             // Backed out without starting — close the doors. (When the
@@ -170,13 +177,19 @@ struct NearbyHostView: View {
         for (index, peer) in peers.enumerated() {
             slotAssists[index + 2] = assists[peer.name]
         }
-        model.hostNearbyGame(
-            roundsToWin: roundsToWin,
-            hostName: myName,
-            peerNames: peers.map(\.name),
-            assists: slotAssists.compactMapValues { $0 }
-        )
+        // Close this sheet BEFORE the game's full-screen cover goes up —
+        // presenting one while the other is still animating away is how
+        // covers silently fail to appear.
         onDone()
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.4))
+            model.hostNearbyGame(
+                roundsToWin: roundsToWin,
+                hostName: myName,
+                peerNames: peers.map(\.name),
+                assists: slotAssists.compactMapValues { $0 }
+            )
+        }
     }
 
     private func binding(forHost: Bool, name: String) -> Binding<AssistLevel?> {
@@ -261,11 +274,21 @@ struct NearbyJoinView: View {
     var onDone: () -> Void
 
     @State private var opened = false
+    /// Set once we've been looking a while with nothing to show for it —
+    /// almost always the local network prompt having been declined.
+    @State private var searchingLong = false
 
     private var service: NearbyService { NearbyService.shared }
 
     var body: some View {
         List {
+            if let note = service.note {
+                Section {
+                    Label(note, systemImage: "exclamationmark.triangle.fill")
+                        .font(Theme.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
             switch service.joinState {
             case .connected(let hostName):
                 Section {
@@ -310,7 +333,11 @@ struct NearbyJoinView: View {
                         }
                     }
                 } footer: {
-                    Text("Ask someone to host first: Play nearby → Host the game. Keep Bluetooth and Wi-Fi switched on.")
+                    if searchingLong && service.foundHosts.isEmpty {
+                        Text("Still nothing? Check the host has tapped \"Host the game\", that Bluetooth and Wi-Fi are on for both phones, and that this app is allowed under Settings → Privacy & Security → Local Network.")
+                    } else {
+                        Text("Ask someone to host first: Play nearby → Host the game. Keep Bluetooth and Wi-Fi switched on.")
+                    }
                 }
             }
         }
@@ -320,12 +347,18 @@ struct NearbyJoinView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             service.startBrowsing(myName: myName)
+            try? await Task.sleep(for: .seconds(8))
+            searchingLong = true
         }
         .onChange(of: service.receivedWelcome) { _, welcome in
             guard let welcome, !opened else { return }
             opened = true
+            // Sheet away first, then the game's cover — see NearbyHostView.
             onDone()
-            model.joinNearbyGame(welcome)
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.4))
+                model.joinNearbyGame(welcome)
+            }
         }
         .onDisappear {
             if !opened {

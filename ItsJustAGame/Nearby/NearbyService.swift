@@ -36,6 +36,9 @@ final class NearbyService: NSObject, @unchecked Sendable {
     /// Joiner-side: is the host still with us? A nearby game cannot outlive
     /// its host — it holds the only copy of the game's records.
     private(set) var hostPresence: HostPresence = .fine
+    /// Last thing worth telling the player — a failed connection, a retry.
+    /// Cleared as soon as things go well again.
+    private(set) var note: String?
 
     enum HostPresence: Equatable {
         /// Connected, or no game running yet.
@@ -100,7 +103,11 @@ final class NearbyService: NSObject, @unchecked Sendable {
     // MARK: - Private state
 
     private var myPeerID: MCPeerID?
-    private var mcSession: MCSession?
+    /// Guarded by `lock`: the advertiser and session delegates run on
+    /// background queues, so reading this from the main actor's stored
+    /// property was a genuine race — an invitation accepted with a nil
+    /// session fails instantly and looks exactly like a timeout.
+    private var _mcSession: MCSession?
     private var advertiser: MCNearbyServiceAdvertiser?
     private var browser: MCNearbyServiceBrowser?
     private var isHosting = false
@@ -115,6 +122,13 @@ final class NearbyService: NSObject, @unchecked Sendable {
     /// The host we're trying to get back to, and the countdown to giving up.
     private var lostHostName: String?
     private var graceTask: Task<Void, Never>?
+    /// The invitation in flight, so a handshake that fails (common when
+    /// several people tap Join at the same moment) can be retried instead
+    /// of dumping the player back to the list.
+    private var pendingInvite: (peerID: MCPeerID, name: String, attempt: Int)?
+
+    /// How many times a joiner re-offers a handshake before giving up.
+    private static let maxInviteAttempts = 3
 
     /// The host's record store + the joiner's pending gets. Touched from
     /// delegate queues and transport tasks — always under the lock.
@@ -122,6 +136,20 @@ final class NearbyService: NSObject, @unchecked Sendable {
     private var records: [String: Data] = [:]
     private var pendingGets: [UUID: CheckedContinuation<[String: Data], Never>] = [:]
     private var hostPeer: MCPeerID?
+
+    /// Thread-safe access to the live session, for delegate callbacks and
+    /// the main actor alike.
+    private var currentSession: MCSession? {
+        lock.lock()
+        defer { lock.unlock() }
+        return _mcSession
+    }
+
+    private func setSession(_ session: MCSession?) {
+        lock.lock()
+        _mcSession = session
+        lock.unlock()
+    }
 
     // MARK: - Session lifecycle
 
@@ -141,7 +169,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
         stop()
         isHosting = true
         let session = makeSession(name: hostName)
-        mcSession = session
+        setSession(session)
         let advertiser = MCNearbyServiceAdvertiser(
             peer: session.myPeerID,
             discoveryInfo: ["host": hostName],
@@ -158,7 +186,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
         stop()
         isHosting = false
         let session = makeSession(name: myName)
-        mcSession = session
+        setSession(session)
         let browser = MCNearbyServiceBrowser(peer: session.myPeerID, serviceType: NearbyService.serviceType)
         browser.delegate = self
         browser.startBrowsingForPeers()
@@ -168,9 +196,38 @@ final class NearbyService: NSObject, @unchecked Sendable {
 
     @MainActor
     func join(_ host: NearbyHost) {
-        guard let session = mcSession, let browser else { return }
-        joinState = .connecting(host.name)
-        browser.invitePeer(host.peerID, to: session, withContext: nil, timeout: 20)
+        pendingInvite = (host.peerID, host.name, 1)
+        note = nil
+        sendInvite()
+    }
+
+    /// Offer the handshake. Several phones inviting the same host at once
+    /// is exactly when MultipeerConnectivity drops one, so a failure comes
+    /// back here for another go rather than dumping the player out.
+    @MainActor
+    private func sendInvite() {
+        guard let invite = pendingInvite, let session = currentSession, let browser else { return }
+        joinState = .connecting(invite.name)
+        browser.invitePeer(invite.peerID, to: session, withContext: nil, timeout: 15)
+    }
+
+    @MainActor
+    private func inviteFailed() {
+        guard let invite = pendingInvite else { return }
+        guard invite.attempt < NearbyService.maxInviteAttempts else {
+            pendingInvite = nil
+            joinState = .browsing
+            note = "Couldn't connect to \(invite.name). Make sure Bluetooth and Wi-Fi are on for both phones, then tap to try again."
+            return
+        }
+        pendingInvite = (invite.peerID, invite.name, invite.attempt + 1)
+        note = "Connecting to \(invite.name) — attempt \(invite.attempt + 1)…"
+        Task { @MainActor in
+            // A beat of space so simultaneous joiners stop colliding.
+            try? await Task.sleep(for: .milliseconds(700 * invite.attempt))
+            guard self.pendingInvite != nil else { return }
+            self.sendInvite()
+        }
     }
 
     /// Tear everything down (leaving the nearby screens without a game, or
@@ -180,7 +237,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
         // Leaving a game we were hosting: tell everyone before the line
         // goes dead, so they see "the host left" instantly instead of
         // sitting through the reconnect grace.
-        if isHosting, startedGame != nil, let session = mcSession, !session.connectedPeers.isEmpty {
+        if isHosting, startedGame != nil, let session = currentSession, !session.connectedPeers.isEmpty {
             send(.hostLeaving, to: session.connectedPeers, via: session)
             // Let the packet flush before the socket closes; our own state
             // resets immediately either way.
@@ -190,7 +247,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
                 closing.disconnect()
             }
         } else {
-            mcSession?.disconnect()
+            currentSession?.disconnect()
         }
         advertiser?.stopAdvertisingPeer()
         browser?.stopBrowsingForPeers()
@@ -198,7 +255,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
         graceTask = nil
         advertiser = nil
         browser = nil
-        mcSession = nil
+        setSession(nil)
         isHosting = false
         roster = []
         foundHosts = []
@@ -210,6 +267,8 @@ final class NearbyService: NSObject, @unchecked Sendable {
         startedGame = nil
         joinedGameID = nil
         lostHostName = nil
+        pendingInvite = nil
+        note = nil
         lock.lock()
         records = [:]
         let waiting = pendingGets
@@ -223,7 +282,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
     /// final roster; also re-sent automatically on reconnect.
     @MainActor
     func sendWelcomes(gameID: String, keyBase64URL: String, slots: [String: Int]) {
-        guard let session = mcSession else { return }
+        guard let session = currentSession else { return }
         slotAssignments = slots
         startedGame = (gameID, keyBase64URL)
         for peer in roster {
@@ -291,7 +350,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
     func sendPut(id: String, body: Data) {
         lock.lock()
         let host = hostPeer
-        let session = mcSession
+        let session = _mcSession
         lock.unlock()
         guard let host, let session else { return }
         send(.put(id: id, body: body), to: [host], via: session)
@@ -302,7 +361,7 @@ final class NearbyService: NSObject, @unchecked Sendable {
     func requestRecords(ids: [String]) async -> [String: Data] {
         lock.lock()
         let host = hostPeer
-        let session = mcSession
+        let session = _mcSession
         lock.unlock()
         guard let host, let session else { return [:] }
         let requestID = UUID()
@@ -335,9 +394,16 @@ extension NearbyService: MCSessionDelegate {
             switch state {
             case .connected:
                 if self.isHosting {
-                    // Wait for the hello before showing them in the roster.
+                    // Show them the moment they're connected, using the
+                    // name their peer ID already carries — waiting on the
+                    // hello meant one dropped packet left a joined player
+                    // invisible, which looks exactly like a failed join.
+                    // The hello only refines this.
+                    if !self.roster.contains(where: { $0.peerID == peerID }) {
+                        self.roster.append(NearbyPeer(peerID: peerID, name: peerID.displayName))
+                    }
                     // A reconnecting player gets their seat straight back.
-                    if let welcome = self.activeWelcomes[peerID], let mc = self.mcSession {
+                    if let welcome = self.activeWelcomes[peerID], let mc = self.currentSession {
                         self.send(.welcome(gameID: welcome.gameID, slot: welcome.slot, keyBase64URL: welcome.keyBase64URL), to: [peerID], via: mc)
                     }
                 } else {
@@ -345,13 +411,15 @@ extension NearbyService: MCSessionDelegate {
                     self.hostPeer = peerID
                     self.lock.unlock()
                     self.joinState = .connected(peerID.displayName)
-                    // Back from a mid-game drop — call off the search.
+                    // In — stop retrying, and call off any reconnect hunt.
+                    self.pendingInvite = nil
+                    self.note = nil
                     self.graceTask?.cancel()
                     self.graceTask = nil
                     self.lostHostName = nil
                     if self.hostPresence == .reconnecting { self.hostPresence = .fine }
                     // Introduce ourselves so the host's roster gets a name.
-                    if let mc = self.mcSession {
+                    if let mc = self.currentSession {
                         self.send(.hello(name: mc.myPeerID.displayName, protocolVersion: AppProtocol.current), to: [peerID], via: mc)
                     }
                 }
@@ -367,6 +435,9 @@ extension NearbyService: MCSessionDelegate {
                         // Mid-game: they might just be in a pocket. Keep
                         // hunting for them until the grace runs out.
                         self.beginHostGrace(name: peerID.displayName)
+                    } else if self.pendingInvite?.peerID == peerID {
+                        // The handshake fell over before we were in — retry.
+                        self.inviteFailed()
                     } else if wasHost, case .connected = self.joinState {
                         self.joinState = .browsing
                     } else if case .connecting = self.joinState {
@@ -395,11 +466,16 @@ extension NearbyService: MCSessionDelegate {
         case .hello(let name, _):
             Task { @MainActor in
                 guard self.isHosting else { return }
-                self.roster.removeAll { $0.peerID == peerID }
-                self.roster.append(NearbyPeer(peerID: peerID, name: name))
+                // Refine the provisional entry in place — replacing it
+                // would shuffle the join order under everyone.
+                if let index = self.roster.firstIndex(where: { $0.peerID == peerID }) {
+                    self.roster[index].name = name
+                } else {
+                    self.roster.append(NearbyPeer(peerID: peerID, name: name))
+                }
                 // Mid-game rejoin after an app restart: same name, new
                 // peer identity — hand their seat back.
-                if let game = self.startedGame, let slot = self.slotAssignments[name], let mc = self.mcSession {
+                if let game = self.startedGame, let slot = self.slotAssignments[name], let mc = self.currentSession {
                     self.activeWelcomes[peerID] = NearbyWelcome(gameID: game.gameID, slot: slot, keyBase64URL: game.key)
                     self.send(.welcome(gameID: game.gameID, slot: slot, keyBase64URL: game.key), to: [peerID], via: mc)
                 }
@@ -427,7 +503,7 @@ extension NearbyService: MCSessionDelegate {
 extension NearbyService: MCNearbyServiceAdvertiserDelegate {
     nonisolated func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         // The host's door is open to everyone in the room.
-        invitationHandler(true, mcSession)
+        invitationHandler(true, currentSession)
     }
 }
 
@@ -443,7 +519,7 @@ extension NearbyService: MCNearbyServiceBrowserDelegate {
             // the session replays whatever was missed.
             if self.hostPresence == .reconnecting,
                self.lostHostName == peerID.displayName || self.lostHostName == name,
-               let session = self.mcSession {
+               let session = self.currentSession {
                 browser.invitePeer(peerID, to: session, withContext: nil, timeout: 15)
             }
         }

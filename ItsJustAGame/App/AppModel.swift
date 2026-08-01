@@ -269,9 +269,12 @@ final class AppModel {
             createdAt: Date(),
             isNearby: true
         )
-        // Seats for the welcomes (and for handing back on reconnect).
+        // Seats for the welcomes (and for handing back on reconnect). These
+        // are keyed by the name the peer actually announced — NOT the
+        // de-duplicated display name — because that's what the roster and
+        // any later rejoin will present.
         var slots: [String: Int] = [:]
-        for (index, name) in names.enumerated() { slots[name] = index + 2 }
+        for (index, name) in peerNames.enumerated() { slots[name] = index + 2 }
         NearbyService.shared.sendWelcomes(gameID: config.gameID, keyBase64URL: crypto.base64URL, slots: slots)
         store.add(saved)
         activeGame = saved
